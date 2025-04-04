@@ -4,7 +4,21 @@ RoboVerse provides a diverse set of tasks for robots to learn and evaluate their
 
 ## Task Organization
 
-We organize the tasks with our standard metasim configuration, as shown in `metasim/cfg/tasks`.
+We organize the tasks with our standard metasim configuration, as shown in `metasim/cfg/tasks`. You can easily use them to instantiate simulations, or inherit them to create modified tasks.
+
+When instantiating tasks, you can specify the task name at config level. The task is a preset to be loaded into your `ScenarioCfg`.
+
+```python
+ScenarioCfg(
+    task=task_name,
+    robot=robot_name,
+    scene=scene_type,
+    cameras=[camera_config],
+    sim=sim_name,
+    num_envs=num_envs,
+    ...
+)
+```
 
 ## Task List
 
@@ -12,27 +26,27 @@ RoboVerse also includes various predefined scenes that can be easily loaded into
 
 We are now actively collecting scenes from multiple sources and updating the existing scenes to match our newest configuration system. The length of the list and number of scenes will continuously increase. You are also welcomed to contribute your own scene to RoboVerse.
 
-| Source | Categories & Amounts                      |
-| ------ | ----------------------------------------- |
-| [ARNOLD](#ARNOLD) | House (6) |
-| [CALVIN](#CALVIN) | CALVIN Table (4: Calvin Table A, B, C, D) |
-| [DMControl](#DMControl) | Locomotion (1) |
-| Fetch | Manipulation (1) |
-| [GAPartManip](#gapartmanip) | Manipulation (2) |
-| [GAPartNet](#gapartnet) | Manipulation (5) |
-| GPT(GPT Generated Tasks) | Manipulation (1) |
-| [GraspNet](#graspnet) | Grasping (1) |
-| [HumanoidBench](#humanoidbench) | Humanoid (19) |
-| [IsaacgymEnvs](#isaacgymenvs) | Locomotion (1) Manipulation (1) |
-| [LIBERO](#libero) | Manipulation (10) |
-| [Maniskill](#maniskill) | Manipulation (7) |
-| [MetaWorld](#metaworld) | Manipulation (6) |
-| [Open6Dor](#open6dor) | Manipulation (68) |
-| [RLAfford](#rlafford) | Manipulation (1) |
-| [RLBench](#rlbench) | Manipulation (68) |
-| [RoboSuite](#robosuite) | Manipulation (7) |
-| [SimplerEnv](#simplerenv) | Manipulation (1) |
-| [UH1](#uh1) | Humanoid (1) |
+| Source | Path in Roboverse | Categories & Amounts                      |
+| ------ | ------------------ | ----------------------- |
+| [ARNOLD](#ARNOLD) | `metasim/cfg/tasks/arnold` | House (6) |
+| [CALVIN](#CALVIN) | `metasim/cfg/tasks/calvin` | CALVIN Table (4: Calvin Table A, B, C, D) |
+| [DMControl](#DMControl) | `metasim/cfg/tasks/dmcontrol` | Locomotion (1) |
+| Fetch | `metasim/cfg/tasks/fetch` | Manipulation (1) |
+| [GAPartManip](#gapartmanip) | `metasim/cfg/tasks/gapartmanip` | Manipulation (2) |
+| [GAPartNet](#gapartnet) | `metasim/cfg/tasks/gapartnet` | Manipulation (5) |
+| GPT(GPT Generated Tasks) | `metasim/cfg/tasks/gpt` | Manipulation (1) |
+| [GraspNet](#graspnet) | `metasim/cfg/tasks/graspnet` | Grasping (1) |
+| [HumanoidBench](#humanoidbench) | `metasim/cfg/tasks/humanoidbench` | Humanoid (19) |
+| [IsaacgymEnvs](#isaacgymenvs) | `metasim/cfg/tasks/isaacgym_envs` | Locomotion (1) Manipulation (1) |
+| [LIBERO](#libero) | `metasim/cfg/tasks/libero` | Manipulation (10) |
+| [Maniskill](#maniskill) | `metasim/cfg/tasks/maniskill` | Manipulation (7) |
+| [MetaWorld](#metaworld) | `metasim/cfg/tasks/metaworld` | Manipulation (6) |
+| [Open6Dor](#open6dor) | `metasim/cfg/tasks/open6dor` | Manipulation (68) |
+| [RLAfford](#rlafford) | `metasim/cfg/tasks/rlafford` | Manipulation (1) |
+| [RLBench](#rlbench) | `metasim/cfg/tasks/rlbench` | Manipulation (68) |
+| [RoboSuite](#robosuite) | `metasim/cfg/tasks/robosuite` | Manipulation (7) |
+| [SimplerEnv](#simplerenv) | `metasim/cfg/tasks/simpler_env` | Manipulation (1) |
+| [UH1](#uh1) | `metasim/cfg/tasks/uh1` | Humanoid (1) |
 
 ### ARNOLD
 
