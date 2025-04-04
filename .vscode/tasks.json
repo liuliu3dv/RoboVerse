@@ -1,0 +1,87 @@
+{
+    // see https://code.visualstudio.com/docs/terminal/basics#_automating-terminals-with-tasks
+    "version": "2.0.0",
+    "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+    },
+    "tasks": [
+        {
+            "label": "Create Terminals",
+            "dependsOn": [
+                "IsaacLab",
+                "IsaacGym",
+                "MuJoCo",
+                "SAPIEN2",
+                "SAPIEN3",
+                "PyBullet",
+                "Genesis",
+                "Blender",
+            ],
+            "runOptions": {
+                "runOn": "folderOpen"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+        },
+        {
+            "label": "IsaacLab",
+            "type": "shell",
+            "command": "$SHELL",
+            "problemMatcher": [],
+            "isBackground": true,
+        },
+        {
+            "label": "IsaacGym",
+            "type": "shell",
+            "command": "$SHELL",
+            "problemMatcher": [],
+            "isBackground": true,
+        },
+        {
+            "label": "MuJoCo",
+            "type": "shell",
+            "command": "$SHELL",
+            "problemMatcher": [],
+            "isBackground": true,
+        },
+        {
+            "label": "SAPIEN2",
+            "type": "shell",
+            "command": "$SHELL",
+            "problemMatcher": [],
+            "isBackground": true,
+        },
+        {
+            "label": "SAPIEN3",
+            "type": "shell",
+            "command": "$SHELL",
+            "problemMatcher": [],
+            "isBackground": true,
+        },
+        {
+            "label": "PyBullet",
+            "type": "shell",
+            "command": "$SHELL",
+            "problemMatcher": [],
+            "isBackground": true,
+        },
+        {
+            "label": "Genesis",
+            "type": "shell",
+            "command": "$SHELL",
+            "problemMatcher": [],
+            "isBackground": true,
+        },
+        {
+            "label": "Blender",
+            "type": "shell",
+            "command": "$SHELL",
+            "problemMatcher": [],
+            "isBackground": true,
+        },
+    ]
+}
