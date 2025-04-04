@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/source/_static/RoboVerse86.22.svg" width="50%" alt="RoboVerse">
+  <img src="docs/source/_static/RoboVerse1.svg" width="50%" alt="RoboVerse">
 </p>
 
 ![RoboVerse](docs/source/metasim/images/tea.jpg)
