@@ -61,4 +61,4 @@ We are now actively collecting scenes from multiple sources and updating the exi
 | [RLBench](https://github.com/stepjam/RLBench) | Manipulation (68) |
 | [RoboSuite](https://robosuite.ai/) | Manipulation (7) |
 | [SimplerEnv](https://simpler-env.github.io/) | Manipulation (1) |
-| [UH1](Learning from Massive Human Videos for Universal Humanoid Pose Control) | Humanoid (1) |
+| [UH1](https://arxiv.org/abs/2412.14172) | Humanoid (1) |
