@@ -1,4 +1,5 @@
 ![RoboVerse](docs/source/_static/RoboVerse86.22.svg)
+![RoboVerse](docs/source/metasim/images/tea.png)
 
 <!-- [![PyPI - Version](https://img.shields.io/pypi/v/roboverse-py/)](https://pypi.org/project/roboverse-py/)
 [![PyPI Downloads](https://static.pepy.tech/badge/roboverse-py/)](https://pepy.tech/projects/roboverse-py/) -->
