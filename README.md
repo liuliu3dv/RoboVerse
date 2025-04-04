@@ -52,6 +52,7 @@ RoboVerse also integrates data from the following projects:
 - [CALVIN](https://github.com/mees/calvin)
 - [GarmentLab](https://github.com/GarmentLab/GarmentLab)
 - [Matterport3D](https://github.com/niessner/Matterport)
+- [VLN-CE](https://github.com/jacobkrantz/VLN-CE)
 - [vMaterials](https://developer.nvidia.com/vmaterials)
 
 The licenses for the assets used in RoboVerse will be added soon. Please contact us if you have any issues.
