@@ -13,15 +13,15 @@
 ## 💡 News
 - [2025-04-03] Code released! This codebase is actively evolving, and we are continuously working to improve it. Contributions from the open-source community are highly encouraged, and we welcome feedback and bug reports through the GitHub Issues page.
 
-## Getting Started
+## 👶 Getting Started
 Please refer to the [documentation](https://roboverse.wiki/metasim/#).
 
 We also privide detailed [tutorials](https://roboverse.wiki/metasim/get_started/quick_start/0_static_scene) for getting started
 
-## Contributing
+## 🥰 Contributing
 Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more details on how to contribute to this project.
 
-## License and Acknowledgments
+## 📖 License and Acknowledgments
 
 The RoboVerse source code is licensed under the Apache License 2.0.
 
