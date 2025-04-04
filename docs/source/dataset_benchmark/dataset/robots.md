@@ -6,4 +6,4 @@ RoboVerse currently includes some robots.
 
 | Robot Name | Category | Number of DoFs |
 | ------ | --------- | ---------------- | ---------------- |
-| Fetch  |
+| Fetch  | Wheeled | 14 |
