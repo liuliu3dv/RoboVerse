@@ -88,7 +88,7 @@ html_context = {
     "display_github": True,
     "github_user": "RoboVerseOrg",
     "github_repo": "RoboVerse",
-    "github_version": "metasim",
+    "github_version": "main",
     "conf_py_path": "docs/source",
     "doc_path": "docs/source",
 }
