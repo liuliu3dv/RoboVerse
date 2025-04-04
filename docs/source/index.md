@@ -19,7 +19,7 @@ Hao Dong², Siyuan Huang⁹, Koushil Sreenath¹, Yue Wang³†, Jitendra Malik¹
 
 \* Equal contribution &nbsp; † Equal advising
 
-**Correspondence:** Haoran Geng (ghr@berkeley.edu)
+Corresponding to: Haoran Geng (ghr@berkeley.edu)
 
 </div>
 
