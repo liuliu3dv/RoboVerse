@@ -1,6 +1,6 @@
 # RoboVerse
 
-![RoboVerse](./metasim/images/tea.png)
+![RoboVerse](./metasim/images/tea.jpg)
 
 
 ```{toctree}

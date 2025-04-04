@@ -2,7 +2,7 @@
   <img src="docs/source/_static/RoboVerse86.22.svg" width="50%" alt="RoboVerse">
 </p>
 
-![RoboVerse](docs/source/metasim/images/tea.png)
+![RoboVerse](docs/source/metasim/images/tea.jpg)
 
 <!-- [![PyPI - Version](https://img.shields.io/pypi/v/roboverse-py/)](https://pypi.org/project/roboverse-py/)
 [![PyPI Downloads](https://static.pepy.tech/badge/roboverse-py/)](https://pepy.tech/projects/roboverse-py/) -->
