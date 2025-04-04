@@ -1,4 +1,7 @@
-![RoboVerse](docs/source/_static/RoboVerse86.22.svg)
+<p align="center">
+  <img src="docs/source/_static/RoboVerse86.22.svg" width="50%" alt="RoboVerse">
+</p>
+
 ![RoboVerse](docs/source/metasim/images/tea.png)
 
 <!-- [![PyPI - Version](https://img.shields.io/pypi/v/roboverse-py/)](https://pypi.org/project/roboverse-py/)
