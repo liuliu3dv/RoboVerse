@@ -4,13 +4,12 @@
 
 ![RoboVerse](docs/source/metasim/images/tea.jpg)
 
-<!-- [![PyPI - Version](https://img.shields.io/pypi/v/roboverse-py/)](https://pypi.org/project/roboverse-py/)
-[![PyPI Downloads](https://static.pepy.tech/badge/roboverse-py/)](https://pepy.tech/projects/roboverse-py/) -->
 [![GitHub Issues](https://img.shields.io/github/issues/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/issues)
 [![GitHub Discussions](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
 [![Discord](https://img.shields.io/discord/1356345436927168552?logo=discord)](https://discord.gg/dk8sxFGz)
 
 ## Updates
+- [2025-04-03] Code released!
 - [2025-03-11] Begin to add docstrings to the codebase. Developers please follow the [guidelines](https://roboverse.wiki/metasim/developer_guide/docstring) to add docstrings to your code. Once you have added docstrings, you can remove the corresponding `FIXME` items in `pyproject.toml`.
 - [2025-02-27] Move documentation (RoboVersePage) to `docs/` folder.
 - [2025-02-26] Move `IsaacLab` to `third_party/IsaacLab`. Developers please update the path and reinstall the IsaacLab if necessary.
@@ -34,9 +33,9 @@ To migrate new tasks, please refer to the [developer guide](https://roboverse.wi
 
 ## License and Acknowledgments
 
-The RoboVerse project is licensed under the Apache License 2.0.
+The RoboVerse source code is licensed under the Apache License 2.0.
 
-The RoboVerse project makes use of the following simulation frameworks, renderers, and libraries:
+RoboVerse makes use of the following simulation frameworks, renderers, and libraries:
 - [Isaac Lab](https://github.com/isaac-sim/IsaacLab), which is built on top of [Isaac Sim](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
 - [Isaac Gym](https://developer.nvidia.com/isaac-gym)
 - [MuJoCo](https://github.com/google-deepmind/mujoco)
@@ -47,7 +46,7 @@ The RoboVerse project makes use of the following simulation frameworks, renderer
 - [PyRep](https://github.com/stepjam/PyRep), which is built on top of [CoppeliaSim](https://www.coppeliarobotics.com/)
 - [Blender](https://www.blender.org/)
 
-The RoboVerse project also integrates data from the following projects:
+RoboVerse also integrates data from the following projects:
 - [RLBench](https://github.com/stepjam/RLBench)
 - [Maniskill](https://github.com/haosulab/ManiSkill)
 - [LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO)
