@@ -8,12 +8,8 @@
 [![GitHub Discussions](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
 [![Discord](https://img.shields.io/discord/1356345436927168552?logo=discord)](https://discord.gg/dk8sxFGz)
 
-## Updates
+## News
 - [2025-04-03] Code released!
-- [2025-03-11] Begin to add docstrings to the codebase. Developers please follow the [guidelines](https://roboverse.wiki/metasim/developer_guide/docstring) to add docstrings to your code. Once you have added docstrings, you can remove the corresponding `FIXME` items in `pyproject.toml`.
-- [2025-02-27] Move documentation (RoboVersePage) to `docs/` folder.
-- [2025-02-26] Move `IsaacLab` to `third_party/IsaacLab`. Developers please update the path and reinstall the IsaacLab if necessary.
-- [2025-02-13] Use [ruff](https://github.com/astral-sh/ruff) as formatter instead of black and isort. <span style="color:red">Developers please install the [ruff vscode extension](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff)!</span>
 
 ## Getting Started
 Please refer to the [documentation](https://roboverse.wiki/metasim/).
