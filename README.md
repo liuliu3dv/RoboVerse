@@ -10,7 +10,7 @@
 [![Discord](https://img.shields.io/discord/1356345436927168552?logo=discord)](https://discord.gg/dk8sxFGz)
 [![Wechat](https://img.shields.io/badge/wechat-qr_code-green)](docs/source/_static/wechat.jpg)
 
-## News
+## 💡 News
 - [2025-04-03] Code released! This codebase is actively evolving, and we are continuously working to improve it. Contributions from the open-source community are highly encouraged, and we welcome feedback and bug reports through the GitHub Issues page.
 
 ## Getting Started
