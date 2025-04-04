@@ -6,8 +6,8 @@
 :titlesonly:
 
 tasks/overview
-tasks/garment
-tasks/humanoid
+<!-- tasks/garment -->
+<!-- tasks/humanoid -->
 ```
 
 ```{toctree}
