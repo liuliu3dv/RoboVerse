@@ -9,23 +9,13 @@
 [![Discord](https://img.shields.io/discord/1356345436927168552?logo=discord)](https://discord.gg/dk8sxFGz)
 
 ## News
-- [2025-04-03] Code released!
+- [2025-04-03] Code released! This codebase is actively evolving, and we are continuously working to improve it. Contributions from the open-source community are highly encouraged, and we welcome feedback and bug reports through the GitHub Issues page.
 
 ## Getting Started
 Please refer to the [documentation](https://roboverse.wiki/metasim/).
 
-## Developer Guide
-For developers, please install pre-commit hooks:
-```bash
-sudo apt install pre-commit
-pre-commit install
-```
-
-And do install the [ruff vscode extension](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff).
-
-The `.vscode/settings.json` is configured aligning with the pre-commit hooks. Whenever you save the file, it will be formatted automatically.
-
-To migrate new tasks, please refer to the [developer guide](https://roboverse.wiki/metasim/developer_guide/new_task).
+## Contributing
+Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more details on how to contribute to this project.
 
 ## License and Acknowledgments
 
