@@ -14,7 +14,9 @@
 - [2025-04-03] Code released! This codebase is actively evolving, and we are continuously working to improve it. Contributions from the open-source community are highly encouraged, and we welcome feedback and bug reports through the GitHub Issues page.
 
 ## Getting Started
-Please refer to the [documentation](https://roboverse.wiki/metasim/).
+Please refer to the [documentation](https://roboverse.wiki/metasim/#).
+
+We also privide detailed [tutorials](https://roboverse.wiki/metasim/get_started/quick_start/0_static_scene) for getting started
 
 ## Contributing
 Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more details on how to contribute to this project.
@@ -54,5 +56,6 @@ RoboVerse also integrates data from the following projects:
 - [Matterport3D](https://github.com/niessner/Matterport)
 - [VLN-CE](https://github.com/jacobkrantz/VLN-CE)
 - [vMaterials](https://developer.nvidia.com/vmaterials)
+- [HumanoidBench](https://github.com/carlosferrazza/humanoid-bench)
 
 The licenses for the assets used in RoboVerse will be added soon. Please contact us if you have any issues.
