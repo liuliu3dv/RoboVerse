@@ -61,7 +61,7 @@ generation to interpolate between keypoints
 
 [CALVIN](http://calvin.cs.uni-freiburg.de/) provides 6-hour teleopreation trajectories on 4 environments, each involve an articulated table with three blocks in blue, pink, or red.
 
-**Demonstrations**: We migrate the demonstrations in all 4 environments and transform the original assets (URDF for the table, and primitives for the cubes) into USD files with proper physics APIs.
+**Demonstrations**: We migrate the demonstrations in all $4$ environments and transform the original assets (URDF for the table, and primitives for the cubes) into USD files with proper physics APIs.
 
 **Success checkers**: We segment the trajectories according to the text annotations, which specified the task category (eg, PlaceInSlider), the text annotation (e.g., place the red block in the slider), and the timestamps of the demonstration segment. The states of the first frame is adopted as the scene initial states.
 
@@ -149,7 +149,7 @@ We further augment the data by randomly sampling initial positions around each L
 
 [Open6Dor](https://pku-epic.github.io/Open6DOR/) is a benchmark for open-instruction 6-DoF object rearrangement tasks, which requires embodied agents to move the target objects according to open instructions that specify its 6-DoF pose.
 
-**Tasks and Assets**: The synthetic object dataset comprises 200+ items spanning 70+ distinct categories. Originally derived from YCB and Objaverse-XL, the objects are carefully filtered and scaled using a standardized format of mesh representation.
+**Tasks and Assets**: The synthetic object dataset comprises $200+$ items spanning 70+ distinct categories. Originally derived from YCB and Objaverse-XL, the objects are carefully filtered and scaled using a standardized format of mesh representation.
 Overall, the Open6DOR Benchmark consists of
 5k+ tasks, divided into the position-track, rotation-track, and 6-DoF-track, each providing manually configured tasks along with
 comprehensive and quantitative 3D annotations.
@@ -159,14 +159,14 @@ comprehensive and quantitative 3D annotations.
 ### RLAfford
 
 [RLAfford](https://sites.google.com/view/rlafford/) investigates the generalization ability of Deep Reinforcement Learning models on articulated object manipulation tasks with the presence of a computer vision model that is co-trained with it in an end-to-end
-manner. This work provided a dataset of articulated objects and 8 tasks for benchmarking.
+manner. This work provided a dataset of articulated objects and $8$ tasks for benchmarking.
 
-In Roboverse, we have adapted 4 tasks (open cabinet, open drawer, close cabinet,
-close drawer) and in total 40k trajectories from RLAfford. Currently only the open cabinet task is released.
+In Roboverse, we have adapted $4$ tasks (open cabinet, open drawer, close cabinet,
+close drawer) and in total $40$k trajectories from RLAfford. Currently only the open cabinet task is released.
 
-In the task adaptation, we included 40 articulated objects from the RLAfford
+In the task adaptation, we included $40$ articulated objects from the RLAfford
 dataset, and uses the same robot description file from RLAfford. Then we record
-1000 trajectories for each object in its corresponding task.
+$1000$ trajectories for each object in its corresponding task.
 
 The trajectory recording is achieved with several hooks we inserted into the
 original RLAfford codebase. The hooks are used to extract and maintain the recordings
@@ -175,7 +175,7 @@ hook-inserted scripts. In the initialization stage, objects and robots are
 initialized with randomization, their pose, and DoF information are recorded. For
 each simulation step, the DoF position information of objects and robots is
 recorded in the trajectories. In the end, for each object, a separate trajectory
-file of 1000 different trajectories is saved in the RoboVerse supported format.
+file of $1000$ different trajectories is saved in the RoboVerse supported format.
 
 ### RLBench
 
