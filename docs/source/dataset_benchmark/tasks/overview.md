@@ -10,9 +10,3 @@ We organize the tasks with our standard metasim configuration, as shown in `meta
 
 We provide the following benchmarks or task categories:
 
-- "RLBench": RLBench tasks.
-- "Garment": Garment manipulation tasks.
-- "Humanoid": Humanoid manipulation tasks.
-- "PointGoal": Point goal navigation tasks.
-- "PointGoalRGB": Point goal navigation tasks with RGB observation.
-- "PointGoalRGBD": Point goal navigation tasks with RGB-D observation.
