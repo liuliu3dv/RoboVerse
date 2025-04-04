@@ -41,10 +41,11 @@ The RoboVerse project makes use of the following simulation frameworks, renderer
 - [Isaac Gym](https://developer.nvidia.com/isaac-gym)
 - [MuJoCo](https://github.com/google-deepmind/mujoco)
 - [SAPIEN](https://github.com/haosulab/SAPIEN)
-- [PyRep](https://github.com/stepjam/PyRep), which is built on top of [CoppeliaSim](https://www.coppeliarobotics.com/)
 - [PyBullet](https://github.com/bulletphysics/bullet3)
-- [Blender](https://www.blender.org/)
+- [Genesis](https://github.com/Genesis-Embodied-AI/Genesis)
 - [cuRobo](https://github.com/NVlabs/curobo)
+- [PyRep](https://github.com/stepjam/PyRep), which is built on top of [CoppeliaSim](https://www.coppeliarobotics.com/)
+- [Blender](https://www.blender.org/)
 
 The RoboVerse project also integrates data from the following projects:
 - [RLBench](https://github.com/stepjam/RLBench)
@@ -63,7 +64,7 @@ The RoboVerse project also integrates data from the following projects:
 - [Open6DOR](https://github.com/Selina2023/Open6DOR)
 - [CALVIN](https://github.com/mees/calvin)
 - [GarmentLab](https://github.com/GarmentLab/GarmentLab)
+- [Matterport3D](https://github.com/niessner/Matterport)
 - [vMaterials](https://developer.nvidia.com/vmaterials)
 
-TODO: Add license for assets.
-TODO: Is vMaterial ok to be included in the open-source project like RoboVerse?
+The licenses for the assets used in RoboVerse will be added soon. Please contact us if you have any issues.
