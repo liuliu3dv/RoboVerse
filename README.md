@@ -18,6 +18,20 @@ Please refer to the [documentation](https://roboverse.wiki/metasim/#).
 
 We also privide detailed [tutorials](https://roboverse.wiki/metasim/get_started/quick_start/0_static_scene) for getting started
 
+## RoboVerse Dataset
+![datasets](docs/source/_static/datasets.png)
+
+RoboVerse provides a large-scale, high-quality dataset.
+
+Refer to [RoboVerse Dataset](https://roboverse.wiki/metasim/get_started/prepare_data_hf) for more details.
+
+## RoboVerse Benchmark
+![benchmark](docs/source/_static/bench.png)
+
+RoboVerse provides a standardized benchmark for both imitation learning and reinforcement learning.
+
+Refer to [RoboVerse Benchmark](https://roboverse.wiki/dataset_benchmark/) for more details.
+
 ## 🥰 Contributing
 Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more details on how to contribute to this project.
 
