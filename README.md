@@ -18,17 +18,19 @@ Please refer to the [documentation](https://roboverse.wiki/metasim/#).
 
 We also privide detailed [tutorials](https://roboverse.wiki/metasim/get_started/quick_start/0_static_scene) for getting started
 
-## RoboVerse Dataset
-![datasets](docs/source/_static/datasets.png)
+## 🔧 MetaSim Infrastructure
+`MetaSim` is a unified simulation platform with a universal configuration system and a unified interface, combining existing simulators and rendering engines into a single framework.
+![metasim](docs/source/_static/metasim.png)
 
+## 📑 RoboVerse Dataset
 RoboVerse provides a large-scale, high-quality dataset.
+![datasets](docs/source/_static/datasets.png)
 
 Refer to [RoboVerse Dataset](https://roboverse.wiki/metasim/get_started/prepare_data_hf) for more details.
 
-## RoboVerse Benchmark
-![benchmark](docs/source/_static/bench.png)
-
+## 📊 RoboVerse Benchmark
 RoboVerse provides a standardized benchmark for both imitation learning and reinforcement learning.
+![benchmark](docs/source/_static/bench.png)
 
 Refer to [RoboVerse Benchmark](https://roboverse.wiki/dataset_benchmark/) for more details.
 
