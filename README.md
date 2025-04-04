@@ -1,7 +1,7 @@
-![RoboVerse](docs/source/_static/logo_transparent.png)
+![RoboVerse](docs/source/_static/RoboVerse86.22.svg)
 
-[![PyPI - Version](https://img.shields.io/pypi/v/roboverse-py/)](https://pypi.org/project/roboverse-py/)
-[![PyPI Downloads](https://static.pepy.tech/badge/roboverse-py/)](https://pepy.tech/projects/roboverse-py/)
+<!-- [![PyPI - Version](https://img.shields.io/pypi/v/roboverse-py/)](https://pypi.org/project/roboverse-py/)
+[![PyPI Downloads](https://static.pepy.tech/badge/roboverse-py/)](https://pepy.tech/projects/roboverse-py/) -->
 [![GitHub Issues](https://img.shields.io/github/issues/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/issues)
 [![GitHub Discussions](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
 [![Discord](https://img.shields.io/discord/1356345436927168552?logo=discord)](https://discord.gg/dk8sxFGz)
