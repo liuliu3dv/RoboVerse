@@ -6,7 +6,7 @@
 
 
 [![Project Page](https://img.shields.io/badge/page-wiki-blue)](https://roboverse.wiki)
-[![Paper](https://img.shields.io/badge/paper-pdf-red)]([https://arxiv.org/abs/2504.01543](https://t.co/3r4WeRcf1O))
+[![Paper](https://img.shields.io/badge/paper-pdf-red)](https://github.com/RoboVerseOrg/RoboVerse/raw/refs/heads/main/_static/roboverse.pdf)
 [![GitHub Issues](https://img.shields.io/github/issues/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/issues)
 [![GitHub Discussions](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
 [![Discord](https://img.shields.io/discord/1356345436927168552?logo=discord)](https://discord.gg/dk8sxFGz)
