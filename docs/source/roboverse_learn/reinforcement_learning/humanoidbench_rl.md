@@ -25,17 +25,25 @@ wandb login
 
 ## Training
 
-```bash
-python roboverse_learn/humanoidbench_rl/train_sb3.py --sim mujoco --num_envs 1 --robot=h1 --task humanoidbench:Stand --wandb_entity <your_wandb_entity_name> --use_wandb
-```
+MuJoCo:
 
 ```bash
-python roboverse_learn/humanoidbench_rl/train_sb3.py --sim isaacgym --num_envs 2 --robot=h1 --task humanoidbench:Stand --wandb_entity <your_wandb_entity_name> --use_wandb
+python roboverse_learn/humanoidbench_rl/train_sb3.py --sim mujoco --num_envs 1 --robot=h1 --task humanoidbench:Stand
 ```
 
+IsaacGym:
+
 ```bash
-python roboverse_learn/humanoidbench_rl/train_sb3.py --sim isaaclab --num_envs 2 --robot=h1 --task humanoidbench:Stand --wandb_entity <your_wandb_entity_name> --use_wandb
+python roboverse_learn/humanoidbench_rl/train_sb3.py --sim isaacgym --num_envs 2 --robot=h1 --task humanoidbench:Stand
 ```
+
+IsaacLab:
+
+```bash
+python roboverse_learn/humanoidbench_rl/train_sb3.py --sim isaaclab --num_envs 2 --robot=h1 --task humanoidbench:Stand
+```
+
+> You can add `--use_wandb --wandb_entity <your_wandb_entity_name>` to use wandb to log the training process.
 
 ## Warning
 
