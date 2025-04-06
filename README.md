@@ -6,6 +6,7 @@
 
 
 [![](https://img.shields.io/badge/project-page-brightgreen)](https://roboverseorg.github.io)
+[![](https://img.shields.io/badge/paper-preprint-red)](https://roboverseorg.github.io/static/pdfs/paper_supp_20250405_1820.pdf)
 [![](https://img.shields.io/badge/doc-page-orange)](https://roboverse.wiki)
 [![](https://img.shields.io/github/issues/RoboVerseOrg/RoboVerse?color=yellow)](https://github.com/RoboVerseOrg/RoboVerse/issues)
 [![](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse?color=blueviolet)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
