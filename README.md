@@ -5,13 +5,12 @@
 ![RoboVerse](docs/source/metasim/images/tea.jpg)
 
 
-[![](https://img.shields.io/badge/doc-page-blue)](https://roboverse.wiki)
-[![](https://img.shields.io/badge/project-page-blue)](https://roboverseorg.github.io)
-[![Paper](https://img.shields.io/badge/paper-pdf-red)](https://github.com/RoboVerseOrg/RoboVerse/raw/refs/heads/main/_static/roboverse.pdf)
-[![GitHub Issues](https://img.shields.io/github/issues/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/issues)
-[![GitHub Discussions](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
-[![Discord](https://img.shields.io/discord/1356345436927168552?logo=discord)](https://discord.gg/dk8sxFGz)
-[![Wechat](https://img.shields.io/badge/wechat-qr_code-green)](docs/source/_static/wechat.jpg)
+[![](https://img.shields.io/badge/project-page-brightgreen)](https://roboverseorg.github.io)
+[![](https://img.shields.io/badge/doc-page-orange)](https://roboverse.wiki)
+[![](https://img.shields.io/github/issues/RoboVerseOrg/RoboVerse?color=yellow)](https://github.com/RoboVerseOrg/RoboVerse/issues)
+[![](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse?color=blueviolet)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
+[![](https://img.shields.io/discord/1356345436927168552?logo=discord&color=blue)](https://discord.gg/dk8sxFGz)
+[![](https://img.shields.io/badge/wechat-QR_code-green)](docs/source/_static/wechat.jpg)
 
 ## 💡 News
 - [2025-04-03] Code released! This codebase is actively evolving, and we are continuously working to improve it. Contributions from the open-source community are highly encouraged, and we welcome feedback and bug reports through the GitHub Issues page.
