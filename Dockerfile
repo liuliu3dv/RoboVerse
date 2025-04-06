@@ -4,6 +4,7 @@ ARG DOCKER_UID=1000
 ARG DOCKER_GID=1000
 ARG DOCKER_USER=user
 ARG HOME=/home/${DOCKER_USER}
+
 RUN groupadd -g $DOCKER_GID $DOCKER_USER \
     && useradd --uid $DOCKER_UID --gid $DOCKER_GID -m $DOCKER_USER \
     && echo "$DOCKER_USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -27,7 +28,9 @@ RUN apt update && apt install -y --no-install-recommends \
     x11-apps \
     mesa-utils \
     ninja-build \
-    vulkan-tools
+    vulkan-tools \
+    libglu1
+RUN apt install -y -o Dpkg::Options::="--force-confold" sudo
 
 USER ${DOCKER_USER}
 WORKDIR ${HOME}
