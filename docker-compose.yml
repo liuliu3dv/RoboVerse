@@ -7,9 +7,9 @@ services:
       args:
         - http_proxy=${PROXY}
         - https_proxy=${PROXY}
-        - DOCKER_UID=${DOCKER_UID}
-        - DOCKER_GID=${DOCKER_GID}
-        - DOCKER_USER=${DOCKER_USER}
+        - DOCKER_UID=${DOCKER_UID:-1000}
+        - DOCKER_GID=${DOCKER_GID:-1000}
+        - DOCKER_USER=${DOCKER_USER:-user}
     container_name: metasim
     privileged: true
     runtime: nvidia
