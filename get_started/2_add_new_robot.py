@@ -103,6 +103,7 @@ robot = BaseRobotCfg(
     fix_base_link=False,
     enabled_self_collisions=False,
     isaacgym_flip_visual_attachments=False,
+    isaacgym_collapse_fixed_joints=True,
     actuators={
         "left_hip_yaw": BaseActuatorCfg(),
         "left_hip_roll": BaseActuatorCfg(),
