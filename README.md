@@ -5,7 +5,8 @@
 ![RoboVerse](docs/source/metasim/images/tea.jpg)
 
 
-[![Project Page](https://img.shields.io/badge/page-wiki-blue)](https://roboverse.wiki)
+[![](https://img.shields.io/badge/doc-page-blue)](https://roboverse.wiki)
+[![](https://img.shields.io/badge/project-page-blue)](https://roboverseorg.github.io)
 [![Paper](https://img.shields.io/badge/paper-pdf-red)](https://github.com/RoboVerseOrg/RoboVerse/raw/refs/heads/main/_static/roboverse.pdf)
 [![GitHub Issues](https://img.shields.io/github/issues/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/issues)
 [![GitHub Discussions](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
@@ -20,28 +21,6 @@
 Please refer to the [documentation](https://roboverse.wiki/metasim/#).
 
 We also privide detailed [tutorials](https://roboverse.wiki/metasim/get_started/quick_start/0_static_scene) for getting started
-
-## 🔧 MetaSim Infrastructure
-
-`MetaSim` is a unified simulation platform with a universal configuration system and a unified interface, combining existing simulators and rendering engines into a single framework.
-
-![metasim](docs/source/_static/metasim.png)
-
-Please refer to the [documentation](https://roboverse.wiki/metasim/#) for more details.
-
-## 📑 RoboVerse Dataset
-RoboVerse provides a large-scale, high-quality dataset.
-
-![datasets](docs/source/_static/datasets.png)
-
-Refer to [RoboVerse Dataset](https://roboverse.wiki/metasim/get_started/prepare_data_hf) for more details.
-
-## 📊 RoboVerse Benchmark
-RoboVerse provides a standardized benchmark for both imitation learning and reinforcement learning.
-
-![benchmark](docs/source/_static/bench.png)
-
-Refer to [RoboVerse Benchmark](https://roboverse.wiki/dataset_benchmark/) for more details.
 
 ## 🥰 Contributing
 Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more details on how to contribute to this project.
@@ -67,7 +46,6 @@ RoboVerse also integrates data from the following projects:
 - [LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO)
 - [Meta-World](https://github.com/Farama-Foundation/Metaworld)
 - [robosuite](https://github.com/ARISE-Initiative/robosuite)
-- [RoboCasa](https://github.com/robocasa/robocasa)
 - [GraspNet](https://graspnet.net/)
 - [ARNOLD](https://arnold-benchmark.github.io/)
 - [GAPartNet](https://github.com/PKU-EPIC/GAPartNet)
