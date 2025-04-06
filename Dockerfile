@@ -28,7 +28,8 @@ RUN apt update && apt install -y --no-install-recommends \
     x11-apps \
     mesa-utils \
     ninja-build \
-    vulkan-tools
+    vulkan-tools \
+    libglu1
 RUN apt install -y -o Dpkg::Options::="--force-confold" sudo
 
 USER ${DOCKER_USER}
