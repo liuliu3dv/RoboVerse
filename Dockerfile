@@ -29,6 +29,7 @@ RUN apt update && apt install -y --no-install-recommends \
     mesa-utils \
     ninja-build \
     vulkan-tools
+RUN apt install -y -o Dpkg::Options::="--force-confold" sudo
 
 USER ${DOCKER_USER}
 WORKDIR ${HOME}
