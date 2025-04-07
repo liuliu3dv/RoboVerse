@@ -51,7 +51,7 @@ We chose to combine these two parts for consistency of action-space and observat
 The `data2zarr_dp.py` script converts demonstration data into Zarr format for efficient data loading. While `train.sh` handles this automatically, you may want to run this step separately for custom data preprocessing.
 
 ```bash
-python roboverse_learn/algorithms/diffusion_policy/data2zarr_dp.py [arguments]
+python roboverse_learn/algorithms/data2zarr_dp.py [arguments]
 ```
 
 **Key Arguments:**
