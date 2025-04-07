@@ -29,7 +29,8 @@ RUN apt update && apt install -y --no-install-recommends \
     mesa-utils \
     ninja-build \
     vulkan-tools \
-    libglu1
+    libglu1 \
+    && apt clean
 RUN apt install -y -o Dpkg::Options::="--force-confold" sudo
 
 USER ${DOCKER_USER}
@@ -65,7 +66,8 @@ COPY --chown=${DOCKER_USER} ./pyproject.toml ${HOME}/RoboVerse/pyproject.toml
 WORKDIR ${HOME}/RoboVerse
 
 ## Create conda environment
-RUN mamba create -n metasim python=3.10 -y
+RUN mamba create -n metasim python=3.10 -y \
+    && mamba clean -a -y
 RUN echo "mamba activate metasim" >> ${HOME}/.bashrc
 
 ## Pip install
@@ -73,7 +75,8 @@ RUN cd ${HOME}/RoboVerse \
     && source "${HOME}/conda/etc/profile.d/conda.sh" \
     && source "${HOME}/conda/etc/profile.d/mamba.sh" \
     && mamba activate metasim \
-    && uv pip install -e ".[isaaclab,mujoco,genesis,sapien3,pybullet]"
+    && uv pip install -e ".[isaaclab,mujoco,genesis,sapien3,pybullet]" \
+    && uv cache clean
 
 # Test proxy connection
 # RUN wget --method=HEAD --output-document - https://www.google.com/
@@ -87,10 +90,12 @@ RUN mkdir -p ${HOME}/packages \
     && git clone --depth 1 --branch v1.4.1 https://github.com/isaac-sim/IsaacLab.git IsaacLab \
     && cd IsaacLab \
     && sed -i '/^EXTRAS_REQUIRE = {$/,/^}$/c\EXTRAS_REQUIRE = {\n    "sb3": [],\n    "skrl": [],\n    "rl-games": [],\n    "rsl-rl": [],\n    "robomimic": [],\n}' source/extensions/omni.isaac.lab_tasks/setup.py \
-    && ./isaaclab.sh -i
+    && ./isaaclab.sh -i \
+    && pip cache purge
 
 ## Install isaacgym
-RUN mamba create -n metasim_isaacgym python=3.8 -y
+RUN mamba create -n metasim_isaacgym python=3.8 -y \
+    && mamba clean -a -y
 RUN cd ${HOME}/packages \
     && wget https://developer.nvidia.com/isaac-gym-preview-4 \
     && tar -xf isaac-gym-preview-4 \
@@ -100,13 +105,11 @@ RUN cd ${HOME}/RoboVerse \
     && source "${HOME}/conda/etc/profile.d/conda.sh" \
     && source "${HOME}/conda/etc/profile.d/mamba.sh" \
     && mamba activate metasim_isaacgym \
-    && uv pip install -e ".[isaacgym]" "isaacgym @ ${HOME}/packages/isaacgym/python"
+    && uv pip install -e ".[isaacgym]" "isaacgym @ ${HOME}/packages/isaacgym/python" \
+    && uv cache clean
 RUN echo 'export LD_LIBRARY_PATH=${HOME}/conda/envs/metasim_isaacgym/lib/:$LD_LIBRARY_PATH' >> ${HOME}/.bashrc
 RUN mkdir -p ${HOME}/conda/envs/metasim_isaacgym/lib/python3.8/site-packages/isaacgym/_bindings/src \
     && cp -r ${HOME}/packages/isaacgym/python/isaacgym/_bindings/src/gymtorch ${HOME}/conda/envs/metasim_isaacgym/lib/python3.8/site-packages/isaacgym/_bindings/src/gymtorch
-
-## Remove caches
-# RUN rm -rf /var/lib/apt/lists/*
 
 ## Helpful message
 RUN echo 'echo "Remember to run: xhost +local:docker on the host to enable GUI applications."' >> ${HOME}/.bashrc
