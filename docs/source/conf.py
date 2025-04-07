@@ -68,7 +68,7 @@ html_theme_options = {
         },
         {
             "name": "Website",
-            "url": "https://github.com/RoboVerseOrg/RoboVerse",
+            "url": "https://roboverseorg.github.io/",
             "icon": "fa-solid fa-globe",
         },
     ],
