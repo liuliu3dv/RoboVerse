@@ -59,6 +59,21 @@ class Sb3EnvWrapper(VecEnv):
         log.info(f"Action space: {self.action_space}")
 
         self.max_episode_steps = self.env.handler.task.episode_length
+        log.info(f"Max episode steps: {self.max_episode_steps}")
+
+        # 获取success_bar，如果不存在则设置为一个较大的值
+        try:
+            self.success_bar = getattr(self.env.handler.task.reward_functions[0], "success_bar", 1000.0)
+            log.info(f"Success reward threshold: {self.success_bar}")
+        except (AttributeError, Exception) as e:
+            log.warning(f"Could not get reward_success_bar: {e}. Using default value 1000.0")
+            self.success_bar = 1000.0
+
+        # Episode tracking variables for EpisodeLogCallback
+        self.episode_rewards = np.zeros(self.num_envs)
+        self.episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
+        self.episode_success = np.zeros(self.num_envs, dtype=np.int32)
+        self.episode_success_subtasks = np.zeros(self.num_envs, dtype=np.int32)
 
         VecEnv.__init__(self, self.num_envs, self.observation_space, self.action_space)
 
@@ -73,6 +88,14 @@ class Sb3EnvWrapper(VecEnv):
         _, _ = self.env.reset(states=self.init_states)
         humanoid_observation = self.get_humanoid_observation(self.env.handler.get_states())
         observations = humanoid_observation.cpu().numpy()
+
+        # Reset episode tracking variables
+        self.episode_rewards = np.zeros(self.num_envs)
+        self.episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
+        self.episode_success = np.zeros(self.num_envs, dtype=np.int32)
+        self.episode_success_subtasks = np.zeros(self.num_envs, dtype=np.int32)
+
+        log.info("reset now")
         return observations
 
     def step_async(self, actions):
@@ -147,6 +170,14 @@ class Sb3EnvWrapper(VecEnv):
         # dones (np.ndarray, shape=(num_envs,)): Done flags for each environment (True if terminated or truncated).
         dones = terminateds | truncateds
 
+        # Update episode tracking variables
+        self.episode_rewards += rewards
+        self.episode_lengths += 1
+
+        # Determine whether the cumulative reward exceeds success_bar.
+        success_mask = (self.episode_rewards >= self.success_bar).astype(np.int32)
+        self.episode_success = success_mask
+
         # Construct infos list containing "TimeLimit.truncated" required by SB3
         # infos (list[dict]): List of info dictionaries for each environment.
         infos = []
@@ -154,11 +185,27 @@ class Sb3EnvWrapper(VecEnv):
             env_info = {}
             # SB3 uses "TimeLimit.truncated" to determine if the episode ended due to timeout, used for bootstrapping
             # "TimeLimit.truncated" is True if the episode was truncated (timeout) but not terminated normally.
+            if dones[i]:
+                env_info["terminal_observation"] = observations[i]
             env_info["TimeLimit.truncated"] = truncateds[i] and not terminateds[i]
-            # Optionally add other information
+
+            # Add success information, and it is considered successful when the cumulative reward exceeds success_bar.
+            env_info["success"] = int(self.episode_success[i])
+
+            # Add episode info when done
+            if dones[i]:
+                env_info["episode"] = {
+                    "r": self.episode_rewards[i],
+                    "l": self.episode_lengths[i],
+                }
+                # Reset episode tracking variables for this environment
+                self.episode_rewards[i] = 0
+                self.episode_lengths[i] = 0
+
             infos.append(env_info)
 
         # Return in the format required by SB3 VecEnv API
+        # log.info(f"done: {dones}")
         return observations, rewards, dones, infos
 
     def get_humanoid_observation(self, states) -> torch.Tensor:

@@ -176,16 +176,14 @@ def main():
             self.sim_type = sim_type
 
         def _on_training_start(self) -> None:
+            from wrapper_sb3 import Sb3EnvWrapper
+
             from metasim.constants import SimType
 
             if self.sim_type == SimType.MUJOCO:
-                from sb3_wrapper_mujoco import Sb3EnvWrapperMujoco
-
-                self.eval_env = Sb3EnvWrapperMujoco(scenario=self.scenario)
+                self.eval_env = Sb3EnvWrapper(scenario=self.scenario)
             elif self.sim_type == SimType.ISAACGYM:
-                from sb3_wrapper_isaacgym import Sb3EnvWrapperIsaacgym
-
-                self.eval_env = Sb3EnvWrapperIsaacgym(scenario=self.scenario)
+                self.eval_env = Sb3EnvWrapper(scenario=self.scenario)
             else:
                 raise ValueError(f"Invalid sim type: {self.sim_type}")
 
