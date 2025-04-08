@@ -16,7 +16,7 @@
 ## 💡 News
 - [2025-04-03] Code released! This codebase is actively evolving, and we are continuously working to improve it. Contributions from the open-source community are highly encouraged, and we welcome feedback and bug reports through the GitHub Issues page.
 
-## 👶 Getting Started
+## 🚀 Getting Started
 
 Please refer to the [documentation](https://roboverse.wiki/metasim/#).
 
