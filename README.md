@@ -25,6 +25,11 @@ We also privide detailed [tutorials](https://roboverse.wiki/metasim/get_started/
 ## 🥰 Contributing
 Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more details on how to contribute to this project.
 
+## 🎅 Wish List
+If you have any feature requests (e.g., support for new simulators, new tasks, new workflows, or new features), feel free to add them to the Wish List section of our [GitHub Discussions](https://github.com/RoboVerseOrg/RoboVerse/discussions/categories/wish-list).
+
+You can also upvote the requests you find most relevant or important. We'll prioritize updates based on the number of upvotes each request receives!
+
 ## 📖 License and Acknowledgments
 
 The RoboVerse source code is licensed under the Apache License 2.0.
