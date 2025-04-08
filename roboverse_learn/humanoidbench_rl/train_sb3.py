@@ -38,10 +38,10 @@ def parse_args():
     parser.add_argument("--train_or_eval", type=str, default="train", choices=["train", "eval", "test"])
     parser.add_argument("--model_path", type=str, default=None)
     # PPO specific arguments
-    parser.add_argument("--learning_rate", type=float, default=3e-5)
-    parser.add_argument("--n_steps", type=int, default=2048)
-    parser.add_argument("--batch_size", type=int, default=512)
-    parser.add_argument("--n_epochs", type=int, default=10)
+    parser.add_argument("--learning_rate", type=float, default=1e-5)
+    parser.add_argument("--n_steps", type=int, default=60)
+    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--n_epochs", type=int, default=2)
     # Wandb arguments
     parser.add_argument("--use_wandb", action="store_true")
     parser.add_argument("--wandb_project", type=str, default="metasim_rl_training")
@@ -54,7 +54,7 @@ def main():
     args = parse_args()
 
     if args.sim == "isaacgym":
-        pass
+        from isaacgym import gymapi, gymtorch, gymutil  # noqa: F401
 
     if args.use_wandb:
         run = wandb.init(
@@ -82,39 +82,22 @@ def main():
         sim=args.sim,
         num_envs=args.num_envs,
         headless=True,
+        cameras=[],
     )
 
+    from roboverse_learn.humanoidbench_rl.wrapper_sb3 import Sb3EnvWrapper
+
     if args.sim == "mujoco":
-        from sb3_wrapper_mujoco import Sb3EnvWrapperMujoco
-
-        env = Sb3EnvWrapperMujoco(scenario=scenario)
+        if args.num_envs > 1:
+            log.error("Mujoco does not support multiple environments > 1")
+            exit()
+        env = Sb3EnvWrapper(scenario=scenario)
     elif args.sim == "isaacgym":
-        from sb3_wrapper_isaacgym import Sb3EnvWrapperIsaacgym
-
-        log.warning(
-            """
-            -----------------Implementation of Isaacgym has problem-----------------
-            Isaacgym has problem now, see issue:
-            1. https://github.com/RoboVerseOrg/RoboVerse/issues/61, corresponding to the code: metasim/cfg/robots/h1_cfg.py
-            2. https://github.com/RoboVerseOrg/RoboVerse/issues/57, corresponding to the code: metasim/utils/humanoid_robot_util.py
-            After deal with these 2 bugs, it's running well.
-            """
-        )
-
-        env = Sb3EnvWrapperIsaacgym(scenario=scenario)
+        env = Sb3EnvWrapper(scenario=scenario)
     elif args.sim == "isaaclab":
-        from sb3_wrapper_isaaclab import Sb3EnvWrapperIsaaclab
-
-        log.warning(
-            """
-            -----------------Implementation of Isaaclab has problem-----------------
-            Isaaclab has problem now:
-            1. H1 usd doesn't have head body, see code: metasim/utils/humanoid_robot_util.py
-            After deal with this bugs, it's running well.
-            """
-        )
-
-        env = Sb3EnvWrapperIsaaclab(scenario=scenario)
+        log.error("IsaacLab is not supported currently")
+        exit()
+        env = Sb3EnvWrapper(scenario=scenario)
     else:
         raise ValueError(f"Invalid sim type: {args.sim}")
 
@@ -185,7 +168,7 @@ def main():
                     self.returns_info[key] = []
 
     class EvalCallback(BaseCallback):
-        def __init__(self, eval_every: int = 100000, scenario=None, sim_type=None, verbose: int = 0):
+        def __init__(self, eval_every: int = 5000, scenario=None, sim_type=None, verbose: int = 0):
             super().__init__(verbose=verbose)
             self.eval_every = eval_every
             self.eval_env = None
@@ -263,6 +246,7 @@ def main():
     if args.train_or_eval == "train":
         # Train the agent with additional callbacks
         log.info("Starting training...")
+        # from metasim.constants import SimType
         model.learn(
             total_timesteps=args.total_timesteps,
             log_interval=1,
