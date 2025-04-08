@@ -6,14 +6,13 @@ RL framework: `stable-baselines3`
 
 RL algorithm: `PPO`
 
-Simulator: `MuJoCo` and `IsaacGym`
+Simulator: `MuJoCo` and `IsaacGym` and `IsaacLab`
 
 ## Installation
 
 ```bash
 pip install stable-baselines3
 pip install wandb
-pip install wandb[media]
 pip install tensorboard
 ```
 
@@ -39,24 +38,14 @@ python roboverse_learn/humanoidbench_rl/train_sb3.py --sim isaacgym --num_envs 2
 
 IsaacLab:
 
+> IsaacLab is not supported currently due to incompatibilities between its infrastructure and the MuJoCo and IsaacGym frameworks.
+> We are continuing to work on this issue and will update the documentation when it is resolved.
+
 ```bash
 python roboverse_learn/humanoidbench_rl/train_sb3.py --sim isaaclab --num_envs 2 --robot=h1 --task humanoidbench:Stand
 ```
 
 > You can add `--use_wandb --wandb_entity <your_wandb_entity_name>` to use wandb to log the training process.
-
-## Warning
-
-- Isaacgym has problem now, see issue:
-  - https://github.com/RoboVerseOrg/RoboVerse/issues/61, corresponding to the code: metasim/cfg/robots/h1_cfg.py
-    - Switch the `fix_base_link` to `True` to ignore this bug.
-  - https://github.com/RoboVerseOrg/RoboVerse/issues/57, corresponding to the code: metasim/utils/humanoid_robot_util.py
-    - Switch the `head_body` to `mid360_link` to ignore this bug.
-- Isaaclab has problem now:
-  - H1 usd doesn't have head body, see code: metasim/utils/humanoid_robot_util.py
-    - Switch the `head_body` to `mid360_link` to ignore this bug.
-
-Current implementation of Isaacgym and Isaaclab has problem, after dealing with these 2 bugs or ignoring them, it's running well.
 
 ## Task list
 

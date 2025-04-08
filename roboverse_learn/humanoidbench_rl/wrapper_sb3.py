@@ -4,6 +4,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 from gymnasium import spaces
+from loguru import logger as log
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv
 
 from metasim.cfg.scenario import ScenarioCfg
@@ -12,7 +13,7 @@ from metasim.utils.demo_util import get_traj
 from metasim.utils.setup_util import get_robot, get_sim_env_class, get_task
 
 
-class Sb3EnvWrapperIsaacgym(VecEnv):
+class Sb3EnvWrapper(VecEnv):
     """Wraps MetaSim environment to be compatible with Gymnasium API."""
 
     def __init__(self, scenario: ScenarioCfg):
@@ -50,10 +51,29 @@ class Sb3EnvWrapperIsaacgym(VecEnv):
         self.action_space = spaces.Box(low=-1, high=1, shape=self._action_low.shape, dtype=np.float32)
 
         # observation space
-        initial_obs, _ = self.reset()
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=initial_obs.shape, dtype=np.float32)
+        # Create an observation space (51 dimensions) for a single environment, instead of the entire batch (2,51).
+        initial_obs = self.reset()
+        obs_shape = (initial_obs.shape[1],)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=obs_shape, dtype=np.float32)
+        log.info(f"Observation space: {self.observation_space}")
+        log.info(f"Action space: {self.action_space}")
 
         self.max_episode_steps = self.env.handler.task.episode_length
+        log.info(f"Max episode steps: {self.max_episode_steps}")
+
+        # 获取success_bar，如果不存在则设置为一个较大的值
+        try:
+            self.success_bar = getattr(self.env.handler.task.reward_functions[0], "success_bar", 1000.0)
+            log.info(f"Success reward threshold: {self.success_bar}")
+        except (AttributeError, Exception) as e:
+            log.warning(f"Could not get reward_success_bar: {e}. Using default value 1000.0")
+            self.success_bar = 1000.0
+
+        # Episode tracking variables for EpisodeLogCallback
+        self.episode_rewards = np.zeros(self.num_envs)
+        self.episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
+        self.episode_success = np.zeros(self.num_envs, dtype=np.int32)
+        self.episode_success_subtasks = np.zeros(self.num_envs, dtype=np.int32)
 
         VecEnv.__init__(self, self.num_envs, self.observation_space, self.action_space)
 
@@ -65,9 +85,18 @@ class Sb3EnvWrapperIsaacgym(VecEnv):
 
     def reset(self, options=None):
         """Reset the environment."""
-        metasim_observation, info = self.env.reset(states=self.init_states)
-        observation = self.get_humanoid_observation()
-        return observation
+        _, _ = self.env.reset(states=self.init_states)
+        humanoid_observation = self.get_humanoid_observation(self.env.handler.get_states())
+        observations = humanoid_observation.cpu().numpy()
+
+        # Reset episode tracking variables
+        self.episode_rewards = np.zeros(self.num_envs)
+        self.episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
+        self.episode_success = np.zeros(self.num_envs, dtype=np.int32)
+        self.episode_success_subtasks = np.zeros(self.num_envs, dtype=np.int32)
+
+        log.info("reset now")
+        return observations
 
     def step_async(self, actions):
         # convert input to numpy array
@@ -89,9 +118,9 @@ class Sb3EnvWrapperIsaacgym(VecEnv):
 
         Returns:
             tuple: A tuple containing the following elements:
-                - observations (np.ndarray): Observations from the environment, shape=(num_envs, obs_dim).
-                - rewards (np.ndarray): Reward values for each environment, shape=(num_envs,).
-                - dones (np.ndarray): Flags indicating if the episode has ended for each environment (due to termination or truncation), shape=(num_envs,).
+                - observations (np.ndarray, shape=(num_envs, obs_dim)): Observations from the environment.
+                - rewards (np.ndarray, shape=(num_envs,)): Reward values for each environment.
+                - dones (np.ndarray, shape=(num_envs,)): Flags indicating if the episode has ended for each environment (due to termination or truncation).
                 - infos (list[dict]): List of additional information for each environment. Each dictionary contains the "TimeLimit.truncated" key,
                                       indicating if the episode was truncated due to timeout.
         """
@@ -120,15 +149,18 @@ class Sb3EnvWrapperIsaacgym(VecEnv):
         # terminated_tensor (torch.Tensor, shape=(num_envs,)): Termination flags from the MetaSim environment.
         # truncated_tensor (torch.Tensor, shape=(num_envs,)): Truncation flags from the MetaSim environment.
         # info (dict): Additional info from the MetaSim environment (currently unused).
-        metasim_observation, metasim_reward, terminated_tensor, truncated_tensor, info = self.env.step(action_dict)
+        _, _, terminated_tensor, truncated_tensor, _ = self.env.step(action_dict)
 
         # Get formatted observations
         # observations (np.ndarray, shape=(num_envs, obs_dim)): Formatted observations suitable for the RL agent.
-        observations = self.get_humanoid_observation()
+        states = self.env.handler.get_states()
+        humanoid_observation = self.get_humanoid_observation(states)
+        humanoid_reward = self.get_humanoid_reward(states)
 
         # Convert tensors to NumPy arrays
+        observations = humanoid_observation.cpu().numpy()
         # rewards (np.ndarray, shape=(num_envs,)): Rewards for each environment.
-        rewards = metasim_reward.cpu().numpy()
+        rewards = humanoid_reward.cpu().numpy()
         # terminateds (np.ndarray, shape=(num_envs,)): Termination flags for each environment.
         terminateds = terminated_tensor.cpu().numpy()
         # truncateds (np.ndarray, shape=(num_envs,)): Truncation flags for each environment.
@@ -138,6 +170,14 @@ class Sb3EnvWrapperIsaacgym(VecEnv):
         # dones (np.ndarray, shape=(num_envs,)): Done flags for each environment (True if terminated or truncated).
         dones = terminateds | truncateds
 
+        # Update episode tracking variables
+        self.episode_rewards += rewards
+        self.episode_lengths += 1
+
+        # Determine whether the cumulative reward exceeds success_bar.
+        success_mask = (self.episode_rewards >= self.success_bar).astype(np.int32)
+        self.episode_success = success_mask
+
         # Construct infos list containing "TimeLimit.truncated" required by SB3
         # infos (list[dict]): List of info dictionaries for each environment.
         infos = []
@@ -145,27 +185,41 @@ class Sb3EnvWrapperIsaacgym(VecEnv):
             env_info = {}
             # SB3 uses "TimeLimit.truncated" to determine if the episode ended due to timeout, used for bootstrapping
             # "TimeLimit.truncated" is True if the episode was truncated (timeout) but not terminated normally.
+            if dones[i]:
+                env_info["terminal_observation"] = observations[i]
             env_info["TimeLimit.truncated"] = truncateds[i] and not terminateds[i]
-            # Optionally add other information
-            # env_info["terminated"] = terminateds[i]
-            # env_info["truncated"] = truncateds[i]
+
+            # Add success information, and it is considered successful when the cumulative reward exceeds success_bar.
+            env_info["success"] = int(self.episode_success[i])
+
+            # Add episode info when done
+            if dones[i]:
+                env_info["episode"] = {
+                    "r": self.episode_rewards[i],
+                    "l": self.episode_lengths[i],
+                }
+                # Reset episode tracking variables for this environment
+                self.episode_rewards[i] = 0
+                self.episode_lengths[i] = 0
+
             infos.append(env_info)
 
-        # print(observations.shape)
-        # print(rewards.shape)
-        # print(dones.shape)
-        # # print(infos.shape)
-        # exit()
-
         # Return in the format required by SB3 VecEnv API
+        # log.info(f"done: {dones}")
         return observations, rewards, dones, infos
 
-    def get_humanoid_observation(self):
-        envstates = self.env.handler.get_states()
-        gym_observation = self.env.handler.task.humanoid_obs_flatten_func(envstates)
-        # print(gym_observation.shape)
-        # exit()
+    def get_humanoid_observation(self, states) -> torch.Tensor:
+        gym_observation = self.env.handler.task.humanoid_obs_flatten_func(states)
         return gym_observation
+
+    def get_humanoid_reward(self, states):
+        # NOTE: For IsaacLab, metasim_reward is None, so calculate reward here
+        final_reward = torch.zeros(self.num_envs)
+        for reward_func, reward_weight in zip(
+            self.env.handler.task.reward_functions, self.env.handler.task.reward_weights
+        ):
+            final_reward += reward_func(self.env.handler.robot.name)(states) * reward_weight
+        return final_reward
 
     def render(self):
         """Render the environment."""
@@ -220,7 +274,7 @@ def check_metasim_env(sim_type: SimType = SimType.ISAACGYM, num_envs: int = 2):
     scenario = ScenarioCfg(task=task, robot=robot)
 
     # Create wrapped environment
-    env = Sb3EnvWrapperIsaacgym(scenario, sim_type, num_envs)
+    env = Sb3EnvWrapper(scenario)
 
     # Run environment checker
     from gymnasium.utils.env_checker import check_env
@@ -251,7 +305,7 @@ if __name__ == "__main__":
 
     env = gym.make("metasim-hb-wrapper", headless=False)
     ob, _ = env.reset()
-    print(f"ob_space = {env.observation_space}, ob = {ob.shape}")
-    print(f"ac_space = {env.action_space.shape}")
+    log.info(f"ob_space = {env.observation_space}, ob = {ob.shape}")
+    log.info(f"ac_space = {env.action_space.shape}")
     for i in range(1000):
         env.render()
