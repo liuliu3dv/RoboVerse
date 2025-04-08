@@ -10,7 +10,7 @@
 [![](https://img.shields.io/badge/doc-page-orange)](https://roboverse.wiki)
 [![](https://img.shields.io/github/issues/RoboVerseOrg/RoboVerse?color=yellow)](https://github.com/RoboVerseOrg/RoboVerse/issues)
 [![](https://img.shields.io/github/discussions/RoboVerseOrg/RoboVerse?color=blueviolet)](https://github.com/RoboVerseOrg/RoboVerse/discussions)
-[![](https://img.shields.io/discord/1356345436927168552?logo=discord&color=blue)](https://discord.gg/dk8sxFGz)
+[![](https://img.shields.io/discord/1356345436927168552?logo=discord&color=blue)](https://discord.gg/6e2CPVnAD3)
 [![](https://img.shields.io/badge/wechat-QR_code-green)](docs/source/_static/wechat.jpg)
 
 ## 💡 News
