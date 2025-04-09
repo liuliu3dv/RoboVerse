@@ -77,10 +77,8 @@ def main():
     from metasim.cfg.sensors import PinholeCameraCfg
     from metasim.constants import SimType
     from metasim.utils.demo_util import get_traj
-    from metasim.utils.setup_util import get_robot, get_sim_env_class, get_task
+    from metasim.utils.setup_util import get_sim_env_class
 
-    task = get_task(args.task)
-    robot = get_robot(args.robot)
     camera = PinholeCameraCfg(
         name="camera",
         data_types=["rgb", "depth"],
@@ -90,11 +88,20 @@ def main():
         look_at=(0.0, 0.0, 0.0),
     )
     randomization = RandomizationCfg(camera=False, light=False, ground=False, reflection=False)
-    scenario = ScenarioCfg(task=task, robot=robot, cameras=[camera], randomization=randomization, try_add_table=True)
+    scenario = ScenarioCfg(
+        task=args.task,
+        robot=args.robot,
+        cameras=[camera],
+        random=randomization,
+        sim=args.sim,
+        num_envs=args.num_envs,
+        try_add_table=True,
+        headless=args.headless,
+    )
 
     tic = time.time()
     env_class = get_sim_env_class(SimType(args.sim))
-    env = env_class(scenario, num_envs)
+    env = env_class(scenario)
     toc = time.time()
     log.trace(f"Time to launch: {toc - tic:.2f}s")
 
@@ -129,8 +136,10 @@ def main():
 
     ## Data
     tic = time.time()
-    assert os.path.exists(task.traj_filepath), f"Trajectory file: {task.traj_filepath} does not exist."
-    init_states, all_actions, all_states = get_traj(task, robot, env.handler)
+    assert os.path.exists(scenario.task.traj_filepath), (
+        f"Trajectory file: {scenario.task.traj_filepath} does not exist."
+    )
+    init_states, all_actions, all_states = get_traj(scenario.task, scenario.robot, env.handler)
     toc = time.time()
     log.trace(f"Time to load data: {toc - tic:.2f}s")
 
@@ -143,9 +152,9 @@ def main():
 
     ## cuRobo controller
 
-    *_, robot_ik = get_curobo_models(robot)
+    *_, robot_ik = get_curobo_models(scenario.robot)
     curobo_n_dof = len(robot_ik.robot_config.cspace.joint_names)
-    ee_n_dof = len(robot.gripper_release_q)
+    ee_n_dof = len(scenario.robot.gripper_release_q)
 
     step = 0
     MaxStep = 800
@@ -163,7 +172,7 @@ def main():
 
     while step < MaxStep:
         log.debug(f"Step {step}")
-        robot_joint_limits = robot.joint_limits
+        robot_joint_limits = scenario.robot.joint_limits
 
         import imageio
 
@@ -201,10 +210,11 @@ def main():
 
             q = None  # XXX: What is q???
             actions = [
-                {"dof_pos_target": dict(zip(robot.joint_limits.keys(), q[i_env].tolist()))} for i_env in range(num_envs)
+                {"dof_pos_target": dict(zip(scenario.robot.joint_limits.keys(), q[i_env].tolist()))}
+                for i_env in range(num_envs)
             ]
             obs, reward, success, time_out, extras = env.step(actions)
-            env.handler.render()
+            env.handler.refresh_render()
             print(reward, success, time_out)
 
             # queue operation

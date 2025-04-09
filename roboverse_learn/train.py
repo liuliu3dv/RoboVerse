@@ -54,11 +54,19 @@ def main():
         pos=(1.5, 0.0, 1.5),
         look_at=(0.0, 0.0, 0.0),
     )
-    scenario = ScenarioCfg(task=task, robot=robot, cameras=[camera])
+    scenario = ScenarioCfg(
+        task=args.task,
+        robot=args.robot,
+        cameras=[camera],
+        sim=args.sim,
+        renderer=args.render,
+        num_envs=args.num_envs,
+        try_add_table=True,
+    )
 
     tic = time.time()
     env_class = get_sim_env_class(SimType(args.sim))
-    env = env_class(scenario, num_envs)
+    env = env_class(scenario)
     toc = time.time()
     log.trace(f"Time to launch: {toc - tic:.2f}s")
 
@@ -93,7 +101,7 @@ def main():
             for _ in range(num_envs)
         ]
         env.step(actions)
-        env.handler.render()
+        env.handler.refresh_render()
         step += 1
 
     env.close()
