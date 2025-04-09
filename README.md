@@ -67,3 +67,7 @@ RoboVerse also integrates data from the following projects:
 - [HumanoidBench](https://github.com/carlosferrazza/humanoid-bench)
 
 The licenses for the assets used in RoboVerse will be added soon. Please contact us if you have any issues.
+
+## 🌟 Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=RoboVerseOrg/RoboVerse&type=Timeline)](https://www.star-history.com/#RoboVerseOrg/RoboVerse&Timeline)
