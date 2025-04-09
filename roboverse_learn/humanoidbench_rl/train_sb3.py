@@ -95,8 +95,6 @@ def main():
     elif args.sim == "isaacgym":
         env = Sb3EnvWrapper(scenario=scenario)
     elif args.sim == "isaaclab":
-        log.error("IsaacLab is not supported currently")
-        exit()
         env = Sb3EnvWrapper(scenario=scenario)
     else:
         raise ValueError(f"Invalid sim type: {args.sim}")
