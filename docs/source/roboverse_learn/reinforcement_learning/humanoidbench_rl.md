@@ -40,9 +40,6 @@ wandb login
 
 - IsaacLab:
 
-    > IsaacLab is not supported currently due to incompatibilities between its infrastructure and the MuJoCo and IsaacGym frameworks.
-    > We are continuing to work on this issue and will update the documentation when it is resolved.
-
     ```bash
     python roboverse_learn/humanoidbench_rl/train_sb3.py --sim isaaclab --num_envs 2 --robot=h1 --task humanoidbench:Stand
     ```
