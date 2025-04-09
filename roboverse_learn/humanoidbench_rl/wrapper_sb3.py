@@ -144,26 +144,17 @@ class Sb3EnvWrapper(VecEnv):
         ]
 
         # Call the step method of the underlying MetaSim environment
-        # metasim_observation: Observation from the underlying MetaSim environment. Type depends on the environment.
-        # metasim_reward (torch.Tensor, shape=(num_envs,)): Rewards from the MetaSim environment.
-        # terminated_tensor (torch.Tensor, shape=(num_envs,)): Termination flags from the MetaSim environment.
-        # truncated_tensor (torch.Tensor, shape=(num_envs,)): Truncation flags from the MetaSim environment.
-        # info (dict): Additional info from the MetaSim environment (currently unused).
         _, _, terminated_tensor, truncated_tensor, _ = self.env.step(action_dict)
 
         # Get formatted observations
-        # observations (np.ndarray, shape=(num_envs, obs_dim)): Formatted observations suitable for the RL agent.
         states = self.env.handler.get_states()
         humanoid_observation = self.get_humanoid_observation(states)
         humanoid_reward = self.get_humanoid_reward(states)
 
         # Convert tensors to NumPy arrays
         observations = humanoid_observation.cpu().numpy()
-        # rewards (np.ndarray, shape=(num_envs,)): Rewards for each environment.
         rewards = humanoid_reward.cpu().numpy()
-        # terminateds (np.ndarray, shape=(num_envs,)): Termination flags for each environment.
         terminateds = terminated_tensor.cpu().numpy()
-        # truncateds (np.ndarray, shape=(num_envs,)): Truncation flags for each environment.
         truncateds = truncated_tensor.cpu().numpy()
 
         # Calculate dones flags (episode end)
@@ -179,21 +170,13 @@ class Sb3EnvWrapper(VecEnv):
         self.episode_success = success_mask
 
         # Construct infos list containing "TimeLimit.truncated" required by SB3
-        # infos (list[dict]): List of info dictionaries for each environment.
         infos = []
         for i in range(self.num_envs):
             env_info = {}
-            # SB3 uses "TimeLimit.truncated" to determine if the episode ended due to timeout, used for bootstrapping
-            # "TimeLimit.truncated" is True if the episode was truncated (timeout) but not terminated normally.
+            env_info["TimeLimit.truncated"] = truncateds[i] and not terminateds[i]
+            env_info["success"] = int(self.episode_success[i])
             if dones[i]:
                 env_info["terminal_observation"] = observations[i]
-            env_info["TimeLimit.truncated"] = truncateds[i] and not terminateds[i]
-
-            # Add success information, and it is considered successful when the cumulative reward exceeds success_bar.
-            env_info["success"] = int(self.episode_success[i])
-
-            # Add episode info when done
-            if dones[i]:
                 env_info["episode"] = {
                     "r": self.episode_rewards[i],
                     "l": self.episode_lengths[i],
@@ -204,8 +187,20 @@ class Sb3EnvWrapper(VecEnv):
 
             infos.append(env_info)
 
+        # Auto-reset for done environments
+        done_indices = np.where(dones)[0]
+        if len(done_indices) > 0:
+            _, _ = self.env.reset(
+                self.init_states,  # Input all initial states
+                done_indices,  # Reset only the done environments
+            )
+
+            reset_observations = self.get_humanoid_observation(self.env.handler.get_states())
+            reset_observations_np = reset_observations.cpu().numpy()
+
+            observations[done_indices] = reset_observations_np[done_indices]
+
         # Return in the format required by SB3 VecEnv API
-        # log.info(f"done: {dones}")
         return observations, rewards, dones, infos
 
     def get_humanoid_observation(self, states) -> torch.Tensor:
