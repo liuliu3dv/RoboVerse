@@ -101,7 +101,7 @@ def main():
             for _ in range(num_envs)
         ]
         env.step(actions)
-        env.handler.render()
+        env.handler.refresh_render()
         step += 1
 
     env.close()
