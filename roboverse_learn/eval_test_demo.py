@@ -87,10 +87,8 @@ def main():
     from metasim.cfg.sensors import PinholeCameraCfg
     from metasim.constants import SimType
     from metasim.utils.demo_util import get_traj
-    from metasim.utils.setup_util import get_robot, get_sim_env_class, get_task
+    from metasim.utils.setup_util import get_sim_env_class
 
-    task = get_task(args.task)
-    robot = get_robot(args.robot)
     camera = PinholeCameraCfg(
         name="camera",
         data_types=["rgb", "depth"],
@@ -99,11 +97,20 @@ def main():
         pos=(1.5, 0.0, 1.5),
         look_at=(0.0, 0.0, 0.0),
     )
-    scenario = ScenarioCfg(task=task, robot=robot, cameras=[camera])
+    scenario = ScenarioCfg(
+        task=args.task,
+        robot=args.robot,
+        cameras=[camera],
+        sim=args.sim,
+        renderer=args.render,
+        num_envs=args.num_envs,
+        try_add_table=True,
+        headless=args.headless,
+    )
 
     tic = time.time()
     env_class = get_sim_env_class(SimType(args.sim))
-    env = env_class(scenario, num_envs, args.headless)
+    env = env_class(scenario)
     toc = time.time()
     log.trace(f"Time to launch: {toc - tic:.2f}s")
 
@@ -120,8 +127,10 @@ def main():
 
     ## Data
     tic = time.time()
-    assert os.path.exists(task.traj_filepath), f"Trajectory file: {task.traj_filepath} does not exist."
-    init_states, all_actions, all_states = get_traj(task, robot, env.handler)
+    assert os.path.exists(scenario.task.traj_filepath), (
+        f"Trajectory file: {scenario.task.traj_filepath} does not exist."
+    )
+    init_states, all_actions, all_states = get_traj(scenario.task, scenario.robot, env.handler)
     toc = time.time()
     log.trace(f"Time to load data: {toc - tic:.2f}s")
 
@@ -153,7 +162,7 @@ def main():
 
     while step < MaxStep:
         log.debug(f"Step {step}")
-        robot_joint_limits = robot.joint_limits
+        robot_joint_limits = scenario.robot.joint_limits
         # process obs input
         obs_np_dict = dict()
 
@@ -185,7 +194,7 @@ def main():
         # actions = [all_actions[0][step]]
         # log.info(actions)
         obs, reward, success, time_out, extras = env.step(actions)
-        env.handler.render()
+        env.handler.refresh_render()
         log.info(reward, success, time_out)
 
         # eval
