@@ -18,6 +18,9 @@ The main script for training is `train.sh`, which automates both data preparatio
 ### Option1: 2 Step, Pre-processing and Training
 
 #### Step1: Data Preparation
+**Data Preparation**: _data2zarr_dp.py_ Converts the metadata into Zarr format for efficient dataloading. Automatically parses arguments and points to the correct `metadata_dir` (the location of data collected by the `collect_demo` script) to convert demonstration data into Zarr format.
+
+Command:
 ```shell
 python roboverse_learn/algorithms/data2zarr_dp.py \
 --task_name <task_name> \
@@ -48,6 +51,9 @@ python roboverse_learn/algorithms/data2zarr_dp.py \
 ```
 
 #### Step2: Training
+**Training**: _diffusion_policy/train.py_ Uses the generated Zarr data, which gets stored in the `data_policy/` directory, to train the diffusion policy model.
+
+Command:
 ```shell
 python roboverse_learn/algorithms/diffusion_policy/train.py \
 --config-name=robot_dp.yaml \
@@ -110,8 +116,10 @@ training.device="cuda:7"
 
 ### Option2: Run with Single Command: train.sh
 
+We further wrap the data preparation and training into a single command: `train.sh`.
+
 ```shell
-bash roboverse_learn/algorithms/diffusion_policy/train.sh <metadata_dir><task_name> <robot> <expert_data_num> <level> <seed> <gpu_id> <DEBUG> <num_epochs> <obs_space> <act_space> [<delta_ee>]
+bash roboverse_learn/algorithms/diffusion_policy/train.sh <metadata_dir> <task_name> <robot> <expert_data_num> <level> <seed> <gpu_id> <DEBUG> <num_epochs> <obs_space> <act_space> [<delta_ee>]
 ```
 
 | Argument          | Description                                                 |
