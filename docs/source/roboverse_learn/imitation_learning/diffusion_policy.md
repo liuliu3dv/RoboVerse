@@ -14,14 +14,109 @@ pip install pandas wandb
 
 The main script for training is `train.sh`, which automates both data preparation and training.
 
-### Usage of `train.sh`
+
+### Option1: 2 Step, Pre-processing and Training
+
+#### Step1: Data Preparation
+```shell
+python roboverse_learn/algorithms/data2zarr_dp.py \
+--task_name <task_name> \
+--expert_data_num <expert_data_num> \
+--metadata_dir <metadata_dir> \
+--custom_name <custom_name> \
+--action_space <action_space> \
+--observation_space <observation_space>
+```
+| Argument | Description |
+|----------|-------------|
+| `task_name` | Name of the task (e.g., CloseBox_Franka_Level0_16) |
+| `expert_data_num` | Number of expert demonstrations to process |
+| `metadata_dir` | Path to the directory containing demonstration metadata |
+| `custom_name` | Custom string to append to the output filename |
+| `action_space` | Type of action space to use (options: 'joint_pos' or 'ee') |
+| `observation_space` | Type of observation space to use (options: 'joint_pos' or 'ee') |
+
+**Example:**
+```shell
+python roboverse_learn/algorithms/data2zarr_dp.py \
+--task_name CloseBox_Franka_Level0_16 \
+--expert_data_num 100 \
+--metadata_dir roboverse_demo/demo_isaaclab/CloseBox-Level0/robot-franka \
+--custom_name customized_additional_string \
+--action_space joint_pos \
+--observation_space joint_pos
+```
+
+#### Step2: Training
+```shell
+python roboverse_learn/algorithms/diffusion_policy/train.py \
+--config-name=robot_dp.yaml \
+task.name=<task_name>_<robot>_level<level>_<expert_data_num>_<name> \
+task.dataset.zarr_path=<zarr_path> \
+training.debug=<debug_mode> \
+training.seed=<seed> \
+exp_name=<experiment_name> \
+logging.mode=<wandb_mode> \
+horizon=<horizon> \
+n_obs_steps=<n_obs_steps> \
+n_action_steps=<n_action_steps> \
+training.num_epochs=<num_epochs> \
+policy_runner.obs.obs_type=<obs_type> \
+policy_runner.action.action_type=<action_type> \
+policy_runner.action.delta=<delta> \
+training.device=<device>
+```
+| Argument | Description |
+|----------|-------------|
+| `task_name` | Name of the task |
+| `robot` | Type of robot being used |
+| `level` | Difficulty level of the task |
+| `expert_data_num` | Number of expert demonstrations |
+| `name` | Custom name for the experiment |
+| `zarr_path` | Path to the zarr dataset created in Step 1 |
+| `debug_mode` | Enable/disable debug mode (True/False) |
+| `seed` | Random seed for reproducibility |
+| `experiment_name` | Name for the experiment run |
+| `wandb_mode` | Weights & Biases logging mode |
+| `horizon` | Time horizon for the policy |
+| `n_obs_steps` | Number of observation steps |
+| `n_action_steps` | Number of action steps |
+| `num_epochs` | Number of training epochs |
+| `obs_type` | Observation type (joint_pos or ee) |
+| `action_type` | Action type (joint_pos or ee) |
+| `delta` | Delta control mode (0 for absolute, 1 for delta) |
+| `device` | GPU device to use (e.g., "cuda:0") |
+
+**Example:**
+```shell
+python roboverse_learn/algorithms/diffusion_policy/train.py \
+--config-name=robot_dp.yaml \
+task.name=${task_name}_${robot}_level${level}_${expert_data_num}_${name} \        task.dataset.zarr_path="data_policy/CloseBox_Franka_Level0_16_100_test.zarr" \
+training.debug=False \
+training.seed=0 \
+exp_name=CloseBox_Franka_Level0_16_100_test \
+logging.mode=${wandb_mode} \
+horizon=16 \
+n_obs_steps=8 \
+n_action_steps=8 \
+training.num_epochs=1000 \
+policy_runner.obs.obs_type=joint_pos \
+policy_runner.action.action_type=joint_pos \
+policy_runner.action.delta=0 \
+training.device="cuda:7"
+```
+
+
+
+### Option2: Run with Single Command: train.sh
 
 ```shell
-bash roboverse_learn/algorithms/diffusion_policy/train.sh <task_name> <robot> <expert_data_num> <level> <seed> <gpu_id> <DEBUG> <num_epochs> <obs_space> <act_space> [<delta_ee>]
+bash roboverse_learn/algorithms/diffusion_policy/train.sh <metadata_dir><task_name> <robot> <expert_data_num> <level> <seed> <gpu_id> <DEBUG> <num_epochs> <obs_space> <act_space> [<delta_ee>]
 ```
 
 | Argument          | Description                                                 |
 |-------------------|-------------------------------------------------------------|
+| `metadata_dir`    | Path to the directory containing the demonstration metadata |
 | `task_name`       | Name of the task                                            |
 | `robot`           | Robot type used for training                                |
 | `expert_data_num` | Number of expert demonstrations that were collected         |
@@ -36,7 +131,7 @@ bash roboverse_learn/algorithms/diffusion_policy/train.sh <task_name> <robot> <e
 
 **Example:**
 ```shell
-bash roboverse_learn/algorithms/diffusion_policy/train.sh CloseBox franka 100 0 42 0 False 200 ee ee 0
+bash roboverse_learn/algorithms/diffusion_policy/train.sh roboverse_demo/demo_isaaclab/CloseBox-Level0/robot-franka CloseBox franka 100 0 42 0 False 500 ee ee 0
 ```
 
 This script runs in two parts:
@@ -46,7 +141,7 @@ This script runs in two parts:
 
 We chose to combine these two parts for consistency of action-space and observation-space data processing, but these two parts can be ran independently if desired.
 
-### Understanding data2zarr_dp.py
+#### Understanding data2zarr_dp.py
 
 The `data2zarr_dp.py` script converts demonstration data into Zarr format for efficient data loading. While `train.sh` handles this automatically, you may want to run this step separately for custom data preprocessing.
 
@@ -74,13 +169,14 @@ The processed data is saved to `data_policy/[task_name]_[expert_data_num]_[custo
 - All other parameters (e.g., batch size, number of epochs) can be manually adjusted in the YAML file: `roboverse_learn/algorithms/diffusion_policy/diffusion_policy/config/robot_dp.yaml`
 - If you alter observation and action spaces, verify the corresponding shapes in: `roboverse_learn/algorithms/diffusion_policy/diffusion_policy/config/task/default_task.yaml`
 
-### Switching between Joint Position and End Effector Control
+#### Switching between Joint Position and End Effector Control
 
 - **Joint Position Control**: Set both `obs_space` and `act_space` to `joint_pos`.
 - **End Effector Control**: Set both `obs_space` and `act_space` to `ee`. You may use `delta_ee=1` for delta mode or `delta_ee=0` for absolute positioning.
 
 Adjust relevant configuration parameters in:
 - `roboverse_learn/algorithms/diffusion_policy/diffusion_policy/config/robot_dp.yaml`
+
 
 ## Evaluation
 
