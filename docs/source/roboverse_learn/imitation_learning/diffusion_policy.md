@@ -22,7 +22,6 @@ python roboverse_learn/algorithms/data2zarr_dp.py \
 --task_name <task_name> \
 --expert_data_num <expert_data_num> \
 --metadata_dir <metadata_dir> \
---custom_name <custom_name> \
 --action_space <action_space> \
 --observation_space <observation_space>
 ```
