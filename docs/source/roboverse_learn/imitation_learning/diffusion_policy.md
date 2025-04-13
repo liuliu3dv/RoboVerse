@@ -41,17 +41,17 @@ Command:
 ```shell
 python roboverse_learn/algorithms/diffusion_policy/train.py \
 --config-name=robot_dp.yaml \
---task.name=<task_name> \
---task.dataset.zarr_path=<zarr_path> \
---training.seed=<seed> \
---horizon=<horizon> \
---n_obs_steps=<n_obs_steps> \
---n_action_steps=<n_action_steps> \
---training.num_epochs=<num_epochs> \
---policy_runner.obs.obs_type=<obs_type> \
---policy_runner.action.action_type=<action_type> \
---policy_runner.action.delta=<delta> \
---training.device=<device>
+task.name=<task_name> \
+task.dataset.zarr_path=<zarr_path> \
+training.seed=<seed> \
+horizon=<horizon> \
+n_obs_steps=<n_obs_steps> \
+n_action_steps=<n_action_steps> \
+training.num_epochs=<num_epochs> \
+policy_runner.obs.obs_type=<obs_type> \
+policy_runner.action.action_type=<action_type> \
+policy_runner.action.delta=<delta> \
+training.device=<device>
 ```
 | Argument | Description | Example |
 |----------|-------------|---------|
