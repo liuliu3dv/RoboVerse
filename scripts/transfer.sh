@@ -8,5 +8,7 @@ for path in "$@"; do
         mkdir -p "$target_dir"
     fi
 
-    cp -r "$path" "$target_path"
+    command="cp -r \"$path\" \"$target_path\""
+    echo "Executing: $command"
+    eval "$command"
 done
