@@ -38,10 +38,10 @@ def parse_args():
     parser.add_argument("--train_or_eval", type=str, default="train", choices=["train", "eval", "test"])
     parser.add_argument("--model_path", type=str, default=None)
     # PPO specific arguments
-    parser.add_argument("--learning_rate", type=float, default=1e-5)
-    parser.add_argument("--n_steps", type=int, default=60)
-    parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument("--n_epochs", type=int, default=2)
+    parser.add_argument("--learning_rate", type=float, default=3e-5)
+    parser.add_argument("--n_steps", type=int, default=2048)
+    parser.add_argument("--batch_size", type=int, default=512)
+    parser.add_argument("--n_epochs", type=int, default=10)
     # Wandb arguments
     parser.add_argument("--use_wandb", action="store_true")
     parser.add_argument("--wandb_project", type=str, default="metasim_rl_training")
@@ -153,8 +153,8 @@ def main():
                     self.returns_info["results/episode_length"].append(curr_info["episode"]["l"])
                     cur_info_success = curr_info.get("success", 0)
                     self.returns_info["results/success"].append(cur_info_success)
-                    cur_info_success_subtasks = curr_info.get("success_subtasks", 0)
-                    self.returns_info["results/success_subtasks"].append(cur_info_success_subtasks)
+                    # cur_info_success_subtasks = curr_info.get("success_subtasks", 0)
+                    # self.returns_info["results/success_subtasks"].append(cur_info_success_subtasks)
             return True
 
         def _on_rollout_end(self) -> None:
