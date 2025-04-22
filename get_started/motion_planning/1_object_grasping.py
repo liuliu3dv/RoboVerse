@@ -107,7 +107,7 @@ init_states = [
     {
         "objects": {
             "bbq_sauce": {
-                "pos": torch.tensor([0.7, -0.2, 0.07]),
+                "pos": torch.tensor([0.7, -0.2, 0.0]),
                 "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
             },
         },
