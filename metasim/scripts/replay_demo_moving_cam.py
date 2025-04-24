@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from typing import Literal
 
 try:
     import isaacgym  # noqa: F401
 except ImportError:
     pass
+
 
 import imageio as iio
 import numpy as np
@@ -159,7 +159,6 @@ def main():
 
     num_envs: int = scenario.num_envs
 
-    tic = time.time()
     if scenario.renderer is None:
         log.info(f"Using simulator: {scenario.sim}")
         env_class = get_sim_env_class(SimType(scenario.sim))
@@ -171,17 +170,12 @@ def main():
         env_class_physics = get_sim_env_class(SimType(scenario.sim))
         env_physics = env_class_physics(scenario)  # Isaaclab must launch right after import
         env = HybridSimEnv(env_physics, env_render)
-    toc = time.time()
-    log.trace(f"Time to launch: {toc - tic:.2f}s")
 
     ## Data
-    tic = time.time()
     assert os.path.exists(scenario.task.traj_filepath), (
         f"Trajectory file: {scenario.task.traj_filepath} does not exist."
     )
     init_states, all_actions, all_states = get_traj(scenario.task, scenario.robot, env.handler)
-    toc = time.time()
-    log.trace(f"Time to load data: {toc - tic:.2f}s")
 
     ########################################################
     ## Main
@@ -190,17 +184,27 @@ def main():
     obs_saver = ObsSaver(image_dir=args.save_image_dir, video_path=args.save_video_path)
 
     ## Reset before first step
-    tic = time.time()
     obs, extras = env.reset(states=init_states[:num_envs])
-    toc = time.time()
-    log.trace(f"Time to reset: {toc - tic:.2f}s")
     obs_saver.add(obs)
 
     ## Main loop
+
+    T = 100
+    radius = 1.0
+    height = 1.0
+
     step = 0
     while True:
+        # pos = (math.sin(step / T * 2 * math.pi) * radius, math.cos(step / T * 2 * math.pi) * radius, height)
+        pos = (
+            1,
+            -0.5 + 0.01 * step,
+            1,
+        )
+        look_at = (0.0, 0.0, 0.0)
+        env.handler.set_camera_pose(pos, look_at)
+
         log.debug(f"Step {step}")
-        tic = time.time()
         if scenario.object_states:
             ## TODO: merge states replay into env.step function
             if all_states is None:
@@ -208,10 +212,7 @@ def main():
             states = get_states(all_states, step, num_envs)
             env.handler.set_states(states)
             env.handler.refresh_render()
-            obs = env.handler.get_states()
-            # if scenario.random.moving_camera:
-            scenario.cameras[0].pos[0] = obs.cameras[0].pos[0] + 0.01 * step
-            # scenario.cameras[0].look_at = obs.cameras[0].look_at
+            obs = env.handler.get_observation()
 
             ## XXX: hack
             success = env.handler.task.checker.check(env.handler)
@@ -223,11 +224,6 @@ def main():
         else:
             actions = get_actions(all_actions, step, num_envs)
             obs, reward, success, time_out, extras = env.step(actions)
-            scenario.cameras[0].pos = (
-                scenario.cameras[0].pos[0] + 0.01 * step,
-                scenario.cameras[0].pos[1],
-                scenario.cameras[0].pos[2],
-            )
 
             if success.any():
                 log.info(f"Env {success.nonzero().squeeze(-1).tolist()} succeeded!")
@@ -238,13 +234,7 @@ def main():
             if success.all() or time_out.all():
                 break
 
-        toc = time.time()
-        log.trace(f"Time to step: {toc - tic:.2f}s")
-
-        tic = time.time()
         obs_saver.add(obs)
-        toc = time.time()
-        log.trace(f"Time to save obs: {toc - tic:.2f}s")
         step += 1
 
         if args.stop_on_runout and get_runout(all_actions, step):
