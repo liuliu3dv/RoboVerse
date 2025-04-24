@@ -51,7 +51,11 @@ class ObsSaver:
         if self.video_path is not None and self.images:
             log.info(f"Saving video of {len(self.images)} frames to {self.video_path}")
             os.makedirs(os.path.dirname(self.video_path), exist_ok=True)
-            iio.mimsave(self.video_path, self.images, fps=30)
+            iio.mimsave(
+                self.video_path,
+                self.images,
+                fps=30,
+            )
 
 
 import open3d as o3d

@@ -114,8 +114,10 @@ class MetaSimVecEnv(VectorEnv):
         joint_pos = states.robots["franka"].joint_pos
         panda_hand_index = states.robots["franka"].body_names.index("panda_hand")
         ee_pos = states.robots["franka"].body_state[:, panda_hand_index, :3]
-
-        return torch.cat([joint_pos, ee_pos], dim=1)
+        obj_pos_rot = states.objects["cube"].root_state[:, :7]
+        obj_pos = obj_pos_rot[:, :3]
+        obj_rot = obj_pos_rot[:, 3:]
+        return torch.cat([joint_pos, ee_pos, obj_pos, obj_rot], dim=1)
 
     def _calculate_rewards(self):
         """Calculate rewards based on distance to origin."""
@@ -150,7 +152,7 @@ class StableBaseline3VecEnv(VecEnv):
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(len(joint_limits) + 3,),  # joints + XYZ
+            shape=(len(joint_limits) + 3 + 7,),  # joints + XYZ
             dtype=np.float32,
         )
 
@@ -168,9 +170,15 @@ class StableBaseline3VecEnv(VecEnv):
 
     def step_async(self, actions: np.ndarray) -> None:
         """Asynchronously step the environment."""
-        self.action_dicts = [
-            {"dof_pos_target": dict(zip(self.env.scenario.robot.joint_limits.keys(), action))} for action in actions
-        ]
+        self.action_dicts = []
+        for action in actions:
+            action_dict = {"dof_pos_target": {}}
+            joint_idx = 0
+            for joint_name, joint_limit in self.env.scenario.robot.joint_limits.items():
+                action_scaled = (action[joint_idx] + 1) * 0.5 * (joint_limit[1] - joint_limit[0]) + joint_limit[0]
+                action_dict["dof_pos_target"][joint_name] = np.clip(action_scaled, joint_limit[0], joint_limit[1])
+                joint_idx += 1
+            self.action_dicts.append(action_dict)
 
     def step_wait(self):
         """Wait for the step to complete."""
@@ -226,38 +234,46 @@ class StableBaseline3VecEnv(VecEnv):
 
 def train_ppo():
     """Train PPO for reaching task."""
-    ## Choice 1: use scenario config to initialize the environment
-    scenario = ScenarioCfg(**vars(args))
-    scenario.cameras = []  # XXX: remove cameras to avoid rendering to speed up
-    metasim_env = MetaSimVecEnv(scenario, task_name=args.task, num_envs=args.num_envs, sim=args.sim)
+    eval_only = True
+    if not eval_only:
+        ## Choice 1: use scenario config to initialize the environment
+        scenario = ScenarioCfg(**vars(args))
+        scenario.cameras = []  # XXX: remove cameras to avoid rendering to speed up
+        metasim_env = MetaSimVecEnv(scenario, task_name=args.task, num_envs=args.num_envs, sim=args.sim)
 
-    ## Choice 2: use gym.make to initialize the environment
-    # metasim_env = gym.make("reach_origin", num_envs=args.num_envs)
-    env = StableBaseline3VecEnv(metasim_env)
+        ## Choice 2: use gym.make to initialize the environment
+        # metasim_env = gym.make("reach_origin", num_envs=args.num_envs)
+        env = StableBaseline3VecEnv(metasim_env)
 
-    # PPO configuration
-    model = PPO(
-        "MlpPolicy",
-        env,
-        verbose=1,
-        learning_rate=3e-4,
-        n_steps=128,
-        batch_size=64,
-        n_epochs=10,
-        gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        device="cuda" if torch.cuda.is_available() else "cpu",
-    )
+        # PPO configuration
 
-    # Start training
-    model.learn(total_timesteps=1_000_000)
+        model = PPO(
+            "MlpPolicy",
+            env,
+            verbose=1,
+            learning_rate=3e-4,
+            n_steps=128,
+            batch_size=64,
+            n_epochs=10,
+            gamma=0.99,
+            gae_lambda=0.95,
+            clip_range=0.2,
+            device="cuda" if torch.cuda.is_available() else "cpu",
+            tensorboard_log="get_started/output/rl/0_ppo_reaching/tensorboard",
+        )
 
-    # Save the model
-    task_name = scenario.task.__class__.__name__[:-3]
-    model.save(f"get_started/output/rl/0_ppo_reaching_{task_name}_{args.sim}")
+        # Start training
+        model.learn(
+            total_timesteps=5_000_000,
+            tb_log_name="first_run",
+            progress_bar=True,
+        )
 
-    env.close()
+        # Save the model
+        task_name = scenario.task.__class__.__name__[:-3]
+        model.save(f"get_started/output/rl/0_ppo_reaching_{task_name}_{args.sim}")
+
+        env.close()
 
     # Inference and Save Video
     # add cameras to the scenario
@@ -274,11 +290,20 @@ def train_ppo():
     obs, _ = metasim_env.reset()
     obs_orin = metasim_env.env.handler.get_states()
     obs_saver.add(obs_orin)
-    for _ in range(100):
+    for _ in range(300):
         actions, _ = model.predict(obs.cpu().numpy(), deterministic=True)
-        action_dicts = [
-            {"dof_pos_target": dict(zip(metasim_env.scenario.robot.joint_limits.keys(), action))} for action in actions
-        ]
+        action_dicts = []
+        for action in actions:
+            action_dict = {"dof_pos_target": {}}
+            joint_idx = 0
+            for joint_name, joint_limit in metasim_env.scenario.robot.joint_limits.items():
+                action_scaled = (action[joint_idx] + 1) * 0.5 * (joint_limit[1] - joint_limit[0]) + joint_limit[0]
+                action_dict["dof_pos_target"][joint_name] = torch.tensor(
+                    np.clip(action_scaled, joint_limit[0], joint_limit[1])
+                )
+                joint_idx += 1
+
+            action_dicts.append(action_dict)
         obs, _, _, _, _ = metasim_env.step(action_dicts)
 
         obs_orin = metasim_env.env.handler.get_states()
