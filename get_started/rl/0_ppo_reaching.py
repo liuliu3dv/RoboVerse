@@ -234,7 +234,7 @@ class StableBaseline3VecEnv(VecEnv):
 
 def train_ppo():
     """Train PPO for reaching task."""
-    eval_only = True
+    eval_only = False
     if not eval_only:
         ## Choice 1: use scenario config to initialize the environment
         scenario = ScenarioCfg(**vars(args))
@@ -246,7 +246,6 @@ def train_ppo():
         env = StableBaseline3VecEnv(metasim_env)
 
         # PPO configuration
-
         model = PPO(
             "MlpPolicy",
             env,
