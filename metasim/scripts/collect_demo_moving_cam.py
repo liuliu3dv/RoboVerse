@@ -373,6 +373,7 @@ def main():
 
     ## Reset before first step
     obs, extras = env.reset(states=[init_states[demo_idx] for demo_idx in demo_idxs])
+    log.info(obs[0].cameras["camera0"])
     obs = state_tensor_to_nested(env.handler, obs)
 
     ## Initialize
@@ -394,6 +395,7 @@ def main():
         actions = get_actions(all_actions, env, demo_idxs)
         step += 1
         obs, reward, success, time_out, extras = env.step(actions)
+        log.info(obs[0].cameras["camera0"])
         obs = state_tensor_to_nested(env.handler, obs)
         run_out = get_run_out(all_actions, env, demo_idxs)
 
