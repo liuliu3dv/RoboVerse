@@ -90,13 +90,13 @@ scenario.objects = [
         name="cup1",
         scale=(0.005, 0.005, 0.008),
         physics=PhysicStateType.RIGIDBODY,
-        usd_path="get_started/motion_planning/Cup/1/Collected_cup_z/cup.usd",
+        usd_path="get_started/motion_planning/Cup/1/cup_diff_z.usd",
     ),
     RigidObjCfg(
         name="cup2",
         scale=(0.01, 0.01, 0.01),
         physics=PhysicStateType.RIGIDBODY,
-        usd_path="get_started/motion_planning/Cup/1/Collected_cup_z/cup.usd",
+        usd_path="get_started/motion_planning/Cup/1/cup_diff_z.usd",
     ),
 ]
 
@@ -109,11 +109,11 @@ init_states = [
     {
         "objects": {
             "cup1": {
-                "pos": torch.tensor([0.5, -0.2, 0.01]),
+                "pos": torch.tensor([0.5, -0.2, 0.0]),
                 "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
             },
             "cup2": {
-                "pos": torch.tensor([0.5, 0.1, 0.01]),
+                "pos": torch.tensor([0.5, 0.1, 0.0]),
                 "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
             },
         },
