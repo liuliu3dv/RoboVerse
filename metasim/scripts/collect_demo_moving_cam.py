@@ -284,7 +284,7 @@ def main():
     handler_class = get_sim_env_class(SimType(args.sim))
     task = get_task(args.task)
     robot = get_robot(args.robot)
-    camera = PinholeCameraCfg(data_types=["rgb", "depth"], pos=(1.5, 0.0, 1.5), look_at=(0.0, 0.0, 0.0))
+    camera = PinholeCameraCfg(data_types=["rgb", "depth"], pos=(1, -0.5, 1.0), look_at=(0.0, 0.0, 0.0))
     scenario = ScenarioCfg(
         task=task,
         robot=robot,
