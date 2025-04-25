@@ -7,11 +7,12 @@ import gymnasium as gym
 import torch
 from loguru import logger as log
 
-from metasim.cfg.objects import ArticulationObjCfg, BaseObjCfg, RigidObjCfg
+from metasim.cfg.objects import ArticulationObjCfg, BaseObjCfg, PrimitiveFrameCfg, RigidObjCfg
 from metasim.cfg.scenario import ScenarioCfg
+from metasim.cfg.sensors import ContactForceSensorCfg
 from metasim.sim import BaseSimHandler, EnvWrapper, IdentityEnvWrapper
 from metasim.types import Action, EnvState, Extra, Obs, Reward, Success, TimeOut
-from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState
+from metasim.utils.state import CameraState, ContactForceState, ObjectState, RobotState, TensorState
 
 from .env_overwriter import IsaaclabEnvOverwriter
 from .isaaclab_helper import get_pose
@@ -128,6 +129,23 @@ class IsaaclabHandler(BaseSimHandler):
         time_out = time_out.cpu()
         success = self.checker.check(self)
         states = self.get_states()
+
+        ## TODO: organize this
+        for obj in self.objects:
+            if isinstance(obj, PrimitiveFrameCfg):
+                if obj.base_link is None:
+                    pos = torch.zeros((self.num_envs, 3), device=self.device)
+                    rot = torch.zeros((self.num_envs, 4), device=self.device)
+                    rot[:, 0] = 1.0
+                elif isinstance(obj.base_link, str):
+                    pos, rot = (states.objects | states.robots)[obj.base_link].root_state[:, :7].split([3, 4], dim=-1)
+                else:
+                    base_obj_name = obj.base_link[0]
+                    base_body_name = obj.base_link[1]
+                    merged_states = states.objects | states.robots
+                    body_idx = merged_states[base_obj_name].body_names.index(base_body_name)
+                    pos, rot = merged_states[base_obj_name].body_state[:, body_idx, :7].split([3, 4], dim=-1)
+                self._set_object_pose(obj, pos, rot)
         return states, None, success, time_out, extras
 
     def reset(self, env_ids: list[int] | None = None) -> tuple[list[EnvState], Extra]:
@@ -340,7 +358,19 @@ class IsaaclabHandler(BaseSimHandler):
             depth_data = camera_inst.data.output.get("depth", None)
             camera_states[camera.name] = CameraState(rgb=rgb_data, depth=depth_data)
 
-        return TensorState(objects=object_states, robots=robot_states, cameras=camera_states)
+        sensor_states = {}
+        for sensor in self.sensors:
+            if isinstance(sensor, ContactForceSensorCfg):
+                sensor_inst = self.env.scene.sensors[sensor.name]
+                if sensor.source_link is None:
+                    force = sensor_inst.data.net_forces_w.squeeze(1)
+                else:
+                    force = sensor_inst.data.force_matrix_w.squeeze((1, 2))
+                sensor_states[sensor.name] = ContactForceState(force=force)
+            else:
+                raise ValueError(f"Unknown sensor type: {type(sensor)}")
+
+        return TensorState(objects=object_states, robots=robot_states, cameras=camera_states, sensors=sensor_states)
 
     def get_pos(self, obj_name: str, env_ids: list[int] | None = None) -> torch.FloatTensor:
         if env_ids is None:

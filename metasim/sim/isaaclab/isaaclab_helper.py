@@ -9,10 +9,12 @@ from metasim.cfg.objects import (
     BaseObjCfg,
     PrimitiveCubeCfg,
     PrimitiveCylinderCfg,
+    PrimitiveFrameCfg,
     PrimitiveSphereCfg,
     RigidObjCfg,
 )
 from metasim.cfg.robots import BaseRobotCfg
+from metasim.cfg.sensors import BaseCameraCfg, BaseSensorCfg, ContactForceSensorCfg, PinholeCameraCfg
 
 try:
     from .empty_env import EmptyEnv
@@ -20,7 +22,7 @@ except:
     pass
 
 
-def add_object(env: "EmptyEnv", obj: BaseObjCfg) -> None:
+def _add_object(env: "EmptyEnv", obj: BaseObjCfg) -> None:
     try:
         import omni.isaac.lab.sim as sim_utils
         from omni.isaac.lab.assets import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
@@ -91,6 +93,21 @@ def add_object(env: "EmptyEnv", obj: BaseObjCfg) -> None:
                 )
             )
             return
+        if isinstance(obj, PrimitiveFrameCfg):
+            env.scene.rigid_objects[obj.name] = RigidObject(
+                RigidObjectCfg(
+                    prim_path=prim_path,
+                    spawn=sim_utils.UsdFileCfg(
+                        usd_path="metasim/data/quick_start/assets/COMMON/frame/usd/frame.usd",
+                        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                            disable_gravity=True, kinematic_enabled=True
+                        ),  # fixed
+                        collision_props=None,  # no collision
+                        scale=obj.scale,
+                    ),
+                )
+            )
+            return
 
         ## File-based object
         usd_file_cfg = sim_utils.UsdFileCfg(
@@ -118,7 +135,7 @@ def add_object(env: "EmptyEnv", obj: BaseObjCfg) -> None:
 
 def add_objects(env: "EmptyEnv", objects: list[BaseObjCfg]) -> None:
     for obj in objects:
-        add_object(env, obj)
+        _add_object(env, obj)
 
 
 def add_robot(env: "EmptyEnv", robot: BaseRobotCfg) -> None:
@@ -134,6 +151,7 @@ def add_robot(env: "EmptyEnv", robot: BaseRobotCfg) -> None:
     cfg = ArticulationCfg(
         spawn=sim_utils.UsdFileCfg(
             usd_path=robot.usd_path,
+            activate_contact_sensors=True,  # TODO: only activate when contact sensor is added
             rigid_props=sim_utils.RigidBodyPropertiesCfg(),
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(),
         ),
@@ -190,6 +208,99 @@ def add_lights(env: "EmptyEnv", lights: list[BaseLightCfg]) -> None:
             _add_light(env, light, f"/World/lights/light_{i}")
         else:
             _add_light(env, light, f"/World/envs/env_0/lights/light_{i}")
+
+
+def _add_contact_force_sensor(env: "EmptyEnv", sensor: ContactForceSensorCfg) -> None:
+    try:
+        import omni.isaac.core.utils.prims as prim_utils
+        from omni.isaac.lab.sensors import ContactSensor, ContactSensorCfg
+    except ModuleNotFoundError:
+        import isaacsim.core.utils.prims as prim_utils
+        from isaaclab.sensors import ContactSensor, ContactSensorCfg
+
+    if isinstance(sensor, ContactForceSensorCfg):
+        _base_prim_regex_path = (
+            f"/World/envs/env_0/{sensor.base_link}"
+            if isinstance(sensor.base_link, str)
+            else f"/World/envs/env_0/{sensor.base_link[0]}/.*{sensor.base_link[1]}"  # TODO: improve the regex
+        )
+        _base_prim_paths = prim_utils.find_matching_prim_paths(_base_prim_regex_path)
+        if len(_base_prim_paths) == 0:
+            log.error(f"Base link {sensor.base_link} of cotact force sensor not found")
+            return
+        if len(_base_prim_paths) > 1:
+            log.warning(
+                f"Multiple base links found for contact force sensor {sensor.name}, using the first one: {_base_prim_paths[0]}"
+            )
+        base_prim_path = _base_prim_paths[0]
+        log.info(f"Base prim path: {base_prim_path}")
+        if sensor.source_link is not None:
+            _source_prim_regex_path = (
+                f"/World/envs/env_0/{sensor.source_link}"
+                if isinstance(sensor.source_link, str)
+                else f"/World/envs/env_0/{sensor.source_link[0]}/.*{sensor.source_link[1]}"  # TODO: improve the regex
+            )
+            _source_prim_paths = prim_utils.find_matching_prim_paths(_source_prim_regex_path)
+            if len(_source_prim_paths) == 0:
+                log.error(f"Source link {sensor.source_link} of cotact force sensor not found")
+                return
+            if len(_source_prim_paths) > 1:
+                log.warning(
+                    f"Multiple source links found for contact force sensor {sensor.name}, using the first one: {_source_prim_paths[0]}"
+                )
+            source_prim_path = _source_prim_paths[0]
+        else:
+            source_prim_path = None
+
+        env.scene.sensors[sensor.name] = ContactSensor(
+            ContactSensorCfg(
+                prim_path=base_prim_path.replace("env_0", "env_.*"),  # HACK: this is so hacky
+                filter_prim_paths_expr=[source_prim_path.replace("env_0", "env_.*")]  # HACK: this is so hacky
+                if source_prim_path is not None
+                else [],
+                history_length=6,  # XXX: hard-coded
+                update_period=0.0,  # XXX: hard-coded
+            )
+        )
+
+
+def add_sensors(env: "EmptyEnv", sensors: list[BaseSensorCfg]) -> None:
+    for sensor in sensors:
+        if isinstance(sensor, ContactForceSensorCfg):
+            _add_contact_force_sensor(env, sensor)
+
+
+def _add_pinhole_camera(env: "EmptyEnv", camera: PinholeCameraCfg) -> None:
+    try:
+        import omni.isaac.lab.sim as sim_utils
+        from omni.isaac.lab.sensors import TiledCamera, TiledCameraCfg
+    except ModuleNotFoundError:
+        import isaaclab.sim as sim_utils
+        from isaaclab.sensors import TiledCamera, TiledCameraCfg
+
+    env.scene.sensors[camera.name] = TiledCamera(
+        TiledCameraCfg(
+            prim_path=f"/World/envs/env_.*/{camera.name}",
+            offset=TiledCameraCfg.OffsetCfg(pos=(0.0, 0.0, 0.0), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
+            data_types=camera.data_types,
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=camera.focal_length,
+                focus_distance=camera.focus_distance,
+                horizontal_aperture=camera.horizontal_aperture,
+                clipping_range=camera.clipping_range,
+            ),
+            width=camera.width,
+            height=camera.height,
+        )
+    )
+
+
+def add_cameras(env: "EmptyEnv", cameras: list[BaseCameraCfg]) -> None:
+    for camera in cameras:
+        if isinstance(camera, PinholeCameraCfg):
+            _add_pinhole_camera(env, camera)
+        else:
+            raise ValueError(f"Unsupported camera type: {type(camera)}")
 
 
 def get_pose(
