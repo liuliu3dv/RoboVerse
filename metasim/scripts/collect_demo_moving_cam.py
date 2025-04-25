@@ -384,9 +384,6 @@ def main():
     previous_success = tot_success
     while not all(finished):
         pbar.set_description(f"Frame {global_step} Success {tot_success} Giveup {tot_give_up}")
-        if tot_success > previous_success:
-            previous_success = tot_success
-            step = 0
         pos = (
             1,
             -0.5 + 0.01 * step,
@@ -427,6 +424,7 @@ def main():
                 steps_after_success[env_id] = 0
                 collector.save(demo_idx)
                 collector.delete(demo_idx)
+                step = 0
 
                 if demo_indexer.next_idx < max_demo:
                     ## NextDemo --> CollectingDemo
@@ -450,6 +448,7 @@ def main():
             collector.mark_fail(demo_idx)
             collector.delete(demo_idx)
             failure_count[env_id] += 1
+            step = 0
 
             if failure_count[env_id] < try_num:
                 ## Timeout --> CollectingDemo
