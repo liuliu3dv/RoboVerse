@@ -3,6 +3,7 @@ from typing import Sequence
 import torch
 
 try:
+    import omni.isaac.lab.sim as sim_utils
     from omni.isaac.lab.envs import ViewerCfg
     from omni.isaac.lab.envs.direct_rl_env_cfg import DirectRLEnvCfg
     from omni.isaac.lab.scene import InteractiveSceneCfg
@@ -33,16 +34,27 @@ class EmptyEnvCfg(DirectRLEnvCfg):
         env_spacing=4.0,
     )
     sim: SimulationCfg = SimulationCfg(
-        device="cpu",  # same as IsaacLab default
+        device="cuda",  # same as IsaacLab default
         dt=1 / 60,  # same as IsaacLab default
         gravity=(0.0, 0.0, -9.81),  # same as IsaacLab default
         physx=PhysxCfg(),
         use_fabric=False,
+        physics_material=sim_utils.RigidBodyMaterialCfg(
+            friction_combine_mode="multiply",
+            restitution_combine_mode="multiply",
+            static_friction=10.0,
+            dynamic_friction=10.0,
+            restitution=0.0,
+        ),
     )
     viewer: ViewerCfg = ViewerCfg(
-        eye=(-3, 0, 2),
-        lookat=(0, 0, 1),
+        eye=(0, 0.2, 2),
+        lookat=(0.1, 0, 1),
     )
+    # viewer: ViewerCfg = ViewerCfg(
+    #     eye=(0, -1, 0.83),
+    #     lookat=(0, 0, 0.83),
+    # )
 
 
 class EmptyEnv(CustomDirectRLEnv):

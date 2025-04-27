@@ -13,21 +13,26 @@ from typing import Literal
 import rootutils
 import torch
 import tyro
+from curobo.geom.types import Cuboid, WorldConfig
+from curobo.types.base import TensorDeviceType
 from curobo.types.math import Pose
+from curobo.types.robot import RobotConfig
+from curobo.util_file import get_robot_path, join_path, load_yaml
+from curobo.wrap.reacher.ik_solver import IKSolverConfig
 from loguru import logger as log
 from rich.logging import RichHandler
 
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
-
 from metasim.cfg.objects import FluidObjCfg, PrimitiveCubeCfg, PrimitiveFrameCfg, RigidObjCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.constants import PhysicStateType, SimType
 from metasim.utils import configclass
 from metasim.utils.kinematics_utils import get_curobo_models
-from metasim.utils.math import quat_apply, quat_inv, quat_mul
+from metasim.utils.math import matrix_from_quat, quat_apply, quat_inv, quat_mul
 from metasim.utils.setup_util import get_sim_env_class
+from metasim.utils.state import state_tensor_to_nested
 
 
 @configclass
@@ -69,10 +74,10 @@ scenario.objects = [
     ),
     RigidObjCfg(
         name="cup1",
-        usd_path="/home/fs/cod/IsaacLabPouringExtension/Tall_Glass_5.usd",
+        usd_path="/home/fs/cod/IsaacLabPouringExtension/exts/pouring_ext/pouring_ext/tasks/pouring/usd_models/Tall_Glass_5.usd",
         physics=PhysicStateType.RIGIDBODY,
-        scale=0.01,
-        default_position=(0.3, 0.5, 0.6943 + 0.0127),
+        scale=0.008,
+        default_position=(0.4, 0.3, 0.6943 + 0.0127),
     ),
     FluidObjCfg(
         name="water",
@@ -81,16 +86,16 @@ scenario.objects = [
         numParticlesZ=15,
         density=0.0,
         particle_mass=0.0001,
-        particleSpacing=0.005,
+        particleSpacing=0.004,
         viscosity=0.1,
-        default_position=(0.3, 0.3, 0.6943 + 0.0127 + 0.03),
+        default_position=(0.4, 0.3, 0.6943 + 0.0127 + 0.03),
     ),
     RigidObjCfg(
         name="cup2",
-        usd_path="/home/fs/cod/IsaacLabPouringExtension/Tall_Glass_5.usd",
+        usd_path="/home/fs/cod/IsaacLabPouringExtension/exts/pouring_ext/pouring_ext/tasks/pouring/usd_models/Tall_Glass_5.usd",
         physics=PhysicStateType.RIGIDBODY,
-        scale=0.01,
-        default_position=(0.3, 0.3, 0.6943 + 0.0127),
+        scale=0.008,
+        default_position=(0.4, 0.17, 0.6943 + 0.0127),
     ),
     PrimitiveFrameCfg(name="frame", scale=0.1, base_link=("kinova_gen3_robotiq_2f85", "end_effector_link")),
 ]
@@ -117,12 +122,12 @@ init_states = [
                 "pos": torch.tensor([-0.05, 0.05, 1.6891]),
                 "rot": torch.tensor([0.2706, -0.65328, -0.65328, -0.2706]),
                 "dof_pos": {
-                    "joint_1": 0.0,
-                    "joint_2": math.pi / 6,
-                    "joint_3": 0.0,
-                    "joint_4": math.pi / 2,
-                    "joint_5": 0.0,
-                    "joint_6": 0.0,
+                    "joint_1": -26 / 180 * math.pi,
+                    "joint_2": -41 / 180 * math.pi,
+                    "joint_3": -77 / 180 * math.pi,
+                    "joint_4": 52 / 180 * math.pi,
+                    "joint_5": 9.3 / 180 * math.pi,
+                    "joint_6": 55 / 180 * math.pi,
                     "joint_7": 0.0,
                     "finger_joint": 0.0,
                 },
@@ -134,6 +139,31 @@ init_states = [
 
 
 robot = scenario.robot
+
+tensor_args = TensorDeviceType()
+config_file = load_yaml(join_path(get_robot_path(), robot.curobo_ref_cfg_name))["robot_cfg"]
+curobo_robot_cfg = RobotConfig.from_dict(config_file, tensor_args)
+world_cfg = WorldConfig(
+    cuboid=[
+        Cuboid(
+            name="ground",
+            pose=[0.0, 0.0, -0.4, 1, 0.0, 0.0, 0.0],
+            dims=[10.0, 10.0, 0.8],
+        )
+    ]
+)
+ik_config = IKSolverConfig.load_from_robot_config(
+    curobo_robot_cfg,
+    world_cfg,
+    rotation_threshold=0.05,
+    position_threshold=0.005,
+    num_seeds=20,
+    self_collision_check=True,
+    self_collision_opt=True,
+    tensor_args=tensor_args,
+    use_cuda_graph=True,
+)
+
 *_, robot_ik = get_curobo_models(robot)
 curobo_n_dof = len(robot_ik.robot_config.cspace.joint_names)
 ee_n_dof = len(robot.gripper_release_q)
@@ -141,11 +171,12 @@ ee_n_dof = len(robot.gripper_release_q)
 env.reset(states=init_states)
 
 
-def reach_target_try(ee_pos: torch.Tensor, ee_quat: torch.Tensor):
+def reach_target_try(ee_pos: torch.Tensor, ee_quat: torch.Tensor, decimation: int = 3):
     """Reach the target position and orientation."""
     states = env.handler.get_states()
+    ee_joint_idx = env.handler.get_joint_names(robot.name).index("finger_joint")
+    ee_q = states.robots[robot.name].joint_pos[:, ee_joint_idx]
     curr_robot_q = states.robots[robot.name].joint_pos.cuda()
-
     seed_config = curr_robot_q[:, :curobo_n_dof].unsqueeze(1).tile([1, robot_ik._num_seeds, 1])
     ee_pos_target_global = torch.tensor(ee_pos, device="cuda").repeat(args.num_envs, 1)
     ee_quat_target_global = torch.tensor(ee_quat, device="cuda").repeat(args.num_envs, 1)
@@ -161,28 +192,38 @@ def reach_target_try(ee_pos: torch.Tensor, ee_quat: torch.Tensor):
     q = torch.zeros((scenario.num_envs, robot.num_joints), device="cuda")
     ik_succ = result.success.squeeze(1)
     q[ik_succ, :curobo_n_dof] = result.solution[ik_succ, 0].clone()
-    q[:, -ee_n_dof:] = 0.04
     actions = [
         {"dof_pos_target": dict(zip(robot.actuators.keys(), q[i_env].tolist()))} for i_env in range(scenario.num_envs)
     ]
+    actions[0]["dof_pos_target"]["finger_joint"] = ee_q[0]
 
-    env.step(actions)
+    for i_step in range(decimation):
+        env.step(actions)
 
 
-def reach_target_dedicated(ee_pos: torch.Tensor, ee_quat: torch.Tensor, atol: float = 0.05):
+def reach_target_dedicated(
+    ee_pos: torch.Tensor,
+    ee_quat: torch.Tensor,
+    quat_atol: float = 0.03,
+    pos_atol: float = 0.008,
+):
     """Reach the target position and orientation."""
     states = env.handler.get_states()
     ee_idx = states.robots[robot.name].body_names.index(env.handler.robot.ee_body_name)
     cur_ee_pos = states.robots[robot.name].body_state[:, ee_idx, :3]
     cur_ee_quat = states.robots[robot.name].body_state[:, ee_idx, 3:7]
 
-    while not torch.allclose(cur_ee_pos, ee_pos, atol=atol) or not torch.allclose(cur_ee_quat, ee_quat, atol=atol):
+    while not torch.allclose(cur_ee_pos, ee_pos, atol=pos_atol) or not torch.allclose(
+        matrix_from_quat(cur_ee_quat), matrix_from_quat(ee_quat), atol=quat_atol
+    ):
         log.debug(f"Cur pos: {cur_ee_pos}")
         log.debug(f"Cur quat: {cur_ee_quat}")
         log.debug(f"Target pos: {ee_pos}")
         log.debug(f"Target quat: {ee_quat}")
-        log.debug(f"pos close: {torch.allclose(cur_ee_pos, ee_pos, atol=atol)}")
-        log.debug(f"quat close: {torch.allclose(cur_ee_quat, ee_quat, atol=atol)}")
+        log.debug(f"pos close: {torch.allclose(cur_ee_pos, ee_pos, atol=pos_atol)}")
+        log.debug(
+            f"quat close: {torch.allclose(matrix_from_quat(cur_ee_quat), matrix_from_quat(ee_quat), atol=quat_atol)}"
+        )
 
         reach_target_try(ee_pos, ee_quat)
 
@@ -192,5 +233,92 @@ def reach_target_dedicated(ee_pos: torch.Tensor, ee_quat: torch.Tensor, atol: fl
         cur_ee_quat = states.robots[robot.name].body_state[:, ee_idx, 3:7]
 
 
-reach_target_dedicated(torch.tensor([[0.0, 0.75, 1.9]]), torch.tensor([[0.0, 0.0, 0.0, 1.0]]))
-reach_target_dedicated(torch.tensor([[0.0, 0.75, 1.5]]), torch.tensor([[0.0, 0.0, 0.0, 1.0]]))
+def close_gripper():
+    """Close the gripper."""
+    states = env.handler.get_states()
+    state_nested = state_tensor_to_nested(env.handler, states)
+    cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
+    cur_robot_dof["finger_joint"] = 0.309
+    actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
+    for _ in range(20):
+        env.step(actions)
+
+
+def rotate_arm():
+    """Rotate the arm."""
+    states = env.handler.get_states()
+    state_nested = state_tensor_to_nested(env.handler, states)
+    cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
+    cur_robot_dof["joint_7"] = -math.pi / 2
+    actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
+    for _ in range(100):
+        env.step(actions)
+
+
+def rotate_joint46(deg4: float, deg6: float):
+    """Rotate the joint 4."""
+    states = env.handler.get_states()
+    state_nested = state_tensor_to_nested(env.handler, states)
+    cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
+    origin_joint_4 = cur_robot_dof["joint_4"]
+    target_joint_4 = deg4 / 180 * math.pi
+    origin_joint_6 = cur_robot_dof["joint_6"]
+    target_joint_6 = deg6 / 180 * math.pi
+    origin_finger_joint = cur_robot_dof["finger_joint"]
+    target_finger_joint = 0.31
+    for i in range(20):
+        cur_robot_dof["joint_4"] = origin_joint_4 + (target_joint_4 - origin_joint_4) * i / 20
+        cur_robot_dof["joint_6"] = origin_joint_6 + (target_joint_6 - origin_joint_6) * i / 20
+        cur_robot_dof["finger_joint"] = origin_finger_joint + (target_finger_joint - origin_finger_joint) * i / 20
+        actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
+        env.step(actions)
+
+
+def rotate_joint3(deg3: float):
+    """Rotate the joint 3."""
+    states = env.handler.get_states()
+    state_nested = state_tensor_to_nested(env.handler, states)
+    cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
+    cur_robot_dof["joint_3"] = deg3 / 180 * math.pi
+    cur_robot_dof["finger_joint"] = 0.31
+    actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
+    for _ in range(20):
+        env.step(actions)
+
+
+log.info("reaching")
+reach_target_dedicated(torch.tensor([[0.17, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.18, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.19, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.20, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.21, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.22, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.23, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.24, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.26, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.27, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+
+log.info("closing gripper")
+# breakpoint()
+close_gripper()
+# breakpoint()
+
+log.info("lifting")
+reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.81]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.82]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.83]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.84]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.85]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+rotate_joint46(70, 37)
+
+log.info("moving")
+rotate_joint3(-85)
+
+log.info("rotating")
+# breakpoint()
+rotate_arm()
+# breakpoint()
+
+for _ in range(50):
+    env.handler.env.sim.step()
