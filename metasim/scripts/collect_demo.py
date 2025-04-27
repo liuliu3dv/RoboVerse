@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 ## XXX:
 ## 1. Currently we use global variables to track the progress, which is not a good practice.
 ## TODO:
 ## 1. Check the missing demos first, then collect the missing part? In this way, there won't be any global variables
 ## 2. Or, combine tot_success, tot_give_up, global_step and pbar into a seperate class, maybe called ProgressManager. In this way, there won't be any global variables
-
-from __future__ import annotations
-
 #########################################
 ## Setup logging
 #########################################
