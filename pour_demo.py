@@ -29,7 +29,7 @@ from torchvision.utils import make_grid
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
-from metasim.cfg.objects import FluidObjCfg, PrimitiveCubeCfg, PrimitiveFrameCfg, RigidObjCfg
+from metasim.cfg.objects import FluidObjCfg, PrimitiveCubeCfg, RigidObjCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
 from metasim.constants import PhysicStateType, SimType
@@ -134,7 +134,7 @@ scenario.objects = [
         scale=0.008,
         default_position=(0.42, 0.15, 0.6943 + 0.0127),
     ),
-    PrimitiveFrameCfg(name="frame", scale=0.1, base_link=("kinova_gen3_robotiq_2f85", "end_effector_link")),
+    # PrimitiveFrameCfg(name="frame", scale=0.1, base_link=("kinova_gen3_robotiq_2f85", "end_effector_link")),
 ]
 scenario.cameras = [
     PinholeCameraCfg(
@@ -314,7 +314,7 @@ def rotate_joint46(deg4: float, deg6: float):
     origin_joint_6 = cur_robot_dof["joint_6"]
     target_joint_6 = deg6 / 180 * math.pi
     origin_finger_joint = cur_robot_dof["finger_joint"]
-    target_finger_joint = 0.31
+    target_finger_joint = 0.3095
     for i in range(20):
         cur_robot_dof["joint_4"] = origin_joint_4 + (target_joint_4 - origin_joint_4) * i / 20
         cur_robot_dof["joint_6"] = origin_joint_6 + (target_joint_6 - origin_joint_6) * i / 20
@@ -330,7 +330,7 @@ def rotate_joint3(deg3: float):
     state_nested = state_tensor_to_nested(env.handler, states)
     cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
     cur_robot_dof["joint_3"] = deg3 / 180 * math.pi
-    cur_robot_dof["finger_joint"] = 0.31
+    cur_robot_dof["finger_joint"] = 0.3095
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
     for _ in range(20):
         obs, _, _, _, _ = env.step(actions)
