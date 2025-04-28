@@ -8,8 +8,11 @@ except ImportError:
     pass
 
 import math
+import os
 from typing import Literal
 
+import imageio.v2 as iio
+import numpy as np
 import rootutils
 import torch
 import tyro
@@ -21,18 +24,20 @@ from curobo.util_file import get_robot_path, join_path, load_yaml
 from curobo.wrap.reacher.ik_solver import IKSolverConfig
 from loguru import logger as log
 from rich.logging import RichHandler
+from torchvision.utils import make_grid
 
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 from metasim.cfg.objects import FluidObjCfg, PrimitiveCubeCfg, PrimitiveFrameCfg, RigidObjCfg
 from metasim.cfg.scenario import ScenarioCfg
+from metasim.cfg.sensors import PinholeCameraCfg
 from metasim.constants import PhysicStateType, SimType
 from metasim.utils import configclass
 from metasim.utils.kinematics_utils import get_curobo_models
 from metasim.utils.math import matrix_from_quat, quat_apply, quat_inv, quat_mul
 from metasim.utils.setup_util import get_sim_env_class
-from metasim.utils.state import state_tensor_to_nested
+from metasim.utils.state import TensorState, state_tensor_to_nested
 
 
 @configclass
@@ -50,6 +55,38 @@ class Args:
         """Post-initialization configuration."""
         log.info(f"Args: {self}")
 
+
+class ObsSaver:
+    """Save the observations to a video."""
+
+    def __init__(self, video_path: str | None = None):
+        self.video_path = video_path
+        self.images: list[np.array] = []
+
+        self.image_idx = 0
+
+    def add(self, state: TensorState):
+        """Add the observation to the video."""
+        try:
+            rgb_data = next(iter(state.cameras.values())).rgb
+            image = make_grid(rgb_data.permute(0, 3, 1, 2) / 255, nrow=int(rgb_data.shape[0] ** 0.5))  # (C, H, W)
+        except Exception as e:
+            log.error(f"Error adding observation: {e}")
+            return
+
+        image = image.cpu().numpy().transpose(1, 2, 0)  # (H, W, C)
+        image = (image * 255).astype(np.uint8)
+        self.images.append(image)
+
+    def save(self):
+        """Save the video."""
+        if self.video_path is not None and self.images:
+            log.info(f"Saving video of {len(self.images)} frames to {self.video_path}")
+            os.makedirs(os.path.dirname(self.video_path), exist_ok=True)
+            iio.mimsave(self.video_path, self.images, fps=30)
+
+
+obs_saver = ObsSaver(video_path="./tmp.mp4")
 
 args = tyro.cli(Args)
 scenario = ScenarioCfg(
@@ -98,6 +135,15 @@ scenario.objects = [
         default_position=(0.42, 0.15, 0.6943 + 0.0127),
     ),
     PrimitiveFrameCfg(name="frame", scale=0.1, base_link=("kinova_gen3_robotiq_2f85", "end_effector_link")),
+]
+scenario.cameras = [
+    PinholeCameraCfg(
+        name="rgb",
+        width=1920,
+        height=1080,
+        pos=(0.0, 0.05, 1.69),
+        look_at=(0.35, 0.05, 0.707),
+    )
 ]
 
 env_class = get_sim_env_class(SimType(args.sim))
@@ -198,7 +244,8 @@ def reach_target_try(ee_pos: torch.Tensor, ee_quat: torch.Tensor, decimation: in
     actions[0]["dof_pos_target"]["finger_joint"] = ee_q[0]
 
     for i_step in range(decimation):
-        env.step(actions)
+        obs, _, _, _, _ = env.step(actions)
+        obs_saver.add(obs)
 
 
 def reach_target_dedicated(
@@ -241,7 +288,8 @@ def close_gripper():
     cur_robot_dof["finger_joint"] = 0.309
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
     for _ in range(20):
-        env.step(actions)
+        obs, _, _, _, _ = env.step(actions)
+        obs_saver.add(obs)
 
 
 def rotate_arm():
@@ -252,7 +300,8 @@ def rotate_arm():
     cur_robot_dof["joint_7"] = -math.pi / 2
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
     for _ in range(100):
-        env.step(actions)
+        obs, _, _, _, _ = env.step(actions)
+        obs_saver.add(obs)
 
 
 def rotate_joint46(deg4: float, deg6: float):
@@ -271,7 +320,8 @@ def rotate_joint46(deg4: float, deg6: float):
         cur_robot_dof["joint_6"] = origin_joint_6 + (target_joint_6 - origin_joint_6) * i / 20
         cur_robot_dof["finger_joint"] = origin_finger_joint + (target_finger_joint - origin_finger_joint) * i / 20
         actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
-        env.step(actions)
+        obs, _, _, _, _ = env.step(actions)
+        obs_saver.add(obs)
 
 
 def rotate_joint3(deg3: float):
@@ -283,7 +333,8 @@ def rotate_joint3(deg3: float):
     cur_robot_dof["finger_joint"] = 0.31
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
     for _ in range(20):
-        env.step(actions)
+        obs, _, _, _, _ = env.step(actions)
+        obs_saver.add(obs)
 
 
 log.info("reaching")
@@ -322,3 +373,8 @@ rotate_arm()
 
 for _ in range(50):
     env.handler.env.sim.step()
+    env.handler.refresh_render()
+    obs = env.handler.get_states()
+    obs_saver.add(obs)
+
+obs_saver.save()
