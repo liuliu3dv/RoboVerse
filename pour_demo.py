@@ -95,7 +95,7 @@ scenario.objects = [
         usd_path="metasim/data/pouring/Tall_Glass_5.usd",
         physics=PhysicStateType.RIGIDBODY,
         scale=0.008,
-        default_position=(0.4, 0.17, 0.6943 + 0.0127),
+        default_position=(0.42, 0.15, 0.6943 + 0.0127),
     ),
     PrimitiveFrameCfg(name="frame", scale=0.1, base_link=("kinova_gen3_robotiq_2f85", "end_effector_link")),
 ]
