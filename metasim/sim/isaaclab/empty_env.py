@@ -48,8 +48,8 @@ class EmptyEnvCfg(DirectRLEnvCfg):
         ),
     )
     viewer: ViewerCfg = ViewerCfg(
-        eye=(0, 0.2, 2),
-        lookat=(0.1, 0, 1),
+        eye=(0.0, 0.05, 1.69),
+        lookat=(0.25, 0.05, 0.707),
     )
     # viewer: ViewerCfg = ViewerCfg(
     #     eye=(0, -1, 0.83),
