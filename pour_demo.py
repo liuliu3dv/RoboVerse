@@ -74,7 +74,7 @@ scenario.objects = [
     ),
     RigidObjCfg(
         name="cup1",
-        usd_path="/home/fs/cod/IsaacLabPouringExtension/exts/pouring_ext/pouring_ext/tasks/pouring/usd_models/Tall_Glass_5.usd",
+        usd_path="metasim/data/pouring/Tall_Glass_5.usd",
         physics=PhysicStateType.RIGIDBODY,
         scale=0.008,
         default_position=(0.4, 0.3, 0.6943 + 0.0127),
@@ -92,7 +92,7 @@ scenario.objects = [
     ),
     RigidObjCfg(
         name="cup2",
-        usd_path="/home/fs/cod/IsaacLabPouringExtension/exts/pouring_ext/pouring_ext/tasks/pouring/usd_models/Tall_Glass_5.usd",
+        usd_path="metasim/data/pouring/Tall_Glass_5.usd",
         physics=PhysicStateType.RIGIDBODY,
         scale=0.008,
         default_position=(0.4, 0.17, 0.6943 + 0.0127),
