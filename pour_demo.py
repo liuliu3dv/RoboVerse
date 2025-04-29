@@ -86,7 +86,16 @@ class ObsSaver:
             iio.mimsave(self.video_path, self.images, fps=30)
 
 
-obs_saver = ObsSaver(video_path="./tmp.mp4")
+import datetime
+import random
+
+# random_color = lambda: (random.uniform(0.6, 0.99), random.uniform(0.2, 0.7), random.uniform(0.1, 0.4))
+random_color_ = (random.uniform(0.6, 0.99), random.uniform(0.2, 0.7), random.uniform(0.1, 0.4))
+# breakpoint()
+random_water_height = random.randint(5, 25)
+obs_saver = ObsSaver(
+    video_path=f"outputs/water/tmp_{random_color_}_{random_water_height}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+)
 
 args = tyro.cli(Args)
 scenario = ScenarioCfg(
@@ -96,11 +105,12 @@ scenario = ScenarioCfg(
     headless=args.headless,
     num_envs=args.num_envs,
 )
+
 scenario.objects = [
     PrimitiveCubeCfg(
         name="table",
         size=(0.7366, 1.4732, 0.0254),
-        color=(0.8, 0.4, 0.2),
+        color=random_color_,
         physics=PhysicStateType.GEOM,
     ),
     PrimitiveCubeCfg(
@@ -120,7 +130,7 @@ scenario.objects = [
         name="water",
         numParticlesX=10,
         numParticlesY=10,
-        numParticlesZ=15,
+        numParticlesZ=random_water_height,
         density=0.0,
         particle_mass=0.0001,
         particleSpacing=0.004,
@@ -259,10 +269,11 @@ def reach_target_dedicated(
     ee_idx = states.robots[robot.name].body_names.index(env.handler.robot.ee_body_name)
     cur_ee_pos = states.robots[robot.name].body_state[:, ee_idx, :3]
     cur_ee_quat = states.robots[robot.name].body_state[:, ee_idx, 3:7]
-
+    flag = 0
     while not torch.allclose(cur_ee_pos, ee_pos, atol=pos_atol) or not torch.allclose(
         matrix_from_quat(cur_ee_quat), matrix_from_quat(ee_quat), atol=quat_atol
     ):
+        flag += 1
         log.debug(f"Cur pos: {cur_ee_pos}")
         log.debug(f"Cur quat: {cur_ee_quat}")
         log.debug(f"Target pos: {ee_pos}")
@@ -278,6 +289,13 @@ def reach_target_dedicated(
         ee_idx = states.robots[robot.name].body_names.index(env.handler.robot.ee_body_name)
         cur_ee_pos = states.robots[robot.name].body_state[:, ee_idx, :3]
         cur_ee_quat = states.robots[robot.name].body_state[:, ee_idx, 3:7]
+        if flag > 100:
+            break
+
+    log.info(f"Reach target in {flag} steps")
+    if flag > 100:
+        return False
+    return True
 
 
 def close_gripper():
@@ -285,21 +303,22 @@ def close_gripper():
     states = env.handler.get_states()
     state_nested = state_tensor_to_nested(env.handler, states)
     cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
-    cur_robot_dof["finger_joint"] = 0.309
+    random_finger_joint = random.uniform(0.32, 0.35)
+    cur_robot_dof["finger_joint"] = random_finger_joint
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
     for _ in range(20):
         obs, _, _, _, _ = env.step(actions)
         obs_saver.add(obs)
 
 
-def rotate_arm():
+def rotate_arm(steps: int = 100):
     """Rotate the arm."""
     states = env.handler.get_states()
     state_nested = state_tensor_to_nested(env.handler, states)
     cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
     cur_robot_dof["joint_7"] = -math.pi / 2
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
-    for _ in range(100):
+    for _ in range(steps):
         obs, _, _, _, _ = env.step(actions)
         obs_saver.add(obs)
 
@@ -338,17 +357,39 @@ def rotate_joint3(deg3: float):
 
 
 log.info("reaching")
-reach_target_dedicated(torch.tensor([[0.17, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.18, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.19, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.20, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.21, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.22, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.23, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.24, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.26, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.27, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+flag = reach_target_dedicated(torch.tensor([[0.17, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.18, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.19, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.20, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.21, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.22, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.23, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.24, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.26, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.27, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
 
 log.info("closing gripper")
 # breakpoint()
@@ -356,11 +397,21 @@ close_gripper()
 # breakpoint()
 
 log.info("lifting")
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.81]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.82]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.83]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.84]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.85]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+flag = reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.81]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.82]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.83]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.84]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
+flag = reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.85]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+if not flag:
+    exit()
 rotate_joint46(70, 37)
 
 log.info("moving")
@@ -368,7 +419,10 @@ rotate_joint3(-85)
 
 log.info("rotating")
 # breakpoint()
-rotate_arm()
+import random
+
+steps = random.randint(30, 100)
+rotate_arm(steps)
 # breakpoint()
 
 for _ in range(50):
