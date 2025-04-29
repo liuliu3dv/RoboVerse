@@ -27,8 +27,10 @@ def near_object(states: TensorState, robot_name: str | None = None) -> torch.Ten
     # tip_offset = torch.tensor([0.0, 0.0, 0.10312]).to(ee_pos_l.device)
     import pytorch3d.transforms as T
 
-    ee_rot_l_mat = T.quaternion_to_matrix(ee_rot_l_quat)
-    ee_rot_r_mat = T.quaternion_to_matrix(ee_rot_r_quat)
+    ee_rot_l_quat_xyzw_to_wxyz = torch.cat([ee_rot_l_quat[:, 3:4], ee_rot_l_quat[:, :3]], dim=1)
+    ee_rot_r_quat_xyzw_to_wxyz = torch.cat([ee_rot_r_quat[:, 3:4], ee_rot_r_quat[:, :3]], dim=1)
+    ee_rot_l_mat = T.quaternion_to_matrix(ee_rot_l_quat_xyzw_to_wxyz)
+    ee_rot_r_mat = T.quaternion_to_matrix(ee_rot_r_quat_xyzw_to_wxyz)
     # import pdb; pdb.set_trace()
     tip_offset_l_with_rot = torch.matmul(ee_rot_l_mat, tip_offset)
     tip_offset_r_with_rot = torch.matmul(ee_rot_r_mat, tip_offset)
@@ -39,7 +41,13 @@ def near_object(states: TensorState, robot_name: str | None = None) -> torch.Ten
     tcp_to_obj_dist = torch.norm(ee_pos - object_pos, dim=1)
     tcp_to_obj_dist = torch.clamp(tcp_to_obj_dist, min=0.05, max=float("inf"))
     reaching_reward = 1 - torch.tanh(5 * tcp_to_obj_dist)
-    return reaching_reward
+    object_relative_pos = torch.norm(object_pos - torch.tensor([[0.5, 0, 0.015]], device=object_pos.device), dim=1)
+    tip_object_l = torch.norm(tip_pos_l - object_pos, dim=1)
+    tip_object_r = torch.norm(tip_pos_r - object_pos, dim=1)
+
+    dist_reward = 1 - torch.tanh(10.0 * (object_relative_pos + tip_object_l + tip_object_r) / 3)
+    log.info(f"dist_reward: {dist_reward}")
+    return dist_reward
 
 
 def grasp_success(states: TensorState, robot_name: str | None = None) -> torch.Tensor:
@@ -71,8 +79,8 @@ def grasp_success(states: TensorState, robot_name: str | None = None) -> torch.T
     finger_dist = torch.norm(tip_pos_l - tip_pos_r, dim=1)
     center_to_obj = torch.norm((tip_pos_l + tip_pos_r) / 2 - object_pos, dim=1)
 
-    grasped = (finger_dist < 0.07) & (center_to_obj < 0.02)
-    log.info(f"grasped: {grasped}")
+    grasped = (finger_dist < 0.07) & (center_to_obj < 0.05)
+    # log.info(f"grasped: {grasped}")
     return grasped
 
 
@@ -85,9 +93,12 @@ def grasp_success(states: TensorState, robot_name: str | None = None) -> torch.T
 
 def object_lift(states: TensorState, robot_name: str | None = None) -> torch.Tensor:
     object_pos = states.objects["object"].root_state[:, :3]
-    grasped = grasp_success(states, robot_name)
-    log.info(f"object_pos: {object_pos[:, 2]}")
-    return (object_pos[:, 2] - 0.02) * 100 * grasped
+    # grasped = grasp_success(states, robot_name)
+    # log.info(f"object_pos: {object_pos[:, 2]}")
+    # log.info(f"object_pos: {object_pos[:, 2]>0.025}")
+    lift_reward = (object_pos[:, 2] - 0.015) * 10 * (object_pos[:, 2] > 0.02)
+    log.info(f"lift_reward: {lift_reward}")
+    return lift_reward
 
 
 def object_shift(states: TensorState, robot_name: str | None = None) -> torch.Tensor:
@@ -97,7 +108,7 @@ def object_shift(states: TensorState, robot_name: str | None = None) -> torch.Te
     # shift is xy distance
     shift = torch.norm(object_pos[:, :2] - torch.tensor([0.5, 0.0]).to(object_pos.device), dim=1)
     # print("shift: ", shift)
-    log.info(f"shift: {shift}")
+    # log.info(f"shift: {shift}")
     return -shift * 10
 
 
@@ -110,7 +121,7 @@ class ObjectGraspingCfg(BaseTaskCfg):
     objects = [
         PrimitiveCubeCfg(
             name="object",
-            size=(0.04, 0.04, 0.04),
+            size=(0.03, 0.03, 0.03),
             color=[1.0, 0.0, 0.0],
             physics=PhysicStateType.RIGIDBODY,
         ),
@@ -130,7 +141,7 @@ class ObjectGraspingCfg(BaseTaskCfg):
     cameras = []
     traj_filepath = "metasim/cfg/tasks/debug/object_grasping_franka_v2.json"
     reward_functions = [near_object, object_lift, object_shift, grasp_success]
-    reward_weights = [1, 1, 0.1, 1]
+    reward_weights = [1, 1, 0.0, 0.0]
     ## TODO: add a empty checker to suppress warning
 
 
@@ -146,20 +157,20 @@ class CustObjectGraspingCfg(BaseTaskCfg):
             fix_base_link=True,
             # physics=PhysicStateType.RIGIDBODY,
             usd_path="metasim/cfg/tasks/debug/cust_scene/Collected_World0/World0.usd",
-            urdf_path="metasim/cfg/tasks/debug/cust_scene/office_pour_righthand_coke_0000/scene.urdf",
+            urdf_path="output/outputs_meshrecon/pick/exp_pick_purple_cube_0000/scene.urdf",
             mjcf_path="metasim/cfg/tasks/debug/cust_scene/scene.xml",
         ),
         ArticulationObjCfg(
             name="object",
-            fix_base_link=True,
+            fix_base_link=False,
             # physics=PhysicStateType.RIGIDBODY,
             usd_path="metasim/cfg/tasks/debug/cust_scene/Collected_World0/World0.usd",
-            urdf_path="metasim/cfg/tasks/debug/cust_scene/office_pour_righthand_coke_0000/meshes/coke/coke.urdf",
+            urdf_path="output/outputs_meshrecon/pick/exp_pick_purple_cube_0000/meshes/purple_cube/object.urdf",
             mjcf_path="metasim/cfg/tasks/debug/cust_scene/scene.xml",
         ),
     ]
     cameras = []
-    traj_filepath = "metasim/cfg/tasks/debug/cust_object_grasping_franka_v2.json"
+    traj_filepath = "output/outputs_meshrecon/pick/exp_pick_cyan_cube_0001/cust_object_grasping_franka_v2.json"
     reward_functions = [near_object, object_lift, grasp_success]
     reward_weights = [0.1, 0.9, 0.1]
     ## TODO: add a empty checker to suppress warning

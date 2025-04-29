@@ -31,6 +31,7 @@ from torch.utils.tensorboard import SummaryWriter
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
+from get_started.utils import ObsSaver
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.constants import SimType
 from metasim.sim import BaseSimHandler, EnvWrapper
@@ -133,6 +134,7 @@ class Args:
     headless: bool = False
 
     sim: Literal["isaaclab", "isaacgym", "mujoco", "genesis"] = "isaacgym"
+    task: str = "debug:cust_object_grasping"
 
 
 args = tyro.cli(Args)
@@ -149,7 +151,7 @@ def layer_init(layer, std: float = np.sqrt(2), bias_const: float = 0.0):
 class Args_MetaSim(ScenarioCfg):
     """Arguments for training PPO."""
 
-    task: str = "debug:object_grasping"
+    task: str = args.task
     robot: str = "franka"
     num_envs: int = args.num_envs
     sim: Literal["isaaclab", "isaacgym", "mujoco", "genesis"] = args.sim
@@ -475,7 +477,7 @@ if __name__ == "__main__":
     metasim_env = MetaSimVecEnv(
         scenario, task_name=args_metasim.task, num_envs=args_metasim.num_envs, sim=args_metasim.sim
     )
-
+    obs_saver = ObsSaver(metasim_env)
     ## Choice 2: use gym.make to initialize the environment
     # metasim_env = gym.make("reach_origin", num_envs=args.num_envs)
     envs = RLVecEnv(metasim_env)
@@ -563,7 +565,7 @@ if __name__ == "__main__":
         log.info(f"Epoch: {iteration}, global_step={global_step}")
         final_values = torch.zeros((args.num_steps, args.num_envs), device=device)
         agent.eval()
-        if iteration % args.eval_freq == 1:
+        if iteration % args.eval_freq == 1 and iteration != 1:
             log.info("Evaluating")
             eval_obs, _ = eval_envs.reset()
             eval_metrics = defaultdict(list)

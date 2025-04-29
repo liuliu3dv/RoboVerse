@@ -183,6 +183,15 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = object.fix_base_link
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
+
+            asset_options.use_mesh_materials = True
+            asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
+            asset_options.override_com = True
+            asset_options.override_inertia = True
+            asset_options.vhacd_enabled = True
+            asset_options.vhacd_params = gymapi.VhacdParams()
+            asset_options.vhacd_params.resolution = 200000
+            asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
             asset = self.gym.load_asset(self.sim, asset_root, asset_path, asset_options)
             self._articulated_asset_dict_dict[object.name] = self.gym.get_asset_rigid_body_dict(asset)
             self._articulated_joint_dict_dict[object.name] = self.gym.get_asset_dof_dict(asset)
@@ -193,6 +202,14 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = object.fix_base_link
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
+            asset_options.use_mesh_materials = True
+            asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
+            asset_options.override_com = True
+            asset_options.override_inertia = True
+            asset_options.vhacd_enabled = True
+            asset_options.vhacd_params = gymapi.VhacdParams()
+            asset_options.vhacd_params.resolution = 200000
+            asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
             asset = self.gym.load_asset(self.sim, asset_root, asset_path, asset_options)
 
         asset_link_dict = self.gym.get_asset_rigid_body_dict(asset)
@@ -208,6 +225,15 @@ class IsaacgymHandler(BaseSimHandler):
         asset_options.disable_gravity = not self.robot.enabled_gravity
         asset_options.flip_visual_attachments = self.robot.isaacgym_flip_visual_attachments
         asset_options.collapse_fixed_joints = self.robot.collapse_fixed_joints
+
+        asset_options.use_mesh_materials = True
+        asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
+        asset_options.override_com = True
+        asset_options.override_inertia = True
+        asset_options.vhacd_enabled = True
+        asset_options.vhacd_params = gymapi.VhacdParams()
+        asset_options.vhacd_params.resolution = 200000
+        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
         robot_asset = self.gym.load_asset(self.sim, asset_root, robot_asset_file, asset_options)
         # configure robot dofs
         robot_dof_props = self.gym.get_asset_dof_properties(robot_asset)
@@ -220,9 +246,11 @@ class IsaacgymHandler(BaseSimHandler):
         robot_dof_props["damping"][:7].fill(40.0)
 
         # grippers
-        robot_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_POS)
-        robot_dof_props["stiffness"][7:].fill(800.0)
-        robot_dof_props["damping"][7:].fill(40.0)
+        robot_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_EFFORT)
+        robot_dof_props["stiffness"][7:].fill(5000.0)
+        robot_dof_props["damping"][7:].fill(100.0)
+        robot_dof_props["effort"][7] = 200
+        robot_dof_props["effort"][8] = 200
 
         robot_num_dofs = self.gym.get_asset_dof_count(robot_asset)
         default_dof_pos = np.zeros(robot_num_dofs, dtype=np.float32)
@@ -499,6 +527,7 @@ class IsaacgymHandler(BaseSimHandler):
         action_input[robot_dim_index] = action_array_all.float().to(self.device).reshape(-1)
 
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(action_input))
+        self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(action_input))
 
     def refresh_render(self) -> None:
         # Step the physics
