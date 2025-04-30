@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
+from shutil import copy
 from typing import Literal
 
 try:
@@ -12,6 +14,7 @@ except ImportError:
 
 import imageio as iio
 import numpy as np
+import open3d as o3d
 import rootutils
 import tyro
 from loguru import logger as log
@@ -24,6 +27,7 @@ logging.addLevelName(5, "TRACE")
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 rootutils.setup_root(__file__, pythonpath=True)
 
+from metasim.cfg.objects import BaseObjCfg, PrimitiveCubeCfg, RigidObjCfg
 from metasim.cfg.randomization import RandomizationCfg
 from metasim.cfg.render import RenderCfg
 from metasim.cfg.scenario import ScenarioCfg
@@ -136,11 +140,24 @@ class ObsSaver:
             iio.mimsave(self.video_path, self.images, fps=30)
 
 
+def export_mesh(obj: BaseObjCfg):
+    if isinstance(obj, PrimitiveCubeCfg):
+        cube = o3d.geometry.TriangleMesh.create_box(width=obj.size[0], height=obj.size[1], depth=obj.size[2])
+        cube.translate([-obj.size[0] / 2, -obj.size[1] / 2, -obj.size[2] / 2])
+        cube.paint_uniform_color(obj.color)
+        o3d.io.write_triangle_mesh(f"{obj.name}.obj", cube)
+    elif isinstance(obj, RigidObjCfg):
+        mesh_path = obj.mesh_path
+        copy(mesh_path, f"{obj.name}.obj")
+    else:
+        log.warning(f"Unsupported object type: {type(obj)}")
+
+
 ###########################################################
 ## Main
 ###########################################################
 def main():
-    camera = PinholeCameraCfg(pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
+    camera = PinholeCameraCfg(pos=(0.8, -0.8, 1.3), look_at=(0.0, 0.0, 0.5), width=512, height=288)
     scenario = ScenarioCfg(
         task=args.task,
         robot=args.robot,
@@ -156,6 +173,11 @@ def main():
         split=args.split,
         headless=args.headless,
     )
+
+    for obj in scenario.task.objects:
+        export_mesh(obj)
+
+    args.save_video_path = f"./{args.task}_video.mp4"
 
     num_envs: int = scenario.num_envs
 
@@ -191,6 +213,7 @@ def main():
 
     ## Reset before first step
     tic = time.time()
+    init_states[0]["objects"]["table"]["dof_pos"]["base__switch"] = 0.0
     obs, extras = env.reset(states=init_states[:num_envs])
     toc = time.time()
     log.trace(f"Time to reset: {toc - tic:.2f}s")
@@ -198,6 +221,7 @@ def main():
 
     ## Main loop
     step = 0
+    data = []
     while True:
         log.debug(f"Step {step}")
         tic = time.time()
@@ -243,7 +267,28 @@ def main():
             log.info("Run out of actions, stopping")
             break
 
+        camera_pos = obs.cameras["camera0"].pos
+        camera_quat_opengl = obs.cameras["camera0"].quat_opengl
+        camera_quat_ros = obs.cameras["camera0"].quat_ros
+        camera_quat_world = obs.cameras["camera0"].quat_world
+        camera_intrinsics = obs.cameras["camera0"].intrinsics
+
+        data_dict = {
+            "camera_pos": camera_pos.tolist(),
+            "camera_quat_opengl": camera_quat_opengl.tolist(),
+            "camera_quat_ros": camera_quat_ros.tolist(),
+            "camera_quat_world": camera_quat_world.tolist(),
+            "camera_intrinsics": camera_intrinsics.tolist(),
+        }
+        for obj in scenario.objects:
+            data_dict[f"{obj.name}_pos"] = obs.objects[obj.name].root_state[:, :3].tolist()
+            data_dict[f"{obj.name}_quat"] = obs.objects[obj.name].root_state[:, 3:7].tolist()
+        data.append(data_dict)
     obs_saver.save()
+
+    with open(f"{args.task}_data.json", "w") as f:
+        json.dump(data, f)
+
     env.close()
 
 
