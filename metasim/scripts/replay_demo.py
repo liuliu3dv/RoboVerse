@@ -36,6 +36,7 @@ from metasim.constants import SimType
 from metasim.sim import HybridSimEnv
 from metasim.utils import configclass
 from metasim.utils.demo_util import get_traj
+from metasim.utils.io_util import write_16bit_depth_video
 from metasim.utils.setup_util import get_sim_env_class
 from metasim.utils.state import TensorState
 
@@ -108,6 +109,7 @@ class ObsSaver:
         self.image_dir = image_dir
         self.video_path = video_path
         self.images: list[NDArray] = []
+        self.depths: list[NDArray] = []
 
         self.image_idx = 0
 
@@ -132,12 +134,17 @@ class ObsSaver:
         image = (image * 255).astype(np.uint8)
         self.images.append(image)
 
+        depth_data = next(iter(state.cameras.values())).depth
+        self.depths.append(depth_data[0].cpu().numpy())
+
     def save(self):
         """Save the images or videos."""
         if self.video_path is not None and self.images:
             log.info(f"Saving video of {len(self.images)} frames to {self.video_path}")
             os.makedirs(os.path.dirname(self.video_path), exist_ok=True)
             iio.mimsave(self.video_path, self.images, fps=30)
+            iio.mimsave(self.video_path.replace(".mp4", "_depth_uint8.mp4"), self.depths, fps=30)
+            write_16bit_depth_video(self.video_path.replace(".mp4", "_depth_uint16.mkv"), self.depths, fps=30)
 
 
 def export_mesh(obj: BaseObjCfg):
@@ -157,7 +164,7 @@ def export_mesh(obj: BaseObjCfg):
 ## Main
 ###########################################################
 def main():
-    camera = PinholeCameraCfg(pos=(0.8, -0.8, 1.3), look_at=(0.0, 0.0, 0.5), width=512, height=288)
+    camera = PinholeCameraCfg(pos=(0.8, -0.8, 1.3), look_at=(0.0, 0.0, 0.5), width=1920, height=1080)
     scenario = ScenarioCfg(
         task=args.task,
         robot=args.robot,
@@ -267,6 +274,9 @@ def main():
             log.info("Run out of actions, stopping")
             break
 
+        depth = obs.cameras["camera0"].depth
+        depth_min = depth.min()
+        depth_max = depth.max()
         camera_pos = obs.cameras["camera0"].pos
         camera_quat_opengl = obs.cameras["camera0"].quat_opengl
         camera_quat_ros = obs.cameras["camera0"].quat_ros
@@ -274,6 +284,8 @@ def main():
         camera_intrinsics = obs.cameras["camera0"].intrinsics
 
         data_dict = {
+            "depth_min": depth_min.item(),
+            "depth_max": depth_max.item(),
             "camera_pos": camera_pos.tolist(),
             "camera_quat_opengl": camera_quat_opengl.tolist(),
             "camera_quat_ros": camera_quat_ros.tolist(),
