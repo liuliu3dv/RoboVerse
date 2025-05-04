@@ -93,9 +93,13 @@ import random
 random_color_ = (random.uniform(0.6, 0.99), random.uniform(0.2, 0.7), random.uniform(0.1, 0.4))
 # breakpoint()
 random_water_height = random.randint(5, 25)
-obs_saver = ObsSaver(
-    video_path=f"outputs/water/tmp_{random_color_}_{random_water_height}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
-)
+path_name = f"tmp_{random_color_}_{random_water_height}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+obs_saver = ObsSaver(video_path=f"outputs/water/{path_name}.mp4")
+meta_data = {
+    "random_color": random_color_,
+    "random_water_height": random_water_height,
+}
+STEP_NOW = 0
 
 args = tyro.cli(Args)
 scenario = ScenarioCfg(
@@ -255,6 +259,8 @@ def reach_target_try(ee_pos: torch.Tensor, ee_quat: torch.Tensor, decimation: in
 
     for i_step in range(decimation):
         obs, _, _, _, _ = env.step(actions)
+        global STEP_NOW
+        STEP_NOW += 1
         obs_saver.add(obs)
 
 
@@ -304,10 +310,13 @@ def close_gripper():
     state_nested = state_tensor_to_nested(env.handler, states)
     cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
     random_finger_joint = random.uniform(0.32, 0.35)
+    random_finger_joint = 0.31
     cur_robot_dof["finger_joint"] = random_finger_joint
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
     for _ in range(20):
         obs, _, _, _, _ = env.step(actions)
+        global STEP_NOW
+        STEP_NOW += 1
         obs_saver.add(obs)
 
 
@@ -320,6 +329,22 @@ def rotate_arm(steps: int = 100):
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
     for _ in range(steps):
         obs, _, _, _, _ = env.step(actions)
+        global STEP_NOW
+        STEP_NOW += 1
+        obs_saver.add(obs)
+
+
+def rotate_arm_back(steps: int = 100):
+    """Rotate the arm."""
+    states = env.handler.get_states()
+    state_nested = state_tensor_to_nested(env.handler, states)
+    cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
+    cur_robot_dof["joint_7"] = 0
+    actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
+    for _ in range(steps):
+        obs, _, _, _, _ = env.step(actions)
+        global STEP_NOW
+        STEP_NOW += 1
         obs_saver.add(obs)
 
 
@@ -327,6 +352,7 @@ def rotate_joint46(deg4: float, deg6: float):
     """Rotate the joint 4."""
     states = env.handler.get_states()
     state_nested = state_tensor_to_nested(env.handler, states)
+
     cur_robot_dof = state_nested[0]["robots"][robot.name]["dof_pos"]
     origin_joint_4 = cur_robot_dof["joint_4"]
     target_joint_4 = deg4 / 180 * math.pi
@@ -341,6 +367,8 @@ def rotate_joint46(deg4: float, deg6: float):
         actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
         obs, _, _, _, _ = env.step(actions)
         obs_saver.add(obs)
+        global STEP_NOW
+        STEP_NOW += 1
 
 
 def rotate_joint3(deg3: float):
@@ -353,6 +381,8 @@ def rotate_joint3(deg3: float):
     actions = [{"dof_pos_target": cur_robot_dof}] * scenario.num_envs
     for _ in range(20):
         obs, _, _, _, _ = env.step(actions)
+        global STEP_NOW
+        STEP_NOW += 1
         obs_saver.add(obs)
 
 
@@ -392,11 +422,10 @@ if not flag:
     exit()
 
 log.info("closing gripper")
-# breakpoint()
 close_gripper()
-# breakpoint()
 
 log.info("lifting")
+meta_data["start_lifting_steps"] = STEP_NOW
 flag = reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.81]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
 if not flag:
     exit()
@@ -412,23 +441,31 @@ if not flag:
 flag = reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.85]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
 if not flag:
     exit()
+meta_data["start_rotate_joint46"] = STEP_NOW
 rotate_joint46(70, 37)
-
 log.info("moving")
+meta_data["start_rotate_joint3"] = STEP_NOW
 rotate_joint3(-85)
+obs_saver.save()
 
-log.info("rotating")
-# breakpoint()
 import random
 
 steps = random.randint(30, 100)
-rotate_arm(steps)
-# breakpoint()
+meta_data["start_rotate_arm"] = STEP_NOW
 
+rotate_arm(steps)
+meta_data["start_rotate_arm_back"] = STEP_NOW
+rotate_arm_back(steps)
+meta_data["start_end_steps"] = STEP_NOW
 for _ in range(50):
     env.handler.env.sim.step()
+    # global STEP_NOW
+    STEP_NOW += 1
     env.handler.refresh_render()
     obs = env.handler.get_states()
     obs_saver.add(obs)
 
 obs_saver.save()
+import json
+
+json.dump(meta_data, open(f"outputs/water/{path_name}.json", "w"))
