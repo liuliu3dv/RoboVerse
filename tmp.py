@@ -42,6 +42,8 @@ class Args:
     scene: str | None = None
     render: RenderCfg = RenderCfg()
     random: RandomizationCfg = RandomizationCfg()
+    width: int = 300
+    height: int = 200
 
     ## Handlers
     sim: Literal["isaaclab", "isaacgym", "genesis", "pybullet", "sapien2", "sapien3", "mujoco", "mjx"] = "isaaclab"
@@ -129,7 +131,7 @@ class ObsSaver:
 ## Main
 ###########################################################
 def main():
-    camera = PinholeCameraCfg(pos=(4.0, 0.0, 2.6), look_at=(0.0, 0.0, 1.0), width=400, height=300)
+    camera = PinholeCameraCfg(pos=(4.0, 0.0, 2.6), look_at=(0.0, 0.0, 1.0), width=args.width, height=args.height)
     scenario = ScenarioCfg(
         task=args.task,
         robot=args.robot,
