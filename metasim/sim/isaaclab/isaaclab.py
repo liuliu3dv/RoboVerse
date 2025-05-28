@@ -385,6 +385,13 @@ class IsaaclabHandler(BaseSimHandler):
                 quat_world=camera_inst.data.quat_w_world,
                 intrinsics=torch.tensor(camera.intrinsics, device=self.device)[None, ...].repeat(self.num_envs, 1, 1),
             )
+        camera_inst = self.env.scene.sensors["global_camera"]
+        rgb_data = camera_inst.data.output.get("rgb", None)
+        depth_data = camera_inst.data.output.get("depth", None)
+        camera_states["global_camera"] = CameraState(
+            rgb=rgb_data,
+            depth=depth_data,
+        )
 
         sensor_states = {}
         for sensor in self.sensors:
@@ -464,7 +471,7 @@ class IsaaclabHandler(BaseSimHandler):
         return batch_joint_limits
 
     def set_camera_pose(self, position: tuple[float, float, float], look_at: tuple[float, float, float]) -> None:
-        camera_inst = self.env.scene.sensors[self.cameras[0].name]
+        camera_inst = self.env.scene.sensors["global_camera"]
         eyes = torch.tensor(position, dtype=torch.float32, device=self.env.device)[None, :]
         targets = torch.tensor(look_at, dtype=torch.float32, device=self.env.device)[None, :]
         eyes = eyes + self.env.scene.env_origins

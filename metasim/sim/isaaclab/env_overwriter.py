@@ -331,6 +331,23 @@ class IsaaclabEnvOverwriter:
 
         ## Add camera
         add_cameras(env, self.cameras)
+        import omni.isaac.lab.sim as sim_utils
+        from omni.isaac.lab.sensors import Camera, CameraCfg
+
+        single_camera = Camera(
+            CameraCfg(
+                prim_path="/World/camera",
+                width=2560,
+                height=2560,
+                spawn=sim_utils.PinholeCameraCfg(
+                    focal_length=24.0,
+                    focus_distance=400.0,
+                    horizontal_aperture=20.955,
+                    clipping_range=(0.05, 1e5),
+                ),
+            )
+        )
+        env.scene.sensors["global_camera"] = single_camera
 
         ## Add sensors
         add_sensors(env, self.sensors)
