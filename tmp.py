@@ -21,7 +21,6 @@ from rich.logging import RichHandler
 from torchvision.utils import make_grid, save_image
 from tyro import MISSING
 
-from metasim.cfg.randomization import RandomizationCfg
 from metasim.cfg.render import RenderCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
@@ -41,7 +40,6 @@ class Args:
     robot: str = "franka"
     scene: str | None = None
     render: RenderCfg = RenderCfg()
-    random: RandomizationCfg = RandomizationCfg()
     width: int = 300
     height: int = 200
 
@@ -65,26 +63,10 @@ class Args:
 args = tyro.cli(Args)
 
 
-###########################################################
-## Utils
-###########################################################
-def get_actions(all_actions, action_idx: int, num_envs: int):
-    envs_actions = all_actions[:num_envs]
-    actions = [
-        env_actions[action_idx] if action_idx < len(env_actions) else env_actions[-1] for env_actions in envs_actions
-    ]
-    return actions
-
-
 def get_states(all_states, action_idx: int, num_envs: int):
-    envs_states = all_states[:num_envs]
+    envs_states = all_states[:1] * num_envs
     states = [env_states[action_idx] if action_idx < len(env_states) else env_states[-1] for env_states in envs_states]
     return states
-
-
-def get_runout(all_actions, action_idx: int):
-    runout = all([action_idx >= len(all_actions[i]) for i in range(len(all_actions))])
-    return runout
 
 
 class ObsSaver:
@@ -137,7 +119,6 @@ def main():
         robot=args.robot,
         scene=args.scene,
         cameras=[camera],
-        random=args.random,
         render=args.render,
         sim=args.sim,
         num_envs=args.num_envs,
@@ -159,7 +140,7 @@ def main():
     assert os.path.exists(scenario.task.traj_filepath), (
         f"Trajectory file: {scenario.task.traj_filepath} does not exist."
     )
-    init_states, all_actions, all_states = get_traj(scenario.task, scenario.robot, env.handler)
+    init_states, _, all_states = get_traj(scenario.task, scenario.robot, env.handler)
 
     ########################################################
     ## Main
@@ -168,7 +149,7 @@ def main():
     obs_saver = ObsSaver(image_dir=args.save_image_dir, video_path=args.save_video_path)
 
     ## Reset before first step
-    obs, extras = env.reset(states=init_states[:num_envs])
+    obs, extras = env.reset(states=init_states[:1] * num_envs)
     obs_saver.add(obs)
 
     ## Main loop
