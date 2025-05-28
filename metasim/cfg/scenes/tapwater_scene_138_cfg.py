@@ -19,5 +19,6 @@ class TapwaterScene138Cfg(SceneCfg):
         (4.55382, -0.66319, -0.3379),
     ]  # XXX: only positions are randomized for now
     default_position: tuple[float, float, float] = (1.22698, -4.16989, 0.00006)
+    default_position: tuple[float, float, float] = (1.47, -0.3, -0.07)  # -226, 7, -30
     quat: tuple[float, float, float, float] = (0.7071068, 0.7071068, 0.0, 0.0)
     scale: tuple[float, float, float] = (0.01, 0.01, 0.01)
