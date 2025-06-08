@@ -117,12 +117,6 @@ scenario.objects = [
         color=random_color_,
         physics=PhysicStateType.GEOM,
     ),
-    PrimitiveCubeCfg(
-        name="wall",
-        size=(0.05, 2.0, 2.0),
-        color=(1.0, 1.0, 1.0),
-        physics=PhysicStateType.GEOM,
-    ),
     RigidObjCfg(
         name="cup1",
         usd_path="metasim/data/pouring/Tall_Glass_5.usd",
