@@ -72,7 +72,7 @@ class IsaacgymHandler(BaseSimHandler):
         self._contact_forces: torch.Tensor | None = None
 
         # control related
-        self._robot_num_dof: int  # number of robot dof
+        self._robot_num_dof: int = 0  # number of robot dof
         self._obj_num_dof: int = 0  # number of object dof
         self._actions: torch.Tensor | None = None
         self._action_scale: torch.Tensor | None = (
@@ -755,7 +755,7 @@ class IsaacgymHandler(BaseSimHandler):
             self.gym.simulate(self.sim)
             self.gym.fetch_results(self.sim, True)
 
-    def simulate(self) -> None:
+    def _simulate(self) -> None:
         # Step the physics
         for _ in range(self.scenario.decimation):
             self._simulate_one_physics_step(self.actions)
