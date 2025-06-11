@@ -64,7 +64,7 @@ class IsaacgymHandler(BaseSimHandler):
         self._robot_dof_state: torch.Tensor | None = None
 
         # control related
-        self._robot_num_dof: int  # number of robot dof
+        self._robot_num_dof: int = 0  # number of robot dof
         self._obj_num_dof: int = 0  # number of object dof
         self._actions: torch.Tensor | None = None
         self._action_scale: torch.Tensor | None = (
@@ -518,7 +518,7 @@ class IsaacgymHandler(BaseSimHandler):
             self.gym.viewer_camera_look_at(self.viewer, middle_env, cam_pos, cam_target)
         ################################
 
-    def get_states(self, env_ids: list[int] | None = None) -> list[EnvState]:
+    def _get_states(self, env_ids: list[int] | None = None) -> list[EnvState]:
         if env_ids is None:
             env_ids = list(range(self.num_envs))
 
@@ -588,6 +588,7 @@ class IsaacgymHandler(BaseSimHandler):
                         flat_vals.append(
                             action_data[robot.name]["dof_pos_target"][joint_name]
                         )  # TODO: support other actions
+
                     else:
                         flat_vals.append(0.0)  # place holder for under-actuated joints
                 action_array = torch.tensor(flat_vals, dtype=torch.float32, device=self.device).unsqueeze(0)
@@ -651,7 +652,7 @@ class IsaacgymHandler(BaseSimHandler):
             self.gym.simulate(self.sim)
             self.gym.fetch_results(self.sim, True)
 
-    def simulate(self) -> None:
+    def _simulate(self) -> None:
         # Step the physics
         self._simulate_one_physics_step(self.actions)
         # Refresh tensors
