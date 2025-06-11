@@ -758,7 +758,7 @@ class IsaacgymHandler(BaseSimHandler):
             self.gym.simulate(self.sim)
             self.gym.fetch_results(self.sim, True)
 
-    def simulate(self) -> None:
+    def _simulate(self) -> None:
         # Step the physics
         for _ in range(self.scenario.decimation):
             self._simulate_one_physics_step(self.actions)
