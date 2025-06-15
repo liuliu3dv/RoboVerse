@@ -98,7 +98,9 @@ class IsaacgymHandler(BaseSimHandler):
         self._dof_force_tensor = gymtorch.wrap_tensor(self.gym.acquire_dof_force_tensor(self.sim))
         self.num_sensors = len(self._sensors)
         if self.num_sensors > 0:
-            self._vec_sensor_tensor = gymtorch.wrap_tensor(self.gym.acquire_force_sensor_tensor(self.sim)).view(self.num_envs, self.num_sensors, 6) # shape: (num_envs, num_sensors * 6)
+            self._vec_sensor_tensor = gymtorch.wrap_tensor(self.gym.acquire_force_sensor_tensor(self.sim)).view(
+                self.num_envs, self.num_sensors, 6
+            )  # shape: (num_envs, num_sensors * 6)
 
     def _init_gym(self) -> None:
         physics_engine = gymapi.SIM_PHYSX
@@ -601,7 +603,9 @@ class IsaacgymHandler(BaseSimHandler):
         sensor_states = {}
         for i, sensor in enumerate(self.sensors):
             if isinstance(sensor, ContactForceSensorCfg):
-                sensor_states[sensor.name] = SensorState(force=self._vec_sensor_tensor[:, i, :3], torque= self._vec_sensor_tensor[:, i, 3:])
+                sensor_states[sensor.name] = SensorState(
+                    force=self._vec_sensor_tensor[:, i, :3], torque=self._vec_sensor_tensor[:, i, 3:]
+                )
             else:
                 raise ValueError(f"Unknown sensor type: {type(sensor)}")
         return TensorState(objects=object_states, robots=robot_states, cameras=camera_states, sensors=sensor_states)
