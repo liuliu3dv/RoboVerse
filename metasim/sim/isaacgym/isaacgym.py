@@ -23,7 +23,7 @@ from metasim.queries.base import BaseQueryType
 from metasim.sim import BaseSimHandler, EnvWrapper, GymEnvWrapper
 from metasim.types import Action, EnvState
 from metasim.utils.dict import class_to_dict
-from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, SensorState
+from metasim.utils.state import CameraState, ObjectState, RobotState, SensorState, TensorState
 
 
 class IsaacgymHandler(BaseSimHandler):
