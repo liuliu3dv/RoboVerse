@@ -19,7 +19,7 @@ from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import ContactForceSensorCfg
 from metasim.sim import BaseSimHandler, EnvWrapper, GymEnvWrapper
 from metasim.types import Action, EnvState
-from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, SensorState
+from metasim.utils.state import CameraState, ObjectState, RobotState, SensorState, TensorState
 
 
 class IsaacgymHandler(BaseSimHandler):
