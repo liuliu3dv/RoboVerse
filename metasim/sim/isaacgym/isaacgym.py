@@ -19,7 +19,7 @@ from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import ContactForceSensorCfg
 from metasim.sim import BaseSimHandler, EnvWrapper, GymEnvWrapper
 from metasim.types import Action, EnvState
-from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState
+from metasim.utils.state import CameraState, ObjectState, RobotState, SensorState, TensorState
 
 
 class IsaacgymHandler(BaseSimHandler):
@@ -95,10 +95,10 @@ class IsaacgymHandler(BaseSimHandler):
         self._dof_states = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))
         self._rigid_body_states = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))
         self._robot_dof_state = self._dof_states.view(self._num_envs, -1, 2)[:, self._obj_num_dof :]
+        self._dof_force_tensor = gymtorch.wrap_tensor(self.gym.acquire_dof_force_tensor(self.sim))
         self.num_sensors = len(self._sensors)
         if self.num_sensors > 0:
-            sensor_tensor = self.gym.acquire_force_sensor_tensor(self.sim)
-            self.vec_sensor_tensor = gymtorch.wrap_tensor(sensor_tensor).view(
+            self._vec_sensor_tensor = gymtorch.wrap_tensor(self.gym.acquire_force_sensor_tensor(self.sim)).view(
                 self.num_envs, self.num_sensors, 6
             )  # shape: (num_envs, num_sensors * 6)
 
@@ -518,6 +518,7 @@ class IsaacgymHandler(BaseSimHandler):
                 robot_pose = gymapi.Transform()
                 robot_pose.p = gymapi.Vec3(*robot.default_position)
                 robot_handle = self.gym.create_actor(env, robot_asset, robot_pose, "robot", i, 2)
+                self.gym.enable_actor_dof_force_sensors(env, robot_handle)
                 self.gym.set_actor_scale(env, robot_handle, robot.scale[0])
                 env_robot_handles.append(robot_handle)
                 self.gym.set_actor_dof_properties(env, robot_handle, robot_dof_props)
@@ -561,6 +562,7 @@ class IsaacgymHandler(BaseSimHandler):
                     body_state=self._rigid_body_states.view(self.num_envs, -1, 13)[:, body_ids_reindex, :],
                     joint_pos=self._dof_states.view(self.num_envs, -1, 2)[:, joint_reindex, 0],
                     joint_vel=self._dof_states.view(self.num_envs, -1, 2)[:, joint_reindex, 1],
+                    joint_force=self._dof_force_tensor.view(self.num_envs, -1)[:, joint_reindex],
                 )
             else:
                 state = ObjectState(
@@ -580,6 +582,7 @@ class IsaacgymHandler(BaseSimHandler):
                 body_state=self._rigid_body_states.view(self.num_envs, -1, 13)[:, body_ids_reindex, :],
                 joint_pos=self._dof_states.view(self.num_envs, -1, 2)[:, joint_reindex, 0],
                 joint_vel=self._dof_states.view(self.num_envs, -1, 2)[:, joint_reindex, 1],
+                joint_force=self._dof_force_tensor.view(self.num_envs, -1)[:, joint_reindex],
                 joint_pos_target=None,  # TODO
                 joint_vel_target=None,  # TODO
                 joint_effort_target=self._effort if self._manual_pd_on else None,
@@ -600,7 +603,9 @@ class IsaacgymHandler(BaseSimHandler):
         sensor_states = {}
         for i, sensor in enumerate(self.sensors):
             if isinstance(sensor, ContactForceSensorCfg):
-                sensor_states[sensor.name] = self.vec_sensor_tensor[:, i, :]  # shape: (num_envs, 6)
+                sensor_states[sensor.name] = SensorState(
+                    force=self._vec_sensor_tensor[:, i, :3], torque=self._vec_sensor_tensor[:, i, 3:]
+                )
             else:
                 raise ValueError(f"Unknown sensor type: {type(sensor)}")
         return TensorState(objects=object_states, robots=robot_states, cameras=camera_states, sensors=sensor_states)
@@ -698,6 +703,7 @@ class IsaacgymHandler(BaseSimHandler):
         self.gym.refresh_jacobian_tensors(self.sim)
         self.gym.refresh_mass_matrix_tensors(self.sim)
         self.gym.refresh_force_sensor_tensor(self.sim)
+        self.gym.refresh_dof_force_tensor(self.sim)
 
         # Refresh cameras and viewer
         self.gym.step_graphics(self.sim)
@@ -814,6 +820,7 @@ class IsaacgymHandler(BaseSimHandler):
         self.gym.refresh_jacobian_tensors(self.sim)
         self.gym.refresh_mass_matrix_tensors(self.sim)
         self.gym.refresh_force_sensor_tensor(self.sim)
+        self.gym.refresh_dof_force_tensor(self.sim)
 
         # reset all env_id action to default
         self.actions[env_ids] = 0.0
