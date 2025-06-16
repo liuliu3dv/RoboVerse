@@ -116,6 +116,16 @@ def GymEnvWrapper(cls: type[THandler]) -> type[EnvWrapper[THandler]]:
             time_out = self._episode_length_buf >= self.handler.scenario.episode_length
             return states, reward, success, time_out, None
 
+        def step_actions(self, actions) -> tuple[Obs, Reward, Success, TimeOut, Extra]:
+            self._episode_length_buf += 1
+            self.handler.set_actions(self.handler.robot.name, actions)
+            self.handler.simulate()
+            reward = None
+            success = self.handler.checker.check(self.handler)
+            states = self.handler.get_states()
+            time_out = self._episode_length_buf >= self.handler.scenario.episode_length
+            return states, reward, success, time_out, None
+
         def render(self) -> None:
             log.warning("render() is not implemented yet")
             pass
@@ -134,6 +144,10 @@ def GymEnvWrapper(cls: type[THandler]) -> type[EnvWrapper[THandler]]:
         @property
         def episode_length_buf(self) -> list[int]:
             return self._episode_length_buf.tolist()
+
+        @property
+        def episode_length_buf_tensor(self) -> list[int]:
+            return self._episode_length_buf
 
         @property
         def action_space(self) -> gym.Space:
