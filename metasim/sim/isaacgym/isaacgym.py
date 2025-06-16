@@ -107,9 +107,8 @@ class IsaacgymHandler(BaseSimHandler):
         self._contact_forces = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))
         self.num_sensors = len(self._sensors)
         if self.num_sensors > 0:
-            self._vec_sensor_tensor = gymtorch.wrap_tensor(self.gym.acquire_force_sensor_tensor(self.sim)).view(
-                self.num_envs, self.num_sensors, 6
-            )  # shape: (num_envs, num_sensors * 6)
+            self._vec_sensor_tensor = gymtorch.wrap_tensor(self.gym.acquire_force_sensor_tensor(self.sim)).view(self.num_envs, self.num_sensors, 6) # shape: (num_envs, num_sensors * 6)
+        self._contact_forces = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))
 
         # Refresh tensors
         if not self._manual_pd_on:
@@ -118,7 +117,6 @@ class IsaacgymHandler(BaseSimHandler):
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_jacobian_tensors(self.sim)
         self.gym.refresh_mass_matrix_tensors(self.sim)
-        self.gym.refresh_net_contact_force_tensor(self.sim)
         self.gym.refresh_force_sensor_tensor(self.sim)
         self.gym.refresh_dof_force_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
@@ -282,6 +280,7 @@ class IsaacgymHandler(BaseSimHandler):
         robot_p_gains = []
         robot_d_gains = []
         robot_torque_limits = []
+        _robots_default_dof_pos = []
         for robot in self.robots:
             asset_root = "."
             robot_asset_file = robot.mjcf_path if robot.isaacgym_read_mjcf else robot.urdf_path
@@ -318,7 +317,7 @@ class IsaacgymHandler(BaseSimHandler):
             robot_upper_limits = robot_dof_props["upper"]
             robot_mids = 0.3 * (robot_upper_limits + robot_lower_limits)
             num_actions = 0
-            default_dof_pos = []
+            _default_dof_pos = []
             self._manual_pd_on = any(mode == "effort" for mode in robot.control_type.values())
 
             dof_names = self.gym.get_asset_dof_names(robot_asset)
@@ -337,10 +336,10 @@ class IsaacgymHandler(BaseSimHandler):
                         if dof_name in robot.default_joint_positions
                         else robot_mids[i]
                     )
-                    default_dof_pos.append(default_dof_pos_i)
+                    _default_dof_pos.append(default_dof_pos_i)
                 # for end effector, always use open as default position
                 else:
-                    default_dof_pos.append(robot_upper_limits[i])
+                    _default_dof_pos.append(robot_upper_limits[i])
 
                 # pd control effort mode
                 if i_control_mode == "effort":
@@ -371,7 +370,8 @@ class IsaacgymHandler(BaseSimHandler):
                 if i_actuator_cfg.fully_actuated:
                     num_actions += 1
 
-            self._default_dof_pos = torch.tensor(default_dof_pos, device=self.device).unsqueeze(0)
+            # joint_reindex = self.get_joint_reindex(self.robot.name)
+            _robots_default_dof_pos.append(torch.tensor(_default_dof_pos, device=self.device).unsqueeze(0))
             self.actions = torch.zeros([self._num_envs, num_actions], device=self.device)
             robot_p_gains.append(p_gains)
             robot_d_gains.append(d_gains)
@@ -382,6 +382,7 @@ class IsaacgymHandler(BaseSimHandler):
             robot_asset_list.append(robot_asset)
             robot_dof_props_list.append(robot_dof_props)
 
+        self._robot_default_dof_pos = torch.cat(_robots_default_dof_pos, dim=-1)  # shape: (1, total_num_robot_dofs)
         self._p_gains = torch.cat(robot_p_gains, dim=-1)  # shape: (num_envs, total_num_robot_dofs)
         self._d_gains = torch.cat(robot_d_gains, dim=-1)  # shape: (num_envs, total_num_robot_dofs)
         self._torque_limits = torch.cat(robot_torque_limits, dim=-1)  # shape: (num_envs, total_num_robot_dofs)
@@ -578,6 +579,7 @@ class IsaacgymHandler(BaseSimHandler):
                 self.gym.enable_actor_dof_force_sensors(env, robot_handle)
                 assert robot.scale[0] == 1.0 and robot.scale[1] == 1.0 and robot.scale[2] == 1.0
                 self.gym.set_actor_scale(env, robot_handle, robot.scale[0])
+                assert robot.scale[0] == 1.0 and self.robot.scale[1] == 1.0 and robot.scale[2] == 1.0
                 env_robot_handles.append(robot_handle)
                 self.gym.set_actor_dof_properties(env, robot_handle, robot_dof_props)
 
@@ -724,21 +726,38 @@ class IsaacgymHandler(BaseSimHandler):
         action_tensor_all = torch.cat(action_tensor_list, dim=-1)  # shape: (num_envs, total_robot_num_dof)
         return action_tensor_all
 
-    def set_dof_targets(self, obj_name: str, actions: list[Action] | torch.Tensor):
+    def set_dof_targets(self, obj_name: list[str], actions: list[Action] | torch.Tensor):
         self._actions_cache = actions
         action_input = torch.zeros_like(self._dof_states[:, 0])  # shape: (num_envs * total_dof_num)
         if isinstance(actions, torch.Tensor):
             # reverse sorted joint indices
-            reverse_reindex = self.get_joint_reindex(obj_name, inverse=True)
+            action_array_all = torch.tensor([self.num_envs, self._robot_num_dof], device=self.device)
+            reverse_reindex = []
+            start_idx = 0
+            for robot in self.robots:
+                robot_joint_reindex = self.get_joint_reindex(robot.name, inverse=True)
+                reverse_reindex.extend([start_idx + j for j in robot_joint_reindex])
+                start_idx += robot.num_joints
             self._actions_cache = actions[:, reverse_reindex]
-            action_array_all = actions
+            action_array_all = actions[:, reverse_reindex]
 
         else:
             action_array_all = self._get_action_array_all(actions)  # shape: (num_envs, total_robot_num_dof)
 
+
         assert (
             action_input.shape[0] % self._num_envs == 0
         )  # WARNING: obj dim(env0), robot dim(env0), obj dim(env1), robot dim(env1) ...
+
+        if not hasattr(self, "_robot_dim_index"):
+            robot_dim = action_array_all.shape[1]
+            chunk_size = action_input.shape[0] // self._num_envs
+            self._robot_dim_index = [
+                i * chunk_size + offset
+                for i in range(self.num_envs)
+                for offset in range(chunk_size - robot_dim, chunk_size)
+            ]
+        action_input[self._robot_dim_index] = action_array_all.float().to(self.device).reshape(-1)
 
         if not hasattr(self, "_robot_dim_index"):
             robot_dim = action_array_all.shape[1]
@@ -1141,13 +1160,18 @@ class IsaacgymHandler(BaseSimHandler):
 
     @property
     def default_dof_pos(self) -> torch.tensor:
-        joint_reindex = self.get_joint_reindex(self.robot.name)
+        joint_reindex = []
+        start_idx = 0
+        for robot in self.robots:
+            robot_joint_reindex = self.get_joint_reindex(robot.name)
+            joint_reindex.extend([start_idx + j for j in robot_joint_reindex])
+            start_idx += robot.num_joints
         return self._robot_default_dof_pos[:, joint_reindex]
+
 
     @property
     def torque_limits(self) -> torch.tensor:
-        joint_reindex = self.get_joint_reindex(self.robot.name)
-        return self._torque_limits[:, joint_reindex]
+        return self._torque_limits
 
     @property
     def robot_num_dof(self) -> int:
