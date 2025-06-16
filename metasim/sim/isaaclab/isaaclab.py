@@ -18,6 +18,7 @@ from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import ContactForceSensorCfg
 from metasim.sim import BaseSimHandler, EnvWrapper, IdentityEnvWrapper
 from metasim.types import Action, EnvState, Extra, Obs, Reward, Success, TimeOut
+from metasim.utils.dict import deep_get
 from metasim.utils.state import CameraState, ContactForceState, ObjectState, RobotState, TensorState
 
 from .env_overwriter import IsaaclabEnvOverwriter
@@ -129,23 +130,28 @@ class IsaaclabHandler(BaseSimHandler):
     ############################################################
     ## Gymnasium main methods
     ############################################################
-    def step(self, action: list[Action]) -> tuple[Obs, Reward, Success, TimeOut, Extra]:
+    def step(self, action: list[Action] | torch.Tensor) -> tuple[Obs, Reward, Success, TimeOut, Extra]:
         self._actions_cache = action
-        action_tensors = []
-        for robot in self.robots:
-            actuator_names = [k for k, v in robot.actuators.items() if v.fully_actuated]
-            action_tensor = torch.zeros((self.num_envs, len(actuator_names)), device=self.env.device)
-            for env_id in range(self.num_envs):
-                for i, actuator_name in enumerate(actuator_names):
-                    action_tensor[env_id, i] = torch.tensor(
-                        action[env_id][robot.name]["dof_pos_target"][actuator_name], device=self.env.device
-                    )
-            action_tensors.append(action_tensor)
-        action_tensor_all = torch.cat(action_tensors, dim=-1)
+
+        if isinstance(action, torch.Tensor):
+            action_tensor_all = action
+        else:
+            action_tensors = []
+            for robot in self.robots:
+                actuator_names = [k for k, v in robot.actuators.items() if v.fully_actuated]
+                action_tensor = torch.zeros((self.num_envs, len(actuator_names)), device=self.env.device)
+                for env_id in range(self.num_envs):
+                    for i, actuator_name in enumerate(actuator_names):
+                        action_tensor[env_id, i] = torch.tensor(
+                            action[env_id][robot.name]["dof_pos_target"][actuator_name], device=self.env.device
+                        )
+                action_tensors.append(action_tensor)
+            action_tensor_all = torch.cat(action_tensors, dim=-1)
 
         _, _, _, time_out, extras = self.env.step(action_tensor_all)
         time_out = time_out.cpu()
         success = self.checker.check(self)
+        self.simulate()
         states = self.get_states()
 
         ## TODO: organize this
@@ -206,6 +212,7 @@ class IsaaclabHandler(BaseSimHandler):
 
         ## Update obs
         tic = time.time()
+        self.simulate()
         states = self.get_states()
         toc = time.time()
         log.trace(f"Reset getting obs time: {toc - tic:.2f}s")
@@ -383,9 +390,21 @@ class IsaaclabHandler(BaseSimHandler):
             camera_inst = self.env.scene.sensors[camera.name]
             rgb_data = camera_inst.data.output.get("rgb", None)
             depth_data = camera_inst.data.output.get("depth", None)
+            instance_seg_data = deep_get(camera_inst.data.output, "instance_segmentation_fast")
+            instance_seg_id2label = deep_get(camera_inst.data.info, "instance_segmentation_fast", "idToLabels")
+            instance_id_seg_data = deep_get(camera_inst.data.output, "instance_id_segmentation_fast")
+            instance_id_seg_id2label = deep_get(camera_inst.data.info, "instance_id_segmentation_fast", "idToLabels")
+            if instance_seg_data is not None:
+                instance_seg_data = instance_seg_data.squeeze(-1)
+            if instance_id_seg_data is not None:
+                instance_id_seg_data = instance_id_seg_data.squeeze(-1)
             camera_states[camera.name] = CameraState(
                 rgb=rgb_data,
                 depth=depth_data,
+                instance_seg=instance_seg_data,
+                instance_seg_id2label=instance_seg_id2label,
+                instance_id_seg=instance_id_seg_data,
+                instance_id_seg_id2label=instance_id_seg_id2label,
                 pos=camera_inst.data.pos_w,
                 quat_world=camera_inst.data.quat_w_world,
                 intrinsics=torch.tensor(camera.intrinsics, device=self.device)[None, ...].repeat(self.num_envs, 1, 1),

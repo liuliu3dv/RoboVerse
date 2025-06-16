@@ -109,7 +109,7 @@ class MJXHandler(BaseSimHandler):
         objects: dict[str, ObjectState] = {}
 
         # --------------------------- ROBOT ---------------------------------------
-        r_cfg = self._scenario.robot
+        r_cfg = self._scenario.robots[0]  # FIXME support multiple robots
         prefix = f"{r_cfg.name}/"
 
         # body IDs ---------------------------------------------------------------
@@ -343,6 +343,25 @@ class MJXHandler(BaseSimHandler):
         tgt_jax = t2j(tgt_torch)
 
         # -------- id maps ---------------------------------------------
+        if obj_name == self._scenario.robots[0].name:
+            a_ids = self._robot_act_ids.get(obj_name)
+        else:
+            a_ids = self._object_act_ids.get(obj_name)
+
+        data = self._data
+        new_ctrl = data.ctrl.at[:, a_ids].set(tgt_jax)
+        self._data = data.replace(ctrl=new_ctrl)
+
+    def set_actions(
+        self,
+        obj_name: str,
+        actions,
+    ) -> None:
+        self._actions_cache = actions
+
+        tgt_jax = t2j(actions)
+
+        # -------- id maps ---------------------------------------------
         if obj_name == self._scenario.robot.name:
             a_ids = self._robot_act_ids.get(obj_name)
         else:
@@ -502,7 +521,7 @@ class MJXHandler(BaseSimHandler):
     def _build_joint_name_map(self) -> None:
         pool = self._mjx_model.names
         adr = self._mjx_model.name_jntadr
-        robot_prefix = self._scenario.robot.name
+        robot_prefix = self._scenario.robots[0].name
         self._joint_name2id = {}
 
         for jid, a in enumerate(adr):

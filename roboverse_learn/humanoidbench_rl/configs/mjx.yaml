@@ -1,14 +1,14 @@
 # Environment settings
 sim: mjx
-robot: h1
+robots: [h1]
 task: humanoidbench:Stand
-decimation: 1
+decimation: 10
 num_envs: 2048
 add_table: false
 
 # Training settings
 train_or_eval: train
-total_timesteps: 50_000_000
+total_timesteps: 20_480_000
 model_save_path: ./saved_models
 model_save_freq: 1_000_000
 
@@ -18,7 +18,7 @@ eval_model_path: <path to eval model>
 
 # PPO parameters
 learning_rate: 0.0003
-n_steps: 256
+n_steps: 32
 num_batch: 64
 n_epochs: 4
 
