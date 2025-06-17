@@ -3,16 +3,15 @@ from __future__ import annotations
 import random
 from copy import deepcopy
 
-import gymnasium as gym
 import numpy as np
 import torch
-from gymnasium import spaces  # noqa: F401
+from gymnasium import spaces
 from loguru import logger as log
 
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.constants import SimType
 from metasim.types import Action, EnvState
-from metasim.utils.setup_util import get_robot, get_sim_env_class, get_task
+from metasim.utils.setup_util import get_sim_env_class
 
 
 class BiDexEnvWrapper:
