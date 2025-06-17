@@ -76,7 +76,7 @@ class IsaacgymHandler(BaseSimHandler):
         self._action_scale: torch.Tensor | None = (
             None  # for configuration: desire_pos = action_scale * action + default_pos
         )
-        self._robot_default_dof_pos: torch.Tensor | None =(
+        self._robot_default_dof_pos: torch.Tensor | None = (
             None  # for the configuration: desire_pos = action_scale * action + default_pos
         )
         self._action_offset: bool = False  # for configuration: desire_pos = action_scale * action + default_pos
@@ -102,8 +102,9 @@ class IsaacgymHandler(BaseSimHandler):
         self._dof_force_tensor = gymtorch.wrap_tensor(self.gym.acquire_dof_force_tensor(self.sim))
         self.num_sensors = len(self._sensors)
         if self.num_sensors > 0:
-
-            self._vec_sensor_tensor = gymtorch.wrap_tensor(self.gym.acquire_force_sensor_tensor(self.sim)).view(self.num_envs, self.num_sensors, 6) # shape: (num_envs, num_sensors * 6)
+            self._vec_sensor_tensor = gymtorch.wrap_tensor(self.gym.acquire_force_sensor_tensor(self.sim)).view(
+                self.num_envs, self.num_sensors, 6
+            )  # shape: (num_envs, num_sensors * 6)
         self._contact_forces = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))
 
         # Refresh tensors
@@ -695,7 +696,6 @@ class IsaacgymHandler(BaseSimHandler):
         else:
             action_array_all = self._get_action_array_all(actions)  # shape: (num_envs, total_robot_num_dof)
 
-
         assert (
             action_input.shape[0] % self._num_envs == 0
         )  # WARNING: obj dim(env0), robot dim(env0), obj dim(env1), robot dim(env1) ...
@@ -829,7 +829,6 @@ class IsaacgymHandler(BaseSimHandler):
         ## Support setting status only for specified env_ids
         if env_ids is None:
             env_ids = list(range(self.num_envs))
-
         assert len(states) == self.num_envs, (
             f"The length of the state list ({len(states)}) must match the length of num_envs ({self.num_envs})."
         )
@@ -1048,7 +1047,6 @@ class IsaacgymHandler(BaseSimHandler):
             joint_reindex.extend([start_idx + j for j in robot_joint_reindex])
             start_idx += robot.num_joints
         return self._robot_default_dof_pos[:, joint_reindex]
-
 
     @property
     def torque_limits(self) -> torch.tensor:
