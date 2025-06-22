@@ -19,27 +19,28 @@ class ShadowHandLeftCfg(BaseRobotCfg):
     isaacgym_read_mjcf: bool = True
     enabled_gravity: bool = False
     enabled_self_collisions: bool = False
-
+    tendon_limit_stiffness: float = 30.0
+    tendon_damping: float = 0.1
     actuators: dict[str, BaseActuatorCfg] = {
         "robot1_WRJ1": BaseActuatorCfg(stiffness=5.0, damping=0.5),
         "robot1_WRJ0": BaseActuatorCfg(stiffness=5.0, damping=0.5),
         "robot1_FFJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_FFJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_FFJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot1_FFJ0": BaseActuatorCfg(stiffness=1.0, damping=0.1, fully_actuated=False),
+        "robot1_FFJ0": BaseActuatorCfg(stiffness=0.0, damping=0.1, fully_actuated=False),
         "robot1_MFJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_MFJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_MFJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot1_MFJ0": BaseActuatorCfg(stiffness=1.0, damping=0.1, fully_actuated=False),
+        "robot1_MFJ0": BaseActuatorCfg(stiffness=0.0, damping=0.1, fully_actuated=False),
         "robot1_RFJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_RFJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_RFJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot1_RFJ0": BaseActuatorCfg(stiffness=1.0, damping=0.1, fully_actuated=False),
+        "robot1_RFJ0": BaseActuatorCfg(stiffness=0.0, damping=0.1, fully_actuated=False),
         "robot1_LFJ4": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_LFJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_LFJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_LFJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot1_LFJ0": BaseActuatorCfg(stiffness=1.0, damping=0.1, fully_actuated=False),
+        "robot1_LFJ0": BaseActuatorCfg(stiffness=0.0, damping=0.1, fully_actuated=False),
         "robot1_THJ4": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_THJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
         "robot1_THJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),

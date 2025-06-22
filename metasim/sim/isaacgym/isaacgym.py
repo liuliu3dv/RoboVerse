@@ -221,6 +221,8 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = False
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
+            if object.defauly_density is not None:
+                asset_options.density = object.defauly_density
             asset = self.gym.create_box(self.sim, object.size[0], object.size[1], object.size[2], asset_options)
         elif isinstance(object, PrimitiveSphereCfg):
             asset_options = gymapi.AssetOptions()
@@ -228,6 +230,8 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = False
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
+            if object.defauly_density is not None:
+                asset_options.density = object.defauly_density
             asset = self.gym.create_sphere(self.sim, object.radius, asset_options)
 
         elif isinstance(object, ArticulationObjCfg):
@@ -237,6 +241,8 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = True
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
+            if object.defauly_density is not None:
+                asset_options.density = object.defauly_density
             asset = self.gym.load_asset(self.sim, asset_root, asset_path, asset_options)
             self._articulated_asset_dict_dict[object.name] = self.gym.get_asset_rigid_body_dict(asset)
             self._articulated_joint_dict_dict[object.name] = self.gym.get_asset_dof_dict(asset)
@@ -247,6 +253,8 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = object.fix_base_link
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
+            if object.defauly_density is not None:
+                asset_options.density = object.defauly_density
             asset = self.gym.load_asset(self.sim, asset_root, asset_path, asset_options)
 
         asset_link_dict = self.gym.get_asset_rigid_body_dict(asset)
@@ -265,14 +273,22 @@ class IsaacgymHandler(BaseSimHandler):
             asset_root = "."
             robot_asset_file = robot.mjcf_path if robot.isaacgym_read_mjcf else robot.urdf_path
             asset_options = gymapi.AssetOptions()
-            asset_options.armature = 0.01
-            asset_options.fix_base_link = robot.fix_base_link
-            asset_options.disable_gravity = not robot.enabled_gravity
-            asset_options.flip_visual_attachments = robot.isaacgym_flip_visual_attachments
-            asset_options.collapse_fixed_joints = robot.collapse_fixed_joints
+            # asset_options.armature = 0.01
+            # asset_options.fix_base_link = robot.fix_base_link
+            # asset_options.disable_gravity = not robot.enabled_gravity
+            # asset_options.flip_visual_attachments = robot.isaacgym_flip_visual_attachments
+            # asset_options.collapse_fixed_joints = robot.collapse_fixed_joints
+            # asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
+            # # Defaults are set to free movement and will be updated based on the configuration in actuator_cfg below.
+            # asset_options.replace_cylinder_with_capsule = self.scenario.sim_params.replace_cylinder_with_capsule
+            asset_options.flip_visual_attachments = False
+            asset_options.fix_base_link = True
+            asset_options.collapse_fixed_joints = True
+            asset_options.disable_gravity = True
+            asset_options.thickness = 0.001
+            asset_options.angular_damping = 0.01
+            asset_options.use_physx_armature = True
             asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
-            # Defaults are set to free movement and will be updated based on the configuration in actuator_cfg below.
-            asset_options.replace_cylinder_with_capsule = self.scenario.sim_params.replace_cylinder_with_capsule
             robot_asset = self.gym.load_asset(self.sim, asset_root, robot_asset_file, asset_options)
             # configure robot dofs
             robot_num_dofs = self.gym.get_asset_dof_count(robot_asset)
@@ -299,6 +315,17 @@ class IsaacgymHandler(BaseSimHandler):
             num_actions = 0
             _default_dof_pos = []
             self._manual_pd_on = any(mode == "effort" for mode in robot.control_type.values())
+
+            # set robot tendon properties
+            num_tendons = self.gym.get_asset_tendon_count(robot_asset)
+            if num_tendons > 0:
+                tendon_props = self.gym.get_asset_tendon_properties(robot_asset)
+
+            for i in range(num_tendons):
+                tendon_props[i].limit_stiffness = robot.tendon_limit_stiffness
+                tendon_props[i].damping = robot.tendon_damping
+
+            self.gym.set_asset_tendon_properties(robot_asset, tendon_props)
 
             dof_names = self.gym.get_asset_dof_names(robot_asset)
             for i, dof_name in enumerate(dof_names):
@@ -569,7 +596,9 @@ class IsaacgymHandler(BaseSimHandler):
         ################################
 
     def _reorder_quat_xyzw_to_wxyz(self, state: torch.Tensor) -> torch.Tensor:
-        return state[..., [0, 1, 2, 6, 3, 4, 5, 7, 8, 9, 10, 11, 12]]
+        quat_xyzw = state[..., 3:7]
+        quat_wxyz = torch.cat([quat_xyzw[..., 3:4], quat_xyzw[..., 0:3]], dim=-1)
+        return torch.cat([state[..., 0:3], quat_wxyz, state[..., 7:]], dim=-1)
 
     def _get_states(self, env_ids: list[int] | None = None) -> list[EnvState]:
         if env_ids is None:
@@ -609,6 +638,9 @@ class IsaacgymHandler(BaseSimHandler):
             root_state = self._reorder_quat_xyzw_to_wxyz(root_state)
             body_state = self._rigid_body_states.view(self.num_envs, -1, 13)[:, body_ids_reindex, :]
             body_state = self._reorder_quat_xyzw_to_wxyz(body_state)
+            # print(joint_ids_reindex)
+            # num_joints = len(self._joint_info[robot.name]["names"])
+            # joint_ids_reindex = range(robot_id * num_joints, robot_id * num_joints + num_joints)
 
             state = RobotState(
                 root_state=root_state,
@@ -683,16 +715,8 @@ class IsaacgymHandler(BaseSimHandler):
         action_input = torch.zeros_like(self._dof_states[:, 0])  # shape: (num_envs * total_dof_num)
         if isinstance(actions, torch.Tensor):
             # reverse sorted joint indices
-            action_array_all = torch.tensor([self.num_envs, self._robot_num_dof], device=self.device)
-            reverse_reindex = []
-            start_idx = 0
-            for robot in self.robots:
-                robot_joint_reindex = self.get_joint_reindex(robot.name, inverse=True)
-                reverse_reindex.extend([start_idx + j for j in robot_joint_reindex])
-                start_idx += robot.num_joints
-            self._actions_cache = actions[:, reverse_reindex]
-            action_array_all = actions[:, reverse_reindex]
-
+            action_array_all = torch.zeros([self.num_envs, self._robot_num_dof], device=self.device)
+            action_array_all = actions
         else:
             action_array_all = self._get_action_array_all(actions)  # shape: (num_envs, total_robot_num_dof)
 
@@ -927,7 +951,7 @@ class IsaacgymHandler(BaseSimHandler):
         # Get the actor indices to update
         actor_indices = []
         for env_id in env_ids:
-            env_offset = env_id * (len(self.objects) + 1)
+            env_offset = env_id * (len(self.objects) + len(self.robots))
             actor_indices.extend(range(env_offset, env_offset + len(self.objects) + len(self.robots)))
 
         # Convert the actor indices to a tensor
