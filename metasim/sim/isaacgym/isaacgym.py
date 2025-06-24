@@ -221,7 +221,7 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = False
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
-            if object.defauly_density is not None:
+            if hasattr(object, "defauly_density") and object.defauly_density is not None:
                 asset_options.density = object.defauly_density
             asset = self.gym.create_box(self.sim, object.size[0], object.size[1], object.size[2], asset_options)
         elif isinstance(object, PrimitiveSphereCfg):
@@ -230,7 +230,7 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = False
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
-            if object.defauly_density is not None:
+            if hasattr(object, "defauly_density") and object.defauly_density is not None:
                 asset_options.density = object.defauly_density
             asset = self.gym.create_sphere(self.sim, object.radius, asset_options)
 
@@ -241,7 +241,7 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = True
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
-            if object.defauly_density is not None:
+            if hasattr(object, "defauly_density") and object.defauly_density is not None:
                 asset_options.density = object.defauly_density
             asset = self.gym.load_asset(self.sim, asset_root, asset_path, asset_options)
             self._articulated_asset_dict_dict[object.name] = self.gym.get_asset_rigid_body_dict(asset)
@@ -253,7 +253,7 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = object.fix_base_link
             asset_options.disable_gravity = False
             asset_options.flip_visual_attachments = False
-            if object.defauly_density is not None:
+            if hasattr(object, "defauly_density") and object.defauly_density is not None:
                 asset_options.density = object.defauly_density
             asset = self.gym.load_asset(self.sim, asset_root, asset_path, asset_options)
 
@@ -321,9 +321,12 @@ class IsaacgymHandler(BaseSimHandler):
             if num_tendons > 0:
                 tendon_props = self.gym.get_asset_tendon_properties(robot_asset)
 
-            for i in range(num_tendons):
-                tendon_props[i].limit_stiffness = robot.tendon_limit_stiffness
-                tendon_props[i].damping = robot.tendon_damping
+            if hasattr(robot, "tendon_limit_stiffness"):
+                for i in range(num_tendons):
+                    tendon_props[i].limit_stiffness = robot.tendon_limit_stiffness
+            if hasattr(robot, "tendon_damping"):
+                for i in range(num_tendons):
+                    tendon_props[i].damping = robot.tendon_damping
 
             self.gym.set_asset_tendon_properties(robot_asset, tendon_props)
 
