@@ -12,6 +12,7 @@ GSNet
 
 deploy
 debug/
+exp/
 roboverse_demo/
 roboverse_demo
 roboverse_data/
