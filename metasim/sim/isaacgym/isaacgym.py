@@ -342,12 +342,12 @@ class IsaacgymHandler(BaseSimHandler):
             if num_tendons > 0:
                 tendon_props = self.gym.get_asset_tendon_properties(robot_asset)
 
-            if hasattr(robot, "tendon_limit_stiffness"):
-                for i in range(num_tendons):
-                    tendon_props[i].limit_stiffness = robot.tendon_limit_stiffness
-            if hasattr(robot, "tendon_damping"):
-                for i in range(num_tendons):
-                    tendon_props[i].damping = robot.tendon_damping
+                if hasattr(robot, "tendon_limit_stiffness"):
+                    for i in range(num_tendons):
+                        tendon_props[i].limit_stiffness = robot.tendon_limit_stiffness
+                if hasattr(robot, "tendon_damping"):
+                    for i in range(num_tendons):
+                        tendon_props[i].damping = robot.tendon_damping
 
             self.gym.set_asset_tendon_properties(robot_asset, tendon_props)
 
