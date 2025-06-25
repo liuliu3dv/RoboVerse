@@ -328,7 +328,7 @@ class IsaacgymHandler(BaseSimHandler):
                     for i in range(num_tendons):
                         tendon_props[i].damping = robot.tendon_damping
 
-            self.gym.set_asset_tendon_properties(robot_asset, tendon_props)
+                self.gym.set_asset_tendon_properties(robot_asset, tendon_props)
 
             dof_names = self.gym.get_asset_dof_names(robot_asset)
             for i, dof_name in enumerate(dof_names):
