@@ -20,35 +20,36 @@ class ShadowHandCfg(BaseRobotCfg):
     isaacgym_read_mjcf: bool = True
     enabled_gravity: bool = False
     enabled_self_collisions: bool = False
+    dof_drive_mode: Literal["none", "position", "effort"] = "position"
     angular_damping: float = None
     linear_damping: float = None
     tendon_limit_stiffness: float = 30.0
     tendon_damping: float = 0.1
     actuators: dict[str, BaseActuatorCfg] = {
-        "robot0_WRJ1": BaseActuatorCfg(stiffness=5.0, damping=0.5),
-        "robot0_WRJ0": BaseActuatorCfg(stiffness=5.0, damping=0.5),
-        "robot0_FFJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_FFJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_FFJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_FFJ0": BaseActuatorCfg(stiffness=0.0, damping=0.1, fully_actuated=False),
-        "robot0_MFJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_MFJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_MFJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_MFJ0": BaseActuatorCfg(stiffness=0.0, damping=0.1, fully_actuated=False),
-        "robot0_RFJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_RFJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_RFJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_RFJ0": BaseActuatorCfg(stiffness=0.0, damping=0.1, fully_actuated=False),
-        "robot0_LFJ4": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_LFJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_LFJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_LFJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_LFJ0": BaseActuatorCfg(stiffness=0.0, damping=0.1, fully_actuated=False),
-        "robot0_THJ4": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_THJ3": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_THJ2": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_THJ1": BaseActuatorCfg(stiffness=1.0, damping=0.1),
-        "robot0_THJ0": BaseActuatorCfg(stiffness=1.0, damping=0.1),
+        "robot0_WRJ1": BaseActuatorCfg(),
+        "robot0_WRJ0": BaseActuatorCfg(),
+        "robot0_FFJ3": BaseActuatorCfg(),
+        "robot0_FFJ2": BaseActuatorCfg(),
+        "robot0_FFJ1": BaseActuatorCfg(),
+        "robot0_FFJ0": BaseActuatorCfg(fully_actuated=False),
+        "robot0_MFJ3": BaseActuatorCfg(),
+        "robot0_MFJ2": BaseActuatorCfg(),
+        "robot0_MFJ1": BaseActuatorCfg(),
+        "robot0_MFJ0": BaseActuatorCfg(fully_actuated=False),
+        "robot0_RFJ3": BaseActuatorCfg(),
+        "robot0_RFJ2": BaseActuatorCfg(),
+        "robot0_RFJ1": BaseActuatorCfg(),
+        "robot0_RFJ0": BaseActuatorCfg(fully_actuated=False),
+        "robot0_LFJ4": BaseActuatorCfg(),
+        "robot0_LFJ3": BaseActuatorCfg(),
+        "robot0_LFJ2": BaseActuatorCfg(),
+        "robot0_LFJ1": BaseActuatorCfg(),
+        "robot0_LFJ0": BaseActuatorCfg(fully_actuated=False),
+        "robot0_THJ4": BaseActuatorCfg(),
+        "robot0_THJ3": BaseActuatorCfg(),
+        "robot0_THJ2": BaseActuatorCfg(),
+        "robot0_THJ1": BaseActuatorCfg(),
+        "robot0_THJ0": BaseActuatorCfg(),
     }
 
     joint_limits: dict[str, tuple[float, float]] = {
