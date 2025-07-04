@@ -95,6 +95,12 @@ class BaseObjCfg:
     default_density: float | None = None
     """Density of the object (in kg/m^3)."""
 
+    disable_gravity: bool = False
+    """Whether to disable gravity for the object, default is False"""
+
+    flip_visual_attachments: bool = False
+    """Whether to flip the visual attachments of the object, default is False"""
+
 
 ##################################################
 # Level 1: Base rigid object and base articulation object
@@ -146,6 +152,7 @@ class RigidObjCfg(_FileBasedMixin, BaseRigidObjCfg):
 
 @configclass
 class ArticulationObjCfg(_FileBasedMixin, BaseArticulationObjCfg):
+    fix_base_link: bool = True
     """Articulation object cfg."""
 
 
