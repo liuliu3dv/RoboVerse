@@ -1,8 +1,10 @@
 # ruff: noqa: F401
 
 from .allegrohand_cfg import AllegroHandCfg
+from .allegro_kuka_cfg import AllegroKukaCfg
 from .ant_cfg import AntCfg
 from .anymal_cfg import AnymalCfg
+from .ballbalance_cfg import BallBalanceCfg
 from .base_robot_cfg import BaseRobotCfg
 from .cartpole_cfg import CartpoleCfg
 from .fetch_cfg import FetchCfg
@@ -19,12 +21,16 @@ from .h1_cfg import H1Cfg
 from .h1_hand_cfg import H1HandCfg
 from .h1_simple_hand_cfg import H1SimpleHandCfg
 from .h1_wrist_cfg import H1WristCfg
+from .humanoid_cfg import HumanoidCfg
 from .iiwa_cfg import IiwaCfg
+from .ingenuity_cfg import IngenuityCfg
 from .kinova_gen3_cfg import KinovaGen3Cfg
 from .kinova_gen3_robotiq_2f85 import KinovaGen3Robotiq2f85Cfg
+from .quadcopter_cfg import QuadcopterCfg
 from .sawyer_cfg import SawyerCfg
 from .sawyer_mujoco_cfg import SawyerMujocoCfg
 from .shadow_hand_cfg import ShadowHandCfg
+from .trifinger_cfg import TrifingerCfg
 from .unitree_dex3_1_cfg import UnitreeDex31LeftCfg
 from .ur5e_2f85_cfg import Ur5E2F85Cfg
 from .walker_cfg import WalkerCfg

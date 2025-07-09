@@ -12,31 +12,27 @@ log = logging.getLogger(__name__)
 
 
 @configclass
-class AllegroHandCfg(BaseTaskCfg):
-    name = "isaacgym_envs:AllegroHand"
+class ShadowHandOpenAILSTMCfg(BaseTaskCfg):
+    name = "isaacgym_envs:ShadowHandOpenAI_LSTM"
     episode_length = 600
     traj_filepath = None
     task_type = TaskType.TABLETOP_MANIPULATION
 
     object_type = "block"
 
+    reward_scale = 20.0
+    fall_dist = 0.24
     dist_reward_scale = -10.0
     rot_reward_scale = 1.0
-    action_penalty_scale = -0.0002
-    reach_goal_bonus = 250.0
-    success_tolerance = 0.1
-    fall_dist = 0.24
-    fall_penalty = 0.0
     rot_eps = 0.1
-    av_factor = 0.1
-    max_consecutive_successes = 0
+    actions_cost_scale = 0.1
+    action_penalty_scale = -0.0002
+    success_tolerance = 0.1
+    reach_goal_bonus = 250.0
+    fall_penalty = 0.0
 
-    use_relative_control = False
-    actions_moving_average = 1.0
-    dof_speed_scale = 20.0
-
-    obs_type = "full_no_vel"
-
+    vel_obs_scale = 0.2
+    force_torque_obs_scale = 10.0
     reset_position_noise = 0.01
     reset_rotation_noise = 0.0
     reset_dof_pos_noise = 0.2
@@ -47,6 +43,13 @@ class AllegroHandCfg(BaseTaskCfg):
     force_decay = 0.99
     force_decay_interval = 0.08
 
+    # LSTM specific settings
+    control_type = "position"
+    clip_observations = 5.0
+    clip_actions = 1.0
+    num_obs_steps = 2
+    asymmetric_obs = True
+
     objects: list[RigidObjCfg] | None = None
 
     def __post_init__(self):
@@ -56,28 +59,28 @@ class AllegroHandCfg(BaseTaskCfg):
             self.objects = [
                 RigidObjCfg(
                     name="block",
-                    usd_path="roboverse_data/assets/isaacgymenvs/assets/urdf/objects/cube_multicolor_allegro.urdf",
-                    mjcf_path="roboverse_data/assets/isaacgymenvs/assets/urdf/objects/cube_multicolor_allegro.urdf",
-                    urdf_path="roboverse_data/assets/isaacgymenvs/assets/urdf/objects/cube_multicolor_allegro.urdf",
-                    default_position=(0.0, -0.20000000298023224, 0.6600000023841858),
+                    usd_path="roboverse_data/assets/isaacgymenvs/assets/mjcf/open_ai_assets/hand/manipulate_block.xml",
+                    mjcf_path="roboverse_data/assets/isaacgymenvs/assets/mjcf/open_ai_assets/hand/manipulate_block.xml",
+                    urdf_path="roboverse_data/assets/isaacgymenvs/assets/mjcf/open_ai_assets/hand/manipulate_block.xml",
+                    default_position=(0.0, -0.39, 0.615),
                     default_orientation=(1.0, 0.0, 0.0, 0.0),
                 ),
                 RigidObjCfg(
                     name="goal",
-                    usd_path="roboverse_data/assets/isaacgymenvs/assets/urdf/objects/cube_multicolor_allegro.urdf",
-                    mjcf_path="roboverse_data/assets/isaacgymenvs/assets/urdf/objects/cube_multicolor_allegro.urdf",
-                    urdf_path="roboverse_data/assets/isaacgymenvs/assets/urdf/objects/cube_multicolor_allegro.urdf",
-                    default_position=(-0.20000000298023224, -0.25999999046325684, 0.6399999856948853),
+                    usd_path="roboverse_data/assets/isaacgymenvs/assets/mjcf/open_ai_assets/hand/manipulate_block.xml",
+                    mjcf_path="roboverse_data/assets/isaacgymenvs/assets/mjcf/open_ai_assets/hand/manipulate_block.xml",
+                    urdf_path="roboverse_data/assets/isaacgymenvs/assets/mjcf/open_ai_assets/hand/manipulate_block.xml",
+                    default_position=(0.0, -0.39, 0.715),
                     default_orientation=(1.0, 0.0, 0.0, 0.0),
                     physics=PhysicStateType.XFORM,
                 ),
             ]
 
-    observation_space = {"full_no_vel": 50, "full": 72, "full_state": 88}
+    observation_space = {"shape": [423]}  # Larger observation space for LSTM
 
     randomize = {
         "robot": {
-            "allegro_hand": {
+            "shadow_hand": {
                 "joint_qpos": {
                     "type": "uniform",
                     "low": -0.2,
@@ -88,9 +91,9 @@ class AllegroHandCfg(BaseTaskCfg):
         "object": {
             "block": {
                 "position": {
-                    "x": [0.0, 0.0],
-                    "y": [-0.21, -0.19],
-                    "z": [0.56, 0.56],
+                    "x": [-0.05, 0.05],
+                    "y": [-0.44, -0.34],
+                    "z": [0.615, 0.615],
                 },
                 "orientation": {
                     "x": [-1.0, 1.0],
@@ -100,6 +103,11 @@ class AllegroHandCfg(BaseTaskCfg):
                 },
             },
             "goal": {
+                "position": {
+                    "x": [-0.05, 0.05],
+                    "y": [-0.44, -0.34],
+                    "z": [0.615, 0.815],
+                },
                 "orientation": {
                     "x": [-1.0, 1.0],
                     "y": [-1.0, 1.0],
