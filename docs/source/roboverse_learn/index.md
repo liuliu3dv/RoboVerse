@@ -20,6 +20,7 @@ reinforcement_learning/sac.md
 reinforcement_learning/dreamer.md
 reinforcement_learning/humanoidbench_rl.md
 reinforcement_learning/skillblender_rl.md
+reinforcement_learning/bidex_rl.md
 ```
 
 ```{toctree}
