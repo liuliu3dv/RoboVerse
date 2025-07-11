@@ -15,6 +15,7 @@ class ShadowHandCfg(BaseRobotCfg):
     num_joints: int = 24
     fix_base_link: bool = True
     actuated_root: bool = False
+    actuated_link: str = "robot0_forearm"
     mjcf_path: str = "roboverse_data/robots/shadow_hand/mjcf/shadow_hand.xml"
     usd_path: str = "roboverse_data/robots/shadow_hand/usd/shadow_hand_instanceable.usd"
     isaacgym_read_mjcf: bool = True
