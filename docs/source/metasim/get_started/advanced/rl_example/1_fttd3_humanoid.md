@@ -63,5 +63,3 @@ FastTD3 achieves fast and stable convergence:
         </video>
     </div>
 </div>
-
-
