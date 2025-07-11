@@ -41,7 +41,10 @@ class IsaacgymHandler(BaseSimHandler):
         self.sim = None
         self.viewer = None
         self._enable_viewer_sync: bool = True  # sync viewer flag
-        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if hasattr(scenario.task, "device"):
+            self._device = torch.device(scenario.task.device)
+        else:
+            self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         self._num_envs: int = scenario.num_envs
         self._episode_length_buf = [0 for _ in range(self.num_envs)]
@@ -149,8 +152,9 @@ class IsaacgymHandler(BaseSimHandler):
         sim_params.physx.max_depenetration_velocity = self.scenario.sim_params.max_depenetration_velocity
         sim_params.physx.default_buffer_size_multiplier = self.scenario.sim_params.default_buffer_size_multiplier
 
-        compute_device_id = 0
-        graphics_device_id = 0
+        device_id = self._device.index if self._device.type == "cuda" else 0
+        compute_device_id = device_id
+        graphics_device_id = device_id
         self.sim = self.gym.create_sim(compute_device_id, graphics_device_id, physics_engine, sim_params)
         if self.sim is None:
             raise Exception("Failed to create sim")
@@ -583,7 +587,7 @@ class IsaacgymHandler(BaseSimHandler):
                     if self.objects[obj_i].friction is not None:
                         shape_props = self.gym.get_actor_rigid_shape_properties(env, obj_handle)
                         for shape_prop in shape_props:
-                            shape_prop.friction = 0.5
+                            shape_prop.friction = self.objects[obj_i].friction
                         self.gym.set_actor_rigid_shape_properties(env, obj_handle, shape_props)
                 elif isinstance(self.objects[obj_i], PrimitiveSphereCfg):
                     color = gymapi.Vec3(
@@ -668,9 +672,6 @@ class IsaacgymHandler(BaseSimHandler):
         )
 
     def _get_states(self, env_ids: list[int] | None = None) -> list[EnvState]:
-        # print("force", gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))[0, 1])
-        # print("pos", self._root_states.view(self.num_envs, -1, 13)[0, 0, 1])
-        # print("vel", self._root_states.view(self.num_envs, -1, 13)[0, 0, 8])
         if env_ids is None:
             env_ids = list(range(self.num_envs))
         object_states = {}
@@ -705,9 +706,6 @@ class IsaacgymHandler(BaseSimHandler):
             root_state = self._reorder_quat_xyzw_to_wxyz(root_state)
             body_state = self._rigid_body_states.view(self.num_envs, -1, 13)[:, body_ids_reindex, :]
             body_state = self._reorder_quat_xyzw_to_wxyz(body_state)
-            # print(joint_ids_reindex)
-            # num_joints = len(self._joint_info[robot.name]["names"])
-            # joint_ids_reindex = range(robot_id * num_joints, robot_id * num_joints + num_joints)
 
             state = RobotState(
                 root_state=root_state,
@@ -856,17 +854,19 @@ class IsaacgymHandler(BaseSimHandler):
                 for offset in range(chunk_size - robot_dim, chunk_size)
             ]
 
-        if self.actuated_root and not hasattr(self, "_robot_root_body_index"):
+        if self.actuated_root and not hasattr(self, "_force_body_index"):
             # create a list of robot root body indices for each env
-            self._robot_root_body_index = []
+            self._force_body_index = []
             for robot in self.robots:
-                root_body_index = min(self._body_info[robot.name]["global_indices"].values())
-                self._robot_root_body_index.append(root_body_index)
+                if not hasattr(robot, "actuated_root") or not robot.actuated_root:
+                    continue
+                force_body_index = self._body_info[robot.name]["global_indices"][robot.actuated_link]
+                self._force_body_index.append(force_body_index)
 
         action_input[self._robot_dim_index] = action_array_all.float().to(self.device).reshape(-1)
         if self.actuated_root:
-            applied_force[:, self._robot_root_body_index, :] = root_force_array_all.float().to(self.device)
-            applied_torque[:, self._robot_root_body_index, :] = root_torque_array_all.float().to(self.device)
+            applied_force[:, self._force_body_index, :] = root_force_array_all.float().to(self.device)
+            applied_torque[:, self._force_body_index, :] = root_torque_array_all.float().to(self.device)
             self.gym.apply_rigid_body_force_tensors(
                 self.sim,
                 gymtorch.unwrap_tensor(applied_force),
