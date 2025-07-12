@@ -2,7 +2,9 @@
 
 from .allegrohand_cfg import AllegroHandCfg
 from .ant_cfg import AntCfg
+from .anymal_cfg import AnymalCfg
 from .base_robot_cfg import BaseRobotCfg
+from .cartpole_cfg import CartpoleCfg
 from .fetch_cfg import FetchCfg
 from .franka_cfg import FrankaCfg
 from .franka_slide_urdf_cfg import FrankaSlideUrdfCfg
@@ -10,6 +12,7 @@ from .franka_slide_urdf_sapien_cfg import FrankaSlideUrdfSapienCfg
 from .franka_urdf_cfg import FrankaUrdfCfg
 from .franka_urdf_sapien_cfg import FrankaUrdfSapienCfg
 from .franka_with_gripper_extension_cfg import FrankaWithGripperExtensionCfg
+from .g1_cfg import G1Cfg
 from .google_robot_static_cfg import GoogleRobotStaticCfg
 from .h1_2_without_hand_cfg import H12WithoutHandCfg
 from .h1_cfg import H1Cfg

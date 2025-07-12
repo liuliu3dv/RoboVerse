@@ -49,6 +49,15 @@ Simulation Configuration
      -
      -
      -
+   * - ``env_spacing``
+     - 
+     - ✓
+     -
+     - ✓
+     -
+     -
+
+
 
 Robot Configuration
 ~~~~~~~~~~~~~~~~~~~
@@ -160,6 +169,20 @@ Physics Engine Configuration
    * - ``rest_offset``
      -
      - `✓ <https://docs.robotsfan.com/isaacgym/api/python/struct_py.html?highlight=rest_offset#isaacgym.gymapi.RigidShapeProperties.rest_offset>`_
+     -
+     -
+     -
+     -
+   * - ``max_depenetration_velocity``
+     -
+     - `✓ <https://docs.robotsfan.com/isaacgym/api/python/struct_py.html?highlight=max_depenetration_velocity#isaacgym.gymapi.PhysXParams.max_depenetration_velocity:~:text=max_depenetration_velocity>`_
+     -
+     -
+     -
+     -
+   * - ``default_buffer_size_multiplier``
+     -
+     - `✓ <https://docs.robotsfan.com/isaacgym/api/python/struct_py.html?highlight=max_depenetration_velocity#isaacgym.gymapi.PhysXParams.max_depenetration_velocity:~:text=default_buffer_size_multiplier>`_
      -
      -
      -

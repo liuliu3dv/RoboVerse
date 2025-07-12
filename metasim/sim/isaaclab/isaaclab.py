@@ -149,7 +149,6 @@ class IsaaclabHandler(BaseSimHandler):
             action_tensor_all = torch.cat(action_tensors, dim=-1)
 
         _, _, _, time_out, extras = self.env.step(action_tensor_all)
-        time_out = time_out.cpu()
         success = self.checker.check(self)
         self.simulate()
         states = self.get_states()
@@ -286,7 +285,7 @@ class IsaaclabHandler(BaseSimHandler):
         obj_inst.write_joint_state_to_sim(pos, vel, env_ids=torch.tensor(env_ids, device=self.env.device))
         obj_inst.write_data_to_sim()
 
-    def set_states(self, states: list[EnvState], env_ids: list[int] | None = None) -> None:
+    def _set_states(self, states: list[EnvState], env_ids: list[int] | None = None) -> None:
         if env_ids is None:
             env_ids = list(range(self.num_envs))
 

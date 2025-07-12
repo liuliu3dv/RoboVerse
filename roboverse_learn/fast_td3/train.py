@@ -37,7 +37,10 @@ from tensordict import TensorDict
 from torch.amp import GradScaler, autocast
 from wrapper import FastTD3EnvWrapper
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+from metasim.cfg.scenario import ScenarioCfg
+from metasim.cfg.sensors import PinholeCameraCfg
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 torch.set_float32_matmul_precision("high")
 
 
@@ -106,8 +109,6 @@ def main() -> None:
             raise ValueError("No GPU available")
     print(f"Using device: {device}")
 
-    from metasim.cfg.scenario import ScenarioCfg
-
     scenario = ScenarioCfg(
         task=cfg("task"),
         robots=cfg("robots"),
@@ -123,7 +124,23 @@ def main() -> None:
 
     envs = FastTD3EnvWrapper(scenario, device=device)
     eval_envs = envs  # reuse for evaluation
-    render_env = envs  # reuse for optional rendering
+    scenario_render = ScenarioCfg(
+        task=cfg("task"),
+        robots=cfg("robots"),
+        try_add_table=cfg("add_table", False),
+        sim=cfg("sim"),
+        num_envs=cfg("num_envs", 1),
+        headless=True,
+        cameras=[
+            PinholeCameraCfg(
+                width=cfg("video_width", 1024),
+                height=cfg("video_height", 1024),
+                pos=(4.0, -4.0, 4.0),  # adjust as needed
+                look_at=(0.0, 0.0, 0.0),
+            )
+        ],
+    )
+    scenario_render.task.decimation = cfg("decimation", 1)
 
     # ---------------- derive shapes ------------------------------------
     n_act = envs.num_actions
@@ -233,30 +250,32 @@ def main() -> None:
         return episode_returns.mean().item(), episode_lengths.mean().item()
 
     def render_with_rollout() -> list:
+        import imageio.v2 as iio
+
         """
         Collect a short rollout and return a list of RGB frames (H, W, 3, uint8).
         Works with FastTD3EnvWrapper: render_env.render() must return one frame.
         """
+        video_path: str = cfg("video_path", "output/rollout.mp4")
+        os.makedirs(os.path.dirname(video_path), exist_ok=True)
         obs_normalizer.eval()
-
+        env = FastTD3EnvWrapper(scenario_render, device=device)
         # first frame after reset
-        obs = render_env.reset()
-        frames = [render_env.render()]
+        obs = env.reset()
+        frames = [env.render()]
 
-        for _ in range(render_env.max_episode_steps):
+        obs_normalizer.eval()
+        for _ in range(env.max_episode_steps):
             with torch.no_grad(), autocast(device_type=amp_device_type, dtype=amp_dtype, enabled=amp_enabled):
                 act = actor(obs_normalizer(obs))
-            next_obs, _, done, _ = render_env.step(act.float())
-
-            # store every second frame to keep GIF size reasonable
-            if _ % 2 == 0:
-                frames.append(render_env.render())
-
+            obs, _, done, _ = env.step(act.float())
+            frames.append(env.render())
             if done.any():
                 break
-            obs = next_obs
-
         obs_normalizer.train()
+        print(f"[render_with_rollout] MP4 saved to {video_path}")
+        env.close()
+        iio.mimsave(video_path, frames, fps=30)
         return frames
 
     def update_main(data, logs_dict):
@@ -499,6 +518,9 @@ def main() -> None:
 
         global_step += 1
         pbar.update(1)
+        # Close environment and wandb
+    envs.close()
+    render_with_rollout()
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 # -------------------------------------------------------------------------------
 sim: mjx
 robots: [h1]
-task: humanoidbench:Stand
+task: humanoidbench:Stair
 decimation: 10
 train_or_eval: train
 
@@ -19,8 +19,8 @@ device_rank: 0
 # -------------------------------------------------------------------------------
 # Rollout & Timesteps
 # -------------------------------------------------------------------------------
-num_envs: 2048
-num_eval_envs: 2048
+num_envs: 1024
+num_eval_envs: 1024
 total_timesteps: 100000
 learning_starts: 10
 num_steps: 1
@@ -37,7 +37,7 @@ tau: 0.1
 # Update Schedule
 # -------------------------------------------------------------------------------
 policy_frequency: 2
-num_updates: 16
+num_updates: 12
 
 # -------------------------------------------------------------------------------
 # Optimizer & Network
@@ -83,8 +83,8 @@ action_bounds: 1.0
 # -------------------------------------------------------------------------------
 # Logging & Checkpointing
 # -------------------------------------------------------------------------------
-wandb_project: fast_td3_mjx2048
-exp_name: fasttd3_mjx2048
+wandb_project: fasttd3_mjx
+exp_name: fasttd3_mjx
 use_wandb: true
 checkpoint_path: null
 eval_interval: 1000
