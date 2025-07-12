@@ -16,7 +16,7 @@ experiment:
 
 environment:
   num_envs: 32
-  headless: False
+  headless: True
   # Options: "isaacgym", "mujoco", or "isaaclab"
   sim_name: "mujoco"
   rgb_observation: False

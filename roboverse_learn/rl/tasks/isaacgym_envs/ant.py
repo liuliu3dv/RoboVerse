@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 
 
 @register_task_wrapper("isaacgym_envs:AntIsaacGym")
+@register_task_wrapper("mujoco:AntMujoco")
 class AntTaskWrapper(IsaacGymEnvsTaskWrapper):
     """Task wrapper for Ant locomotion.
 
@@ -71,6 +72,15 @@ class AntTaskWrapper(IsaacGymEnvsTaskWrapper):
         self._joint_gears = None
         self._dof_limits_lower = None
         self._dof_limits_upper = None
+
+        # MuJoCo-specific buffers (for parallel environments)
+        self._mujoco_targets = None
+        self._mujoco_potentials = None
+        self._mujoco_prev_potentials = None
+        self._mujoco_actions = None
+        self._mujoco_inv_start_rot = None
+        self._mujoco_basis_vec0 = None
+        self._mujoco_basis_vec1 = None
 
         # Initialize task-specific buffers
         self._init_task_buffers()
@@ -227,42 +237,81 @@ class AntTaskWrapper(IsaacGymEnvsTaskWrapper):
         return self.obs_buf
 
     def get_observation_mujoco(self, states) -> np.ndarray:
-        """Extract observations from MuJoCo states."""
-        # Initialize observation array
-        obs = np.zeros((len(states), self.num_obs))
+        """Extract observations from MuJoCo states with support for parallel environments."""
+        batch_size = len(states)
+        obs = np.zeros((batch_size, self.num_obs))
+
+        # Initialize MuJoCo buffers if needed
+        if self._mujoco_targets is None or len(self._mujoco_targets) != batch_size:
+            self._init_mujoco_buffers(batch_size)
+
+        # Vectorized extraction for better performance
+        torso_positions = np.zeros((batch_size, 3))
+        torso_rotations = np.zeros((batch_size, 4))
+        lin_velocities = np.zeros((batch_size, 3))
+        ang_velocities = np.zeros((batch_size, 3))
+        dof_positions = np.zeros((batch_size, 8))
+        dof_velocities = np.zeros((batch_size, 8))
+        sensor_forces = np.zeros((batch_size, 24))
 
         for i, state in enumerate(states):
             # Extract robot state
             robot_state = state.get("robots", {}).get("ant", {})
 
             # Get position and orientation
-            torso_pos = np.array(robot_state.get("pos", [0.0, 0.0, self.initial_height]))
-            torso_rot = np.array(robot_state.get("rot", [1.0, 0.0, 0.0, 0.0]))
-            lin_vel = np.array(robot_state.get("lin_vel", robot_state.get("vel", [0.0, 0.0, 0.0])))
-            ang_vel = np.array(robot_state.get("ang_vel", [0.0, 0.0, 0.0]))
+            torso_positions[i] = robot_state.get("pos", [0.0, 0.0, self.initial_height])
+            torso_rotations[i] = robot_state.get("rot", [1.0, 0.0, 0.0, 0.0])
+            lin_velocities[i] = robot_state.get("lin_vel", robot_state.get("vel", [0.0, 0.0, 0.0]))
+            ang_velocities[i] = robot_state.get("ang_vel", [0.0, 0.0, 0.0])
 
             # Get joint states
             if "joint_qpos" in robot_state:
-                dof_pos = np.array(robot_state["joint_qpos"])
+                dof_positions[i] = robot_state["joint_qpos"]
             elif "dof_pos" in robot_state:
-                dof_pos = np.array(list(robot_state["dof_pos"].values()))
-            else:
-                dof_pos = np.zeros(8)
+                dof_positions[i] = list(robot_state["dof_pos"].values())
 
             if "joint_qvel" in robot_state:
-                dof_vel = np.array(robot_state["joint_qvel"])
+                dof_velocities[i] = robot_state["joint_qvel"]
             elif "dof_vel" in robot_state:
-                dof_vel = np.array(list(robot_state["dof_vel"].values()))
-            else:
-                dof_vel = np.zeros(8)
+                dof_velocities[i] = list(robot_state["dof_vel"].values())
 
-            # Simple observation for MuJoCo (full implementation would need buffers)
-            obs[i, 0] = torso_pos[2]  # height
-            obs[i, 1:4] = lin_vel
-            obs[i, 4:7] = ang_vel
-            obs[i, 7:15] = dof_pos
-            obs[i, 15:23] = dof_vel * self.dof_vel_scale
-            # Remaining slots filled with zeros
+            # Get sensor forces if available
+            if "sensor_forces" in robot_state:
+                forces = np.array(robot_state["sensor_forces"]).flatten()
+                sensor_forces[i, : min(24, len(forces))] = forces[:24]
+
+        # Compute target-related values
+        to_target = self._mujoco_targets - torso_positions
+        to_target[:, 2] = 0.0
+
+        # Compute heading and up projections (numpy version)
+        torso_quat, up_proj, heading_proj = self._compute_heading_and_up_numpy(
+            torso_rotations, self._mujoco_inv_start_rot, to_target, self._mujoco_basis_vec0, self._mujoco_basis_vec1
+        )
+
+        # Compute rotations
+        vel_loc, angvel_loc, roll, pitch, yaw, angle_to_target = self._compute_rot_numpy(
+            torso_quat, lin_velocities, ang_velocities, self._mujoco_targets, torso_positions
+        )
+
+        # Scale DOF positions
+        dof_limits_range = self._dof_limits_upper.cpu().numpy() - self._dof_limits_lower.cpu().numpy()
+        dof_limits_sum = self._dof_limits_upper.cpu().numpy() + self._dof_limits_lower.cpu().numpy()
+        dof_pos_scaled = (2.0 * dof_positions - dof_limits_sum) / dof_limits_range
+
+        # Assemble observations
+        obs[:, 0] = torso_positions[:, 2]  # height
+        obs[:, 1:4] = vel_loc  # local velocity
+        obs[:, 4:7] = angvel_loc  # local angular velocity
+        obs[:, 7] = yaw
+        obs[:, 8] = roll
+        obs[:, 9] = angle_to_target
+        obs[:, 10] = up_proj
+        obs[:, 11] = heading_proj
+        obs[:, 12:20] = dof_pos_scaled  # scaled joint positions
+        obs[:, 20:28] = dof_velocities * self.dof_vel_scale  # scaled joint velocities
+        obs[:, 28:52] = sensor_forces * self.contact_force_scale  # scaled contact forces
+        obs[:, 52:60] = self._mujoco_actions  # previous actions
 
         return obs
 
@@ -433,24 +482,172 @@ class AntTaskWrapper(IsaacGymEnvsTaskWrapper):
             log.warning(f"Unknown state format: {type(states)}")
             return self.obs_buf if hasattr(self, "obs_buf") else np.zeros((1, self.num_obs))
 
+    def compute_reward_mujoco(self, states, actions, next_states) -> np.ndarray:
+        """Compute rewards for MuJoCo states."""
+        batch_size = len(next_states)
+        rewards = np.zeros(batch_size)
+
+        # Extract states for all environments
+        torso_positions = np.zeros((batch_size, 3))
+        torso_rotations = np.zeros((batch_size, 4))
+        lin_velocities = np.zeros((batch_size, 3))
+        dof_positions = np.zeros((batch_size, 8))
+        dof_velocities = np.zeros((batch_size, 8))
+
+        for i, state in enumerate(next_states):
+            robot_state = state.get("robots", {}).get("ant", {})
+            torso_positions[i] = robot_state.get("pos", [0.0, 0.0, self.initial_height])
+            torso_rotations[i] = robot_state.get("rot", [1.0, 0.0, 0.0, 0.0])
+            lin_velocities[i] = robot_state.get("lin_vel", robot_state.get("vel", [0.0, 0.0, 0.0]))
+
+            if "joint_qpos" in robot_state:
+                dof_positions[i] = robot_state["joint_qpos"]
+            elif "dof_pos" in robot_state:
+                dof_positions[i] = list(robot_state["dof_pos"].values())
+
+            if "joint_qvel" in robot_state:
+                dof_velocities[i] = robot_state["joint_qvel"]
+            elif "dof_vel" in robot_state:
+                dof_velocities[i] = list(robot_state["dof_vel"].values())
+
+        # Initialize buffers if needed
+        if self._mujoco_targets is None or len(self._mujoco_targets) != batch_size:
+            self._init_mujoco_buffers(batch_size)
+
+        # Compute to target
+        to_target = self._mujoco_targets - torso_positions
+        to_target[:, 2] = 0.0
+
+        # Update potentials
+        dt = 0.01667
+        self._mujoco_prev_potentials = self._mujoco_potentials.copy()
+        self._mujoco_potentials = -np.linalg.norm(to_target, axis=1) / dt
+
+        # Compute heading and up
+        torso_quat, up_proj, heading_proj = self._compute_heading_and_up_numpy(
+            torso_rotations, self._mujoco_inv_start_rot, to_target, self._mujoco_basis_vec0, self._mujoco_basis_vec1
+        )
+
+        # Heading reward
+        heading_reward = np.where(heading_proj > 0.8, self.heading_weight, self.heading_weight * heading_proj / 0.8)
+
+        # Up reward
+        up_reward = np.where(up_proj > 0.93, self.up_weight, 0.0)
+
+        # Extract actions
+        if isinstance(actions, np.ndarray):
+            actions_array = actions
+        elif isinstance(actions, list):
+            actions_array = np.zeros((batch_size, self.num_actions))
+            for i, act in enumerate(actions):
+                if isinstance(act, dict):
+                    robot_name = next(iter(act.keys()))
+                    if "dof_pos_target" in act[robot_name]:
+                        joint_actions = act[robot_name]["dof_pos_target"]
+                        action_values = [
+                            joint_actions.get(f"hip_{(j // 2) + 1}", 0.0)
+                            if j % 2 == 0
+                            else joint_actions.get(f"ankle_{(j // 2) + 1}", 0.0)
+                            for j in range(8)
+                        ]
+                        actions_array[i] = action_values
+                elif isinstance(act, (list, np.ndarray)):
+                    actions_array[i] = act
+        else:
+            actions_array = np.zeros((batch_size, self.num_actions))
+
+        # Store actions for next observation
+        self._mujoco_actions = actions_array.copy()
+
+        # Action and energy costs
+        actions_cost = np.sum(actions_array**2, axis=1)
+        electricity_cost = np.sum(np.abs(actions_array * dof_velocities), axis=1)
+
+        # Joint limit cost
+        dof_limits_range = self._dof_limits_upper.cpu().numpy() - self._dof_limits_lower.cpu().numpy()
+        dof_limits_sum = self._dof_limits_upper.cpu().numpy() + self._dof_limits_lower.cpu().numpy()
+        dof_pos_scaled = (2.0 * dof_positions - dof_limits_sum) / dof_limits_range
+        dof_at_limit_cost = np.sum(dof_pos_scaled > 0.99, axis=1)
+
+        # Alive reward
+        alive_reward = 0.5
+
+        # Progress reward
+        progress_reward = self._mujoco_potentials - self._mujoco_prev_potentials
+
+        # Total reward
+        rewards = (
+            progress_reward
+            + alive_reward
+            + up_reward
+            + heading_reward
+            - self.actions_cost_scale * actions_cost
+            - self.energy_cost_scale * electricity_cost
+            - dof_at_limit_cost * self.joints_at_limit_cost_scale
+        )
+
+        # Death penalty
+        rewards = np.where(torso_positions[:, 2] < self.termination_height, self.death_cost, rewards)
+
+        return rewards
+
     def _compute_reward_generic(self, states, actions, next_states):
         """Fallback reward computation."""
         if hasattr(states, "__class__") and states.__class__.__name__ == "TensorState":
             return self.compute_reward_isaacgym(states, actions, next_states)
+        elif isinstance(states, (list, tuple)) and len(states) > 0 and isinstance(states[0], dict):
+            return self.compute_reward_mujoco(states, actions, next_states)
         else:
             # Simple implementation for other simulators
             return np.zeros(len(actions))
+
+    def check_termination_mujoco(self, states) -> np.ndarray:
+        """Check termination conditions for MuJoCo."""
+        batch_size = len(states)
+        terminations = np.zeros(batch_size, dtype=bool)
+
+        for i, state in enumerate(states):
+            robot_state = state.get("robots", {}).get("ant", {})
+            torso_pos = robot_state.get("pos", [0.0, 0.0, self.initial_height])
+
+            # Terminate if ant falls below threshold height
+            terminations[i] = torso_pos[2] < self.termination_height
+
+        return terminations
 
     def _check_termination_generic(self, states):
         """Generic termination check."""
         if hasattr(states, "__class__") and states.__class__.__name__ == "TensorState":
             return self.check_termination_isaacgym(states)
+        elif isinstance(states, (list, tuple)) and len(states) > 0 and isinstance(states[0], dict):
+            return self.check_termination_mujoco(states)
         else:
             return False
 
+    def reset_task_mujoco(self, env_ids: list[int] | None = None):
+        """Reset task-specific state for MuJoCo."""
+        if self._mujoco_potentials is None:
+            return  # Buffers not initialized yet
+
+        if env_ids is None:
+            # Reset all environments
+            batch_size = len(self._mujoco_potentials)
+            env_ids = list(range(batch_size))
+
+        # Reset potentials for specified environments
+        dt = 0.01667
+        for idx in env_ids:
+            if idx < len(self._mujoco_potentials):
+                self._mujoco_potentials[idx] = -1000.0 / dt
+                self._mujoco_prev_potentials[idx] = self._mujoco_potentials[idx]
+                self._mujoco_actions[idx] = 0
+
     def _reset_task_generic(self, env_ids: list[int] | None = None):
         """Generic task reset."""
-        pass
+        if self.sim_type == "mujoco":
+            self.reset_task_mujoco(env_ids)
+        elif self.sim_type == "isaacgym":
+            self.reset_task_isaacgym(env_ids)
 
     def compute_heading_and_up(self, torso_rotation, inv_start_rot, to_target, vec0, vec1, up_idx):
         """Compute heading and up projections."""
@@ -486,3 +683,114 @@ class AntTaskWrapper(IsaacGymEnvsTaskWrapper):
             angle_to_target = angle_to_target.unsqueeze(-1)
 
         return vel_loc, angvel_loc, roll, pitch, yaw, angle_to_target
+
+    def _init_mujoco_buffers(self, batch_size: int):
+        """Initialize buffers for MuJoCo parallel environments."""
+        # Targets - fixed location for ant to walk towards
+        self._mujoco_targets = np.array([[1000.0, 0.0, 0.0]] * batch_size)
+
+        # Potentials for progress tracking
+        dt = 0.01667
+        self._mujoco_potentials = np.full(batch_size, -1000.0 / dt)
+        self._mujoco_prev_potentials = self._mujoco_potentials.copy()
+
+        # Previous actions
+        self._mujoco_actions = np.zeros((batch_size, self.num_actions))
+
+        # Rotation buffers
+        start_rot = np.array([1.0, 0.0, 0.0, 0.0])
+        self._mujoco_inv_start_rot = np.array([self._quat_inv_numpy(start_rot) for _ in range(batch_size)])
+        self._mujoco_basis_vec0 = np.array([[1.0, 0.0, 0.0]] * batch_size)
+        self._mujoco_basis_vec1 = np.array([[0.0, 0.0, 1.0]] * batch_size)
+
+    def _compute_heading_and_up_numpy(self, torso_rotations, inv_start_rot, to_target, vec0, vec1):
+        """Numpy version of compute_heading_and_up for MuJoCo."""
+        batch_size = torso_rotations.shape[0]
+
+        # Normalize target directions
+        target_dirs = to_target / (np.linalg.norm(to_target, axis=1, keepdims=True) + 1e-8)
+
+        # Compute torso quaternions
+        torso_quat = np.array([self._quat_mul_numpy(torso_rotations[i], inv_start_rot[i]) for i in range(batch_size)])
+
+        # Rotate vectors
+        up_vec = np.array([self._quat_rotate_numpy(torso_quat[i], vec1[i]) for i in range(batch_size)])
+        heading_vec = np.array([self._quat_rotate_numpy(torso_quat[i], vec0[i]) for i in range(batch_size)])
+
+        # Projections
+        up_proj = up_vec[:, 2]  # z component is up
+        heading_proj = np.sum(heading_vec * target_dirs, axis=1)
+
+        return torso_quat, up_proj, heading_proj
+
+    def _compute_rot_numpy(self, torso_quat, velocity, ang_velocity, targets, torso_positions):
+        """Numpy version of compute_rot for MuJoCo."""
+        batch_size = torso_quat.shape[0]
+
+        # Local velocities
+        vel_loc = np.array([self._quat_rotate_inverse_numpy(torso_quat[i], velocity[i]) for i in range(batch_size)])
+        angvel_loc = np.array([
+            self._quat_rotate_inverse_numpy(torso_quat[i], ang_velocity[i]) for i in range(batch_size)
+        ])
+
+        # Extract Euler angles
+        roll, pitch, yaw = self._euler_from_quat_numpy(torso_quat)
+
+        # Angle to target
+        walk_target_angle = np.arctan2(targets[:, 2] - torso_positions[:, 2], targets[:, 0] - torso_positions[:, 0])
+        angle_to_target = walk_target_angle - yaw
+
+        return vel_loc, angvel_loc, roll, pitch, yaw, angle_to_target
+
+    def _quat_inv_numpy(self, q):
+        """Numpy quaternion inverse."""
+        return np.array([q[0], -q[1], -q[2], -q[3]])
+
+    def _quat_mul_numpy(self, q1, q2):
+        """Numpy quaternion multiplication."""
+        w1, x1, y1, z1 = q1
+        w2, x2, y2, z2 = q2
+        return np.array([
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+        ])
+
+    def _quat_rotate_numpy(self, q, v):
+        """Rotate vector by quaternion (numpy)."""
+        qvec = np.array([0.0, v[0], v[1], v[2]])
+        q_conj = self._quat_inv_numpy(q)
+        rotated = self._quat_mul_numpy(self._quat_mul_numpy(q, qvec), q_conj)
+        return rotated[1:]
+
+    def _quat_rotate_inverse_numpy(self, q, v):
+        """Inverse rotate vector by quaternion (numpy)."""
+        q_inv = self._quat_inv_numpy(q)
+        return self._quat_rotate_numpy(q_inv, v)
+
+    def _euler_from_quat_numpy(self, quats):
+        """Extract Euler angles from quaternions (numpy)."""
+        batch_size = quats.shape[0]
+        roll = np.zeros(batch_size)
+        pitch = np.zeros(batch_size)
+        yaw = np.zeros(batch_size)
+
+        for i in range(batch_size):
+            w, x, y, z = quats[i]
+
+            # Roll (x-axis rotation)
+            sinr_cosp = 2 * (w * x + y * z)
+            cosr_cosp = 1 - 2 * (x * x + y * y)
+            roll[i] = np.arctan2(sinr_cosp, cosr_cosp)
+
+            # Pitch (y-axis rotation)
+            sinp = 2 * (w * y - z * x)
+            pitch[i] = np.arcsin(np.clip(sinp, -1.0, 1.0))
+
+            # Yaw (z-axis rotation)
+            siny_cosp = 2 * (w * z + x * y)
+            cosy_cosp = 1 - 2 * (y * y + z * z)
+            yaw[i] = np.arctan2(siny_cosp, cosy_cosp)
+
+        return roll, pitch, yaw
