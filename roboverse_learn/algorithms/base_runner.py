@@ -13,7 +13,9 @@ from diffusion_policy.common.pytorch_util import dict_apply
 from loguru import logger as log
 
 from metasim.cfg.scenario import ScenarioCfg
-
+import sys
+for path in sys.path:
+    print(path)
 
 class PolicyRunner:
     """Base class to run a policy, based on the policyCFG it preprocesses the observation to
