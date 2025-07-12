@@ -2,7 +2,7 @@
 
 Imitation Learning is a powerful tool for training agents to perform tasks by leveraging expert demonstrations, especially when reward signals are sparse or hard to specify.
 
-In this example, we will collect demonstration trajectories of a robotic arm performing various tasks in a 3D environment, then train an agent using Behavioral Cloning to mimic the expert’s motions and generalize to unseen targets.
+In this example, we will collect demonstration trajectories of a robotic arm performing various tasks in simulator, then train an agent using Behavioral Cloning to mimic the expert’s motions and generalize to unseen targets.
 
 ## Collecting Demonstration
 
@@ -21,6 +21,7 @@ python collect_demo.py \
   --run_unfinished
 ```
 
+Please check the [Collecting Demonstration](https://roboverse.wiki/metasim/user_guide/collect_demo_tutorial) for more details about how to collect demonstration and what are the options for the command.
 
 ### Training the policy and Converting the dataset format
 After collected to demo data, we can transform into zarr folders so we can read them more easily to train the policy. In this demo, we use diffusion policy as an example. You can also use other algorithms under `roboverse_learn/algorithms`.
