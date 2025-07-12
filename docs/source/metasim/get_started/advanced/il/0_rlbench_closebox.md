@@ -50,7 +50,7 @@ python roboverse_learn/eval.py --task CloseBox --algo diffusion_policy --num_env
             <video width="100%" autoplay loop muted playsinline>
                 <source src="https://roboverse.wiki/_static/standard_output/il/0_closebox.mp4" type="video/mp4">
             </video>
-            <p style="margin-top: 5px;">CloseBox</p>
+            <p style="margin-top: 5px;" >CloseBox</p>
         </div>
     </div>
 </div>
