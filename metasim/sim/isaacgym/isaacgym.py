@@ -606,6 +606,12 @@ class IsaacgymHandler(BaseSimHandler):
 
         # GET initial state, copy for reset later
         self._initial_state = np.copy(self.gym.get_sim_rigid_body_states(self.sim, gymapi.STATE_ALL))
+        self.actor_indices = torch.zeros((self.num_envs, len(self.objects) + len(self.robots)), dtype=torch.int32, device=self.device)
+        for env_id in range(self.num_envs):
+            env_offset = env_id * (len(self.objects) + len(self.robots))
+            self.actor_indices[env_id, :len(self.objects) + len(self.robots)] = torch.arange(
+                env_offset, env_offset + len(self.objects) + len(self.robots)
+            )
 
         ###### set VEWIER camera ######
         # point camera at middle env
@@ -620,6 +626,11 @@ class IsaacgymHandler(BaseSimHandler):
         quat_xyzw = state[..., 3:7]
         quat_wxyz = torch.cat([quat_xyzw[..., 3:4], quat_xyzw[..., 0:3]], dim=-1)
         return torch.cat([state[..., 0:3], quat_wxyz, state[..., 7:]], dim=-1)
+
+    def _reorder_quat_wxyz_to_xyzw(self, state: torch.Tensor) -> torch.Tensor:
+        quat_wxyz = state[..., 3:7]
+        quat_xyzw = torch.cat([quat_wxyz[..., 1:4], quat_wxyz[..., 0:1]], dim=-1)
+        return torch.cat([state[..., 0:3], quat_xyzw, state[..., 7:]], dim=-1)
 
     def _get_states(self, env_ids: list[int] | None = None) -> list[EnvState]:
         if env_ids is None:
@@ -940,71 +951,112 @@ class IsaacgymHandler(BaseSimHandler):
         ## Support setting status only for specified env_ids
         if env_ids is None:
             env_ids = list(range(self.num_envs))
-        assert len(states) == self.num_envs, (
-            f"The length of the state list ({len(states)}) must match the length of num_envs ({self.num_envs})."
-        )
+        if isinstance(states, list):
+            assert len(states) == self.num_envs, (
+                f"The length of the state list ({len(states)}) must match the length of num_envs ({self.num_envs})."
+            )
 
-        pos_list = []
-        rot_list = []
-        q_list = []
-        states_flat = [{**states[i]["objects"], **states[i]["robots"]} for i in env_ids]
+            pos_list = []
+            rot_list = []
+            q_list = []
+            states_flat = [{**states[i]["objects"], **states[i]["robots"]} for i in env_ids]
 
-        # Prepare state data for specified env_ids
-        env_indices = {env_id: i for i, env_id in enumerate(env_ids)}
+            # Prepare state data for specified env_ids
+            env_indices = {env_id: i for i, env_id in enumerate(env_ids)}
 
-        for i in range(self.num_envs):
-            if i not in env_indices:
-                continue
+            for i in range(self.num_envs):
+                if i not in env_indices:
+                    continue
 
-            state_idx = env_indices[i]
-            state = states_flat[state_idx]
+                state_idx = env_indices[i]
+                state = states_flat[state_idx]
 
-            pos_list_i = []
-            rot_list_i = []
-            q_list_i = []
-            for obj in self.objects:
-                obj_name = obj.name
-                pos = np.array(state[obj_name].get("pos", [0.0, 0.0, 0.0]))
-                rot = np.array(state[obj_name].get("rot", [1.0, 0.0, 0.0, 0.0]))
-                obj_quat = [rot[1], rot[2], rot[3], rot[0]]  # IsaacGym convention
+                pos_list_i = []
+                rot_list_i = []
+                q_list_i = []
+                for obj in self.objects:
+                    obj_name = obj.name
+                    pos = np.array(state[obj_name].get("pos", [0.0, 0.0, 0.0]))
+                    rot = np.array(state[obj_name].get("rot", [1.0, 0.0, 0.0, 0.0]))
+                    obj_quat = [rot[1], rot[2], rot[3], rot[0]]  # IsaacGym convention
 
-                pos_list_i.append(pos)
-                rot_list_i.append(obj_quat)
+                    pos_list_i.append(pos)
+                    rot_list_i.append(obj_quat)
+                    if isinstance(obj, ArticulationObjCfg):
+                        obj_joint_q = np.zeros(len(self._articulated_joint_dict_dict[obj_name]))
+                        articulated_joint_dict = self._articulated_joint_dict_dict[obj_name]
+                        for joint_name, joint_idx in articulated_joint_dict.items():
+                            if "dof_pos" in state[obj_name]:
+                                obj_joint_q[joint_idx] = state[obj_name]["dof_pos"][joint_name]
+                            else:
+                                log.warning(f"No dof_pos for {joint_name} in {obj_name}")
+                                obj_joint_q[joint_idx] = 0.0
+                        q_list_i.append(obj_joint_q)
+
+                for robot, robot_asset in zip(self.robots, self.robot_asset_list):
+                    robot_joint_dict = self.gym.get_asset_dof_dict(robot_asset)
+                    pos_list_i.append(np.array(state[robot.name].get("pos", [0.0, 0.0, 0.0])))
+                    rot = np.array(state[robot.name].get("rot", [1.0, 0.0, 0.0, 0.0]))
+                    robot_quat = [rot[1], rot[2], rot[3], rot[0]]
+                    rot_list_i.append(robot_quat)
+
+                    robot_dof_state_i = np.zeros(robot.num_joints)
+                    if "dof_pos" in state[robot.name]:
+                        for joint_name, joint_idx in robot_joint_dict.items():
+                            robot_dof_state_i[joint_idx] = state[robot.name]["dof_pos"][joint_name]
+                    else:
+                        for joint_name, joint_idx in robot_joint_dict.items():
+                            robot_dof_state_i[joint_idx] = (
+                                robot.joint_limits[joint_name][0] + robot.joint_limits[joint_name][1]
+                            ) / 2
+                    q_list_i.append(robot_dof_state_i)
+
+                pos_list.append(pos_list_i)
+                rot_list.append(rot_list_i)
+                q_list.append(q_list_i)
+
+            self._set_actor_root_state(pos_list, rot_list, env_ids)
+            self._set_actor_joint_state(q_list, env_ids)
+        elif isinstance(states, TensorState):
+            env_ids_tensor = torch.tensor(env_ids, dtype=torch.int32, device=self.device)
+            new_root_states = self._root_states.view(self.num_envs, -1, 13).clone()
+            new_dof_states = self._dof_states.view(self.num_envs, -1, 2).clone()
+            for obj_id, obj in enumerate(self.objects):
+                obj_state = states.objects[obj.name]
+                root_state = self._reorder_quat_wxyz_to_xyzw(obj_state.root_state)
+                new_root_states[env_ids, obj_id, :] = root_state[env_ids, :]
                 if isinstance(obj, ArticulationObjCfg):
-                    obj_joint_q = np.zeros(len(self._articulated_joint_dict_dict[obj_name]))
-                    articulated_joint_dict = self._articulated_joint_dict_dict[obj_name]
-                    for joint_name, joint_idx in articulated_joint_dict.items():
-                        if "dof_pos" in state[obj_name]:
-                            obj_joint_q[joint_idx] = state[obj_name]["dof_pos"][joint_name]
-                        else:
-                            log.warning(f"No dof_pos for {joint_name} in {obj_name}")
-                            obj_joint_q[joint_idx] = 0.0
-                    q_list_i.append(obj_joint_q)
+                    joint_pos = obj_state.joint_pos
+                    global_dof_indices = torch.tensor(list(self._joint_info[obj.name]["global_indices"].values()), dtype=torch.int32, device=self.device)
+                    new_dof_states[env_ids_tensor.unsqueeze(1), global_dof_indices.unsqueeze(0), 0] = joint_pos[env_ids, :]
+                    new_dof_states[env_ids_tensor.unsqueeze(1), global_dof_indices.unsqueeze(0), 1] = 0.0
+            for robot_id, robot in enumerate(self.robots):
+                robot_state = states.robots[robot.name]
+                root_state = self._reorder_quat_wxyz_to_xyzw(robot_state.root_state)
+                new_root_states[env_ids, len(self.objects) + robot_id, :] = root_state[env_ids, :]
+                joint_pos = robot_state.joint_pos
+                global_dof_indices = torch.tensor(list(self._joint_info[robot.name]["global_indices"].values()), dtype=torch.int32, device=self.device)
+                new_dof_states[env_ids_tensor.unsqueeze(1), global_dof_indices.unsqueeze(0), 0] = joint_pos[env_ids, :].clone()
+                new_dof_states[env_ids_tensor.unsqueeze(1), global_dof_indices.unsqueeze(0), 1] = 0.0
 
-            for robot, robot_asset in zip(self.robots, self.robot_asset_list):
-                robot_joint_dict = self.gym.get_asset_dof_dict(robot_asset)
-                pos_list_i.append(np.array(state[robot.name].get("pos", [0.0, 0.0, 0.0])))
-                rot = np.array(state[robot.name].get("rot", [1.0, 0.0, 0.0, 0.0]))
-                robot_quat = [rot[1], rot[2], rot[3], rot[0]]
-                rot_list_i.append(robot_quat)
+            new_root_states = new_root_states.view(-1, 13)
+            new_dof_states = new_dof_states.view(-1, 2)
+            root_reset_actors_indices = self.actor_indices[env_ids, :].view(-1)
 
-                robot_dof_state_i = np.zeros(robot.num_joints)
-                if "dof_pos" in state[robot.name]:
-                    for joint_name, joint_idx in robot_joint_dict.items():
-                        robot_dof_state_i[joint_idx] = state[robot.name]["dof_pos"][joint_name]
-                else:
-                    for joint_name, joint_idx in robot_joint_dict.items():
-                        robot_dof_state_i[joint_idx] = (
-                            robot.joint_limits[joint_name][0] + robot.joint_limits[joint_name][1]
-                        ) / 2
-                q_list_i.append(robot_dof_state_i)
+            res = self.gym.set_actor_root_state_tensor_indexed(
+                self.sim,
+                gymtorch.unwrap_tensor(new_root_states),
+                gymtorch.unwrap_tensor(root_reset_actors_indices),
+                len(root_reset_actors_indices),
+            )
+            assert res
 
-            pos_list.append(pos_list_i)
-            rot_list.append(rot_list_i)
-            q_list.append(q_list_i)
+            res = self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(new_dof_states))
+            assert res
 
-        self._set_actor_root_state(pos_list, rot_list, env_ids)
-        self._set_actor_joint_state(q_list, env_ids)
+        else:
+            raise Exception("Unsupported state type, must be EnvState or TensorState")
+
 
         # Refresh tensors
         self.gym.refresh_rigid_body_state_tensor(self.sim)

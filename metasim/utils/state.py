@@ -56,21 +56,21 @@ class RobotState:
 
     root_state: torch.Tensor
     """Root state ``[pos, quat, lin_vel, ang_vel]``. Shape is (num_envs, 13)."""
-    body_names: list[str]
+    body_names: list[str] | None = None
     """Body names."""
-    body_state: torch.Tensor
+    body_state: torch.Tensor | None = None
     """Body state ``[pos, quat, lin_vel, ang_vel]``. Shape is (num_envs, num_bodies, 13)."""
-    joint_pos: torch.Tensor
+    joint_pos: torch.Tensor | None = None
     """Joint positions. Shape is (num_envs, num_joints)."""
-    joint_vel: torch.Tensor
+    joint_vel: torch.Tensor | None = None
     """Joint velocities. Shape is (num_envs, num_joints)."""
-    joint_force: torch.Tensor
+    joint_force: torch.Tensor | None = None
     """Joint forces. Shape is (num_envs, num_joints)."""
-    joint_pos_target: torch.Tensor
+    joint_pos_target: torch.Tensor | None = None
     """Joint positions target. Shape is (num_envs, num_joints)."""
-    joint_vel_target: torch.Tensor
+    joint_vel_target: torch.Tensor | None = None
     """Joint velocities target. Shape is (num_envs, num_joints)."""
-    joint_effort_target: torch.Tensor
+    joint_effort_target: torch.Tensor | None = None
     """Joint effort targets. Shape is (num_envs, num_joints)."""
 
 
@@ -361,6 +361,7 @@ def list_state_to_tensor(
     obj_names = sorted({n for es in env_states for n in es["objects"].keys()})
     robot_names = sorted({n for es in env_states for n in es["robots"].keys()})
     cam_names = sorted({n for es in env_states if "cameras" in es for n in es["cameras"].keys()})
+    sensor_names = sorted({n for es in env_states for n in es.get("sensors", {}).keys()})
 
     n_env = len(env_states)
     dev = device
@@ -368,6 +369,7 @@ def list_state_to_tensor(
     objects: dict[str, ObjectState] = {}
     robots: dict[str, RobotState] = {}
     cameras: dict[str, CameraState] = {}
+    sensors: dict[str, SensorState] = {}
 
     # -------- objects --------------------------------------------------
     for name in obj_names:
@@ -488,9 +490,37 @@ def list_state_to_tensor(
         ).to(dev)
         cameras[cam] = CameraState(rgb=rgb, depth=depth)
 
+    # -------- sensors ---------------------------------------------
+    for sensor in sensor_names:
+        force = torch.stack(
+            [es["sensors"][sensor]["force"] for es in env_states if "sensors" in es and sensor in es["sensors"]], dim=0
+        ).to(dev)
+        torque = (
+            torch.stack(
+                [
+                    es["sensors"][sensor]["torque"]
+                    for es in env_states
+                    if (
+                        "sensors" in es and
+                        sensor in es["sensors"] and
+                        es["sensors"][sensor]["torque"] is not None
+                    )
+                ],
+                dim=0
+            ).to(dev)
+            if (
+                env_states and
+                "sensors" in env_states[0] and
+                sensor in env_states[0]["sensors"] and
+                "torque" in env_states[0]["sensors"][sensor]
+            )
+            else None
+        )
+        sensors[sensor] = SensorState(force=force, torque=torque)
+
     return TensorState(
         objects=objects,
         robots=robots,
         cameras=cameras,
-        sensors={},
+        sensors=sensors,
     )
