@@ -101,8 +101,9 @@ def GymEnvWrapper(cls: type[THandler]) -> type[EnvWrapper[THandler]]:
 
         def step(self, actions: list[Action]) -> tuple[Obs, Reward, Success, TimeOut, Extra]:
             self._episode_length_buf += 1
-            for robot in self.handler.robots:
-                self.handler.set_dof_targets(robot.name, actions)
+            # for robot in self.handler.robots:
+            #     self.handler.set_dof_targets(robot.name, actions)
+            self.handler.set_dof_targets(self.handler.robots[0].name, actions)
             tic = time.time()
             self.handler.simulate()
             toc = time.time()
