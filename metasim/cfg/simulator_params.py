@@ -36,6 +36,7 @@ class SimParamCfg:
     rest_offset: float = 0.0
     solver_type: int = 1
     substeps: int = 1  # for IsaacGym
+    env_spacing: int = 1.0
 
     ## Resource management
     num_threads: int = 0
