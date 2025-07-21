@@ -49,6 +49,7 @@ class IsaacgymHandler(BaseSimHandler):
         self._asset_dict_dict: dict = {}  # dict of object link index dict
         self._articulated_asset_dict_dict: dict = {}  # dict of articulated object link index dict
         self._articulated_joint_dict_dict: dict = {}  # dict of articulated object joint index dict
+        self._articulated_dof_prop_dict: dict = {}  # list of articulated object dof properties
         # self._robot_link_dict: dict = {}  # dict of robot link index dict
         # self._robot_joint_dict: dict = {}  # dict of robot joint index dict
         self._joint_info: dict = {}  # dict of joint names of each env
@@ -225,6 +226,7 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = object.fix_base_link
             asset_options.disable_gravity = object.disable_gravity
             asset_options.flip_visual_attachments = object.flip_visual_attachments
+            asset_options.use_physx_armature = True
             if hasattr(object, "default_density") and object.default_density is not None:
                 asset_options.density = object.default_density
             asset = self.gym.create_box(self.sim, object.size[0], object.size[1], object.size[2], asset_options)
@@ -234,6 +236,7 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = object.fix_base_link
             asset_options.disable_gravity = object.disable_gravity
             asset_options.flip_visual_attachments = object.flip_visual_attachments
+            asset_options.use_physx_armature = True
             if hasattr(object, "default_density") and object.default_density is not None:
                 asset_options.density = object.default_density
             asset = self.gym.create_sphere(self.sim, object.radius, asset_options)
@@ -245,6 +248,8 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = object.fix_base_link
             asset_options.disable_gravity = object.disable_gravity
             asset_options.flip_visual_attachments = object.flip_visual_attachments
+            asset_options.collapse_fixed_joints = object.collapse_fixed_joints
+            asset_options.use_physx_armature = True
             if object.override_com:
                 asset_options.override_com = True
             if object.override_inertia:
@@ -266,6 +271,7 @@ class IsaacgymHandler(BaseSimHandler):
             asset = self.gym.load_asset(self.sim, asset_root, asset_path, asset_options)
             self._articulated_asset_dict_dict[object.name] = self.gym.get_asset_rigid_body_dict(asset)
             self._articulated_joint_dict_dict[object.name] = self.gym.get_asset_dof_dict(asset)
+            self._articulated_dof_prop_dict[object.name] = self.gym.get_asset_dof_properties(asset)
         elif isinstance(object, RigidObjCfg):
             asset_path = object.mjcf_path if object.isaacgym_read_mjcf else object.urdf_path
             asset_options = gymapi.AssetOptions()
@@ -273,6 +279,7 @@ class IsaacgymHandler(BaseSimHandler):
             asset_options.fix_base_link = object.fix_base_link
             asset_options.disable_gravity = object.disable_gravity
             asset_options.flip_visual_attachments = object.flip_visual_attachments
+            asset_options.use_physx_armature = True
             if object.override_com:
                 asset_options.override_com = True
             if object.override_inertia:
@@ -528,6 +535,8 @@ class IsaacgymHandler(BaseSimHandler):
             body_info_["global_indices"] = {k_: v_ + self._num_bodies for k_, v_ in asset_dict.items()}
             self._body_info[obj_name] = body_info_
             self._num_bodies += num_bodies
+        #     print(body_info_)
+        # exit(0)
 
         for robot, robot_asset in zip(self.robots, robot_asset_list):
             robot_link_dict = self.gym.get_asset_rigid_body_dict(robot_asset)
@@ -596,6 +605,7 @@ class IsaacgymHandler(BaseSimHandler):
                     pass
                 elif isinstance(self.objects[obj_i], ArticulationObjCfg):
                     self._articulated_obj_handles[-1].append(obj_handle)
+                    self.gym.set_actor_dof_properties(env, obj_handle, self._articulated_dof_prop_dict[self.objects[obj_i].name])
                 else:
                     log.error("Unknown object type")
                     raise NotImplementedError
