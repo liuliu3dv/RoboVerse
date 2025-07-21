@@ -27,6 +27,7 @@ class ShadowHandCfg(BaseRobotCfg):
     linear_damping: float = None
     tendon_limit_stiffness: float = 30.0
     tendon_damping: float = 0.1
+    friction = None  # Use default friction from MJCF
     actuators: dict[str, BaseActuatorCfg] = {
         "robot0_WRJ1": BaseActuatorCfg(),
         "robot0_WRJ0": BaseActuatorCfg(),
