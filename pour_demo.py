@@ -45,6 +45,7 @@ class Args:
     """Arguments for the static scene."""
 
     robot: str = "franka"
+    scene: str | None = None
     sim: Literal["isaaclab", "isaacgym", "genesis", "pyrep", "pybullet", "sapien", "sapien3", "mujoco", "blender"] = (
         "isaaclab"
     )
@@ -91,6 +92,7 @@ obs_saver = ObsSaver(video_path="./tmp.mp4")
 args = tyro.cli(Args)
 scenario = ScenarioCfg(
     robot=args.robot,
+    scene=args.scene,
     try_add_table=False,
     sim=args.sim,
     headless=args.headless,
@@ -101,12 +103,6 @@ scenario.objects = [
         name="table",
         size=(0.7366, 1.4732, 0.0254),
         color=(0.8, 0.4, 0.2),
-        physics=PhysicStateType.GEOM,
-    ),
-    PrimitiveCubeCfg(
-        name="wall",
-        size=(0.05, 2.0, 2.0),
-        color=(1.0, 1.0, 1.0),
         physics=PhysicStateType.GEOM,
     ),
     RigidObjCfg(
@@ -154,10 +150,6 @@ init_states = [
         "objects": {
             "table": {
                 "pos": torch.tensor([0.3683, 0.1234, 0.6943]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "wall": {
-                "pos": torch.tensor([0.7616, 0.1234, 1.0]),
                 "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
             },
             "cup1": {},
