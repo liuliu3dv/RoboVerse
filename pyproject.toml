@@ -108,7 +108,8 @@ extend-exclude = [
     "tmp",
     "roboverse_data",
     "assets",
-    "docker"
+    "docker",
+    "tmp.py",
 ]
 
 [tool.setuptools.packages.find]

@@ -1,6 +1,6 @@
 {
     // Python interpreter (change this to your own path)
-    "python.defaultInterpreterPath": "${env:CONDA_ROOT}/envs/isaaclab/bin/python",
+    "python.defaultInterpreterPath": "/home/fs/miniforge3/envs/metasim/bin/python",
 
     // Formatting
     "[python]": {
@@ -31,6 +31,8 @@
         "data_isaaclab": true,
         "data_policy": true,
         "roboverse_data": true,
+        "roboverse_data_release": true,
+        "roboverse_data_dev": true,
         "wandb": true,
         "tmp": true,
         "checkpoints": true,
@@ -50,7 +52,7 @@
     ],
 
     // Python extra paths
-    "python.analysis.extraPaths": [
+    "cursorpyright.analysis.extraPaths": [
         /*** curobo ***/
         "${workspaceFolder}/third_party/curobo/src",
         /*** MetaSim + IssacGym Developer ***/
