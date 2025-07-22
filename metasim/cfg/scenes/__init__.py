@@ -1,6 +1,7 @@
 # ruff: noqa: F401
 
 from .base_scene_cfg import SceneCfg
+from .kujiale_0020_cfg import Kujiale0020Cfg
 from .manycore_scene_827313_cfg import ManycoreScene827313Cfg
 from .tapwater_scene_131_cfg import TapwaterScene131Cfg
 from .tapwater_scene_138_cfg import TapwaterScene138Cfg

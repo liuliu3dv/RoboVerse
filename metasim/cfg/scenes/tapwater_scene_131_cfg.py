@@ -12,9 +12,9 @@ class TapwaterScene131Cfg(SceneCfg):
     name: str = "tapwater_131"
     usd_path: str = "roboverse_data_release/scenes/arnold/tapwater_scene_131/usd/layout.usd"
     positions: list[tuple[float, float, float]] = [
-        (0.62354, -1.77833, -0.73064),  # (0.62, -1.78, -0.74) <- (-62, 73, -178)
+        (0.62354, -1.77833, -0.73064 + (0.6943 + 0.0127)),  # (0.62, -1.78, -0.74) <- (-62, 73, -178)
         (-3.8, -3.1, -0.5),
     ]  # XXX: only positions are randomized for now
-    default_position: tuple[float, float, float] = (0.62354, -1.77833, -0.73064)
+    default_position: tuple[float, float, float] = (0.62354, -1.77833, -0.73064 + (0.6943 + 0.0127 + 0.002))
     quat: tuple[float, float, float, float] = (0.7071068, 0.7071068, 0.0, 0.0)
     scale: tuple[float, float, float] = (0.01, 0.01, 0.01)
