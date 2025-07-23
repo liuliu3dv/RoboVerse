@@ -22,7 +22,7 @@ class Args:
     """Simulator backend"""
     max_demo: int | None = None
     """Maximum number of demos to collect, None for all demos"""
-    headless: bool = False
+    headless: bool = True
     """Run in headless mode"""
     table: bool = True
     """Try to add a table"""

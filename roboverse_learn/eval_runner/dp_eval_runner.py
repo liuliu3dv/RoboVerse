@@ -4,8 +4,6 @@ import dill
 import hydra
 import numpy as np
 import torch
-from diffusion_policy import RobotWorkspace
-
 from metasim.cfg.policy import DiffusionPolicyCfg
 from roboverse_learn.base.base_eval_runner import BaseEvalRunner
 from roboverse_learn.runner.dp_runner import DPRunner
@@ -24,7 +22,7 @@ class DPEvalRunner(BaseEvalRunner):
 
         # get policy from workspace
         policy = dprunner.model
-        if cfg.training.use_ema:
+        if cfg.train_config.training_params.use_ema:
             policy = dprunner.ema_model
 
         device = torch.device(self.device)
@@ -34,9 +32,11 @@ class DPEvalRunner(BaseEvalRunner):
         self.yaml_cfg = cfg
         self.policy_cfg = DiffusionPolicyCfg()
 
-        if "policy_runner" in cfg.eval:
-            self.policy_cfg.obs_config.from_dict(cfg.eval.policy_runner.obs)
-            self.policy_cfg.action_config.from_dict(cfg.eval.policy_runner.action)
+        if "policy_runner" in cfg.eval_config:
+            self.policy_cfg.obs_config.from_dict(cfg.eval_config.policy_runner.obs)
+            self.policy_cfg.action_config.from_dict(
+                cfg.eval_config.policy_runner.action
+            )
             self.policy_cfg.obs_config.obs_dim = cfg.shape_meta.obs.agent_pos.shape[0]
             self.policy_cfg.action_config.action_dim = cfg.shape_meta.action.shape[0]
 
@@ -57,9 +57,13 @@ class DPEvalRunner(BaseEvalRunner):
             if n_steps > len(all_obs):
                 # pad
                 result[:start_idx] = result[start_idx]
-            result = np.swapaxes(result, 0, 1)  # Policy expects (Batch_size, n_steps, ...)
+            result = np.swapaxes(
+                result, 0, 1
+            )  # Policy expects (Batch_size, n_steps, ...)
         elif isinstance(all_obs[0], torch.Tensor):
-            result = torch.zeros((n_steps,) + all_obs[-1].shape, dtype=all_obs[-1].dtype)
+            result = torch.zeros(
+                (n_steps,) + all_obs[-1].shape, dtype=all_obs[-1].dtype
+            )
             start_idx = -min(n_steps, len(all_obs))
             result[start_idx:] = torch.stack(all_obs[start_idx:])
             if n_steps > len(all_obs):
@@ -82,7 +86,9 @@ class DPEvalRunner(BaseEvalRunner):
 
         result = dict()
         for key in self.obs[0].keys():
-            result[key] = self._stack_last_n_obs([obs[key] for obs in self.obs], self.yaml_cfg.n_obs_steps)
+            result[key] = self._stack_last_n_obs(
+                [obs[key] for obs in self.obs], self.yaml_cfg.n_obs_steps
+            )
 
         return result
 
@@ -92,6 +98,8 @@ class DPEvalRunner(BaseEvalRunner):
         obs = self._get_n_steps_obs()
 
         with torch.no_grad():
-            action_chunk = self.policy.predict_action(obs)["action"].detach().to(torch.float32)
+            action_chunk = (
+                self.policy.predict_action(obs)["action"].detach().to(torch.float32)
+            )
             action_chunk = action_chunk.transpose(0, 1)
         return action_chunk

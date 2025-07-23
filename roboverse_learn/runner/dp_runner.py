@@ -320,7 +320,7 @@ class DPRunner(BaseRunner):
         num_envs: int = args.num_envs
         log.info(f"Using GPU device: {args.gpu_id}")
 
-        task = get_task(args.task)
+        task = get_task(args.task)()
         task.episode_length = args.action_set_steps * args.max_step
         robot = get_robot(args.robot)
         camera = PinholeCameraCfg(pos=(1.5, 0, 1.5), look_at=(0.0, 0.0, 0.0))
@@ -341,7 +341,7 @@ class DPRunner(BaseRunner):
         log.trace(f"Time to launch: {toc - tic:.2f}s")
 
         time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        checkpoint = self._get_checkpoint_path()
+        checkpoint = self.get_checkpoint_path()
         checkpoint = ckpt_path if checkpoint is None else checkpoint
         if checkpoint is None:
             raise ValueError(
