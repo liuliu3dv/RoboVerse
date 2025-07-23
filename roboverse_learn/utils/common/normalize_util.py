@@ -1,10 +1,10 @@
 import numpy as np
-from diffusion_policy.common.pytorch_util import (
-    dict_apply,
+from diffusion_policy.model.common.normalizer import SingleFieldLinearNormalizer
+
+from roboverse_learn.utils.common.pytorch_util import (
     dict_apply_reduce,
     dict_apply_split,
 )
-from diffusion_policy.model.common.normalizer import SingleFieldLinearNormalizer
 
 
 def get_range_normalizer_from_stat(stat, output_max=1, output_min=-1, range_eps=1e-7):

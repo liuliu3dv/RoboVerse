@@ -1,8 +1,9 @@
-from typing import Optional
+from __future__ import annotations
 
 import numba
 import numpy as np
-from diffusion_policy.common.replay_buffer import ReplayBuffer
+
+from roboverse_learn.utils.common.replay_buffer import ReplayBuffer
 
 
 @numba.jit(nopython=True)
@@ -14,7 +15,6 @@ def create_indices(
     pad_after: int = 0,
     debug: bool = True,
 ) -> np.ndarray:
-    episode_mask.shape == episode_ends.shape
     pad_before = min(max(pad_before, 0), sequence_length - 1)
     pad_after = min(max(pad_after, 0), sequence_length - 1)
 
@@ -86,8 +86,8 @@ class SequenceSampler:
         pad_before: int = 0,
         pad_after: int = 0,
         keys=None,
-        key_first_k=dict(),
-        episode_mask: Optional[np.ndarray] = None,
+        key_first_k=None,
+        episode_mask: np.ndarray | None = None,
     ):
         """
         key_first_k: dict str: int
@@ -95,6 +95,8 @@ class SequenceSampler:
         """
 
         super().__init__()
+        if key_first_k is None:
+            key_first_k = dict()
         assert sequence_length >= 1
         if keys is None:
             keys = list(replay_buffer.keys())
