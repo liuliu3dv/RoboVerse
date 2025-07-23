@@ -535,8 +535,6 @@ class IsaacgymHandler(BaseSimHandler):
             body_info_["global_indices"] = {k_: v_ + self._num_bodies for k_, v_ in asset_dict.items()}
             self._body_info[obj_name] = body_info_
             self._num_bodies += num_bodies
-        #     print(body_info_)
-        # exit(0)
 
         for robot, robot_asset in zip(self.robots, robot_asset_list):
             robot_link_dict = self.gym.get_asset_rigid_body_dict(robot_asset)
