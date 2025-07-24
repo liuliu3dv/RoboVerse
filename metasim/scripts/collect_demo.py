@@ -277,7 +277,7 @@ class DemoIndexer:
 def main():
     global global_step, tot_success, tot_give_up
     handler_class = get_sim_env_class(SimType(args.sim))
-    task = get_task(args.task)
+    task = get_task(args.task)()
     robot = get_robot(args.robot)
     camera = PinholeCameraCfg(data_types=["rgb", "depth"], pos=(1.5, 0.0, 1.5), look_at=(0.0, 0.0, 0.0))
     scenario = ScenarioCfg(
