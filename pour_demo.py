@@ -29,7 +29,7 @@ from torchvision.utils import make_grid
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
-from metasim.cfg.objects import FluidObjCfg, PrimitiveCubeCfg, RigidObjCfg
+from metasim.cfg.objects import FluidObjCfg, RigidObjCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
 from metasim.constants import PhysicStateType, SimType
@@ -89,6 +89,9 @@ class ObsSaver:
 
 obs_saver = ObsSaver(video_path="./tmp.mp4")
 
+h = 0
+dx = -0.4
+dz = 0.015
 args = tyro.cli(Args)
 scenario = ScenarioCfg(
     robot=args.robot,
@@ -99,18 +102,18 @@ scenario = ScenarioCfg(
     num_envs=args.num_envs,
 )
 scenario.objects = [
-    PrimitiveCubeCfg(
-        name="table",
-        size=(0.7366, 1.4732, 0.0254),
-        color=(0.8, 0.4, 0.2),
-        physics=PhysicStateType.GEOM,
-    ),
+    # PrimitiveCubeCfg(
+    #     name="table",
+    #     size=(0.7366, 1.4732, 0.0254),
+    #     color=(0.8, 0.4, 0.2),
+    #     physics=PhysicStateType.GEOM,
+    # ),
     RigidObjCfg(
         name="cup1",
         usd_path="metasim/data/pouring/Tall_Glass_5.usd",
         physics=PhysicStateType.RIGIDBODY,
         scale=0.008,
-        default_position=(0.4, 0.3, 0.6943 + 0.0127),
+        default_position=(0.4 + dx, 0.3, h + dz),
     ),
     FluidObjCfg(
         name="water",
@@ -121,14 +124,14 @@ scenario.objects = [
         particle_mass=0.0001,
         particleSpacing=0.004,
         viscosity=0.1,
-        default_position=(0.4, 0.3, 0.6943 + 0.0127 + 0.03),
+        default_position=(0.4 + dx, 0.3, h + 0.03 + dz),
     ),
     RigidObjCfg(
         name="cup2",
         usd_path="metasim/data/pouring/Tall_Glass_5.usd",
         physics=PhysicStateType.RIGIDBODY,
         scale=0.008,
-        default_position=(0.42, 0.15, 0.6943 + 0.0127),
+        default_position=(0.42 + dx, 0.15, h + dz),
     ),
     # PrimitiveFrameCfg(name="frame", scale=0.1, base_link=("kinova_gen3_robotiq_2f85", "end_effector_link")),
 ]
@@ -139,8 +142,8 @@ scenario.cameras = [
         height=1080,
         # width=160,
         # height=90,
-        pos=(-1.0, -1.4, 0.6943 + 0.0127 + 0.1),
-        look_at=(0.0, -0.5, 0.6943 + 0.0127),
+        pos=(-0.5 + dx, -1.0, h + 0.3 + dz + 0.1),
+        look_at=(0.0 + dx, -0.5, h + dz + 0.2),
     )
 ]
 
@@ -150,16 +153,16 @@ env = env_class(scenario)
 init_states = [
     {
         "objects": {
-            "table": {
-                "pos": torch.tensor([0.3683, 0.1234, 0.6943]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
+            # "table": {
+            #     "pos": torch.tensor([0.3683, 0.1234, 0.6943 - h]),
+            #     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+            # },
             "cup1": {},
             "cup2": {},
         },
         "robots": {
             "kinova_gen3_robotiq_2f85": {
-                "pos": torch.tensor([-0.05, 0.05, 1.6891]),
+                "pos": torch.tensor([-0.05 + dx, 0.05, 1.6891 - 0.6943 - 0.0127 + dz]),
                 "rot": torch.tensor([0.2706, -0.65328, -0.65328, -0.2706]),
                 "dof_pos": {
                     "joint_1": -26 / 180 * math.pi,
@@ -332,17 +335,39 @@ def rotate_joint3(deg3: float):
 
 
 log.info("reaching")
-reach_target_dedicated(torch.tensor([[0.17, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.18, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.19, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.20, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.21, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.22, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.23, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.24, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.26, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.27, 0.30, 0.8]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(
+    torch.tensor([[0.17 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.18 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.19 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.20 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.21 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.22 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.23 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.24 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.25 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.26 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.27 + dx, 0.30, 0.8 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
 
 log.info("closing gripper")
 # breakpoint()
@@ -350,11 +375,21 @@ close_gripper()
 # breakpoint()
 
 log.info("lifting")
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.81]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.82]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.83]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.84]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
-reach_target_dedicated(torch.tensor([[0.25, 0.30, 0.85]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]]))
+reach_target_dedicated(
+    torch.tensor([[0.25 + dx, 0.30, 0.81 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.25 + dx, 0.30, 0.82 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.25 + dx, 0.30, 0.83 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.25 + dx, 0.30, 0.84 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
+reach_target_dedicated(
+    torch.tensor([[0.25 + dx, 0.30, 0.85 - 0.6943 - 0.0127 + dz]]), torch.tensor([[0.0, 0.707, 0.0, 0.707]])
+)
 rotate_joint46(70, 37)
 
 log.info("moving")
