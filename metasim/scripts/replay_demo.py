@@ -140,7 +140,7 @@ class ObsSaver:
 ## Main
 ###########################################################
 def main():
-    camera = PinholeCameraCfg(pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0), width=1280, height=720)
+    camera = PinholeCameraCfg(pos=(-1.5, 1.5, 1.0), look_at=(0.0, 0.0, 0.0), width=1280, height=720)
     scenario = ScenarioCfg(
         task=args.task,
         robot=args.robot,
