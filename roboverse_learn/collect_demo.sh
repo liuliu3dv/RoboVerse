@@ -21,7 +21,7 @@ python metasim/scripts/collect_demo.py --task=${task_name_set} --num_envs=${num_
 
 
 ## Convert demonstration data
-python roboverse_learn/algorithms/data2zarr_dp.py \
+python roboverse_learn/data2zarr_dp.py \
 --task_name ${task_name_set}FrankaL${random_level}_${extra} \
 --expert_data_num 100 \
 --metadata_dir roboverse_demo/demo_isaaclab/${task_name_set}-Level${random_level}/robot-franka \
