@@ -1,7 +1,7 @@
 task_name=CloseBox
 level=0
 config_name=dp_runner
-num_epochs=200
+num_epochs=100               # Number of training epochs
 port=50010
 seed=42
 gpu=0
@@ -31,3 +31,10 @@ eval_config.eval_args.task=${task_name} \
 eval_config.eval_args.max_step=${eval_max_step} \
 eval_config.eval_args.num_envs=${eval_num_envs} \
 eval_config.eval_args.random.level=${level} \
+
+## Seperate training and evaluation
+# 1. open runner/dp_runner.py
+# 2. only training: set `def run(self, train=True, eval=True, ckpt_path=None):` to
+#                       `def run(self, train=True, eval=False, ckpt_path="None"):`
+# 4. only evaluation: set `def run(self, train=True, eval=True, ckpt_path=None):` to
+#                         `def run(self, train=False, eval=True, ckpt_path="/path/to/your/checkpoint.ckpt"):`
