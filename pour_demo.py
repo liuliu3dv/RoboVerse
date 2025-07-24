@@ -29,7 +29,7 @@ from torchvision.utils import make_grid
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
-from metasim.cfg.objects import FluidObjCfg, RigidObjCfg
+from metasim.cfg.objects import FluidObjCfg, PrimitiveCubeCfg, RigidObjCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
 from metasim.constants import PhysicStateType, SimType
@@ -91,7 +91,7 @@ obs_saver = ObsSaver(video_path="./tmp.mp4")
 
 h = 0
 dx = -0.4
-dz = 0.015
+dz = 0.005
 args = tyro.cli(Args)
 scenario = ScenarioCfg(
     robot=args.robot,
@@ -102,12 +102,12 @@ scenario = ScenarioCfg(
     num_envs=args.num_envs,
 )
 scenario.objects = [
-    # PrimitiveCubeCfg(
-    #     name="table",
-    #     size=(0.7366, 1.4732, 0.0254),
-    #     color=(0.8, 0.4, 0.2),
-    #     physics=PhysicStateType.GEOM,
-    # ),
+    PrimitiveCubeCfg(
+        name="table",
+        size=(0.7366, 1.4732, 0.0254),
+        color=(0.8, 0.4, 0.2),
+        physics=PhysicStateType.GEOM,
+    ),
     RigidObjCfg(
         name="cup1",
         usd_path="metasim/data/pouring/Tall_Glass_5.usd",
@@ -153,10 +153,10 @@ env = env_class(scenario)
 init_states = [
     {
         "objects": {
-            # "table": {
-            #     "pos": torch.tensor([0.3683, 0.1234, 0.6943 - h]),
-            #     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            # },
+            "table": {
+                "pos": torch.tensor([0.3683 + dx, 0.1234, -0.0127]),
+                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+            },
             "cup1": {},
             "cup2": {},
         },
