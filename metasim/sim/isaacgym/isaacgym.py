@@ -46,6 +46,11 @@ class IsaacgymHandler(BaseSimHandler):
         else:
             self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+        if hasattr(scenario.task, "max_agg_bodies"):
+            self._max_agg_bodies = scenario.task.max_agg_bodies
+        if hasattr(scenario.task, "max_agg_shapes"):
+            self._max_agg_shapes = scenario.task.max_agg_shapes
+
         self._num_envs: int = scenario.num_envs
         self._episode_length_buf = [0 for _ in range(self.num_envs)]
 
@@ -589,6 +594,9 @@ class IsaacgymHandler(BaseSimHandler):
             # create env
             env = self.gym.create_env(self.sim, env_lower, env_upper, num_per_row)
 
+            if hasattr(self, "max_agg_bodies") and hasattr(self, "max_agg_shapes"):
+                self.gym.begin_aggregate(env, self.max_agg_bodies, self.max_agg_shapes, True)
+
             ##  state update  ##
             self._envs.append(env)
             self._obj_handles.append([])
@@ -699,6 +707,8 @@ class IsaacgymHandler(BaseSimHandler):
                 self.gym.set_actor_rigid_body_properties(env, robot_handle, robot_body_props)
 
             self._robot_handles.append(env_robot_handles)
+            if hasattr(self, "max_agg_bodies") and hasattr(self, "max_agg_shapes"):
+                self.gym.end_aggregate(env)
 
         # GET initial state, copy for reset later
         self._initial_state = np.copy(self.gym.get_sim_rigid_body_states(self.sim, gymapi.STATE_ALL))
@@ -1133,7 +1143,7 @@ class IsaacgymHandler(BaseSimHandler):
                 obj_state = states.objects[obj.name]
                 root_state = self._reorder_quat_wxyz_to_xyzw(obj_state.root_state)
                 new_root_states[env_ids, obj_id, :] = root_state[env_ids, :].clone()
-                if isinstance(obj, ArticulationObjCfg):
+                if isinstance(obj, ArticulationObjCfg) and len(self._joint_info[obj.name]["names"]) > 0:
                     joint_pos = obj_state.joint_pos
                     global_dof_indices = torch.tensor(list(self._joint_info[obj.name]["global_indices"].values()), dtype=torch.int32, device=self.device)
                     new_dof_states[env_ids_tensor.unsqueeze(1), global_dof_indices.unsqueeze(0), 0] = joint_pos[env_ids, :].clone()
