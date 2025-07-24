@@ -140,7 +140,7 @@ class ObsSaver:
 ## Main
 ###########################################################
 def main():
-    camera = PinholeCameraCfg(pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
+    camera = PinholeCameraCfg(pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0), width=1280, height=720)
     scenario = ScenarioCfg(
         task=args.task,
         robot=args.robot,
@@ -239,9 +239,9 @@ def main():
         log.trace(f"Time to save obs: {toc - tic:.2f}s")
         step += 1
 
-        if args.stop_on_runout and get_runout(all_actions, step):
-            log.info("Run out of actions, stopping")
-            break
+        # if args.stop_on_runout and get_runout(all_actions, step):
+        #     log.info("Run out of actions, stopping")
+        #     break
 
     obs_saver.save()
     env.close()
