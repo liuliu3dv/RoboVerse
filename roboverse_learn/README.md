@@ -1,25 +1,25 @@
-<!-- install: -->
-# Install
+## Install
+
 ```bash
-cd roboverse_learn/algorithms/diffusion_policy
+cd roboverse_learn/utils/diffusion_policy
 
 pip install -e .
+
+cd ../../../
+
+pip install pandas wandb
 ```
 
-<!-- eval: -->
-# Eval
+Register for a Weights & Biases (wandb) account to obtain an API key.
+
+## Collect and process data
+
 ```bash
-python roboverse_learn/eval.py --task CloseBox --sim isaaclab --algo_run_name CloseBox_franka_10 --checkpoint_num 400
+./roboverse_learn/collect_demo.sh
 ```
 
-<!-- train: -->
-# Train
+## Train and eval
+
 ```bash
-cd roboverse_learn/algorithms/diffusion_policy
-
-# process data to zarr
-bash data2zarr_dp.sh CloseBox 10 ~/RoboVerse/data_isaaclab/demo/CloseBox/robot-franka
-
-# train
-bash train.sh CloseBox_franka 10 42 0 False
+./roboverse_learn/run.sh
 ```
