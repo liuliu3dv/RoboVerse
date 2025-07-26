@@ -13,37 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 """Base classes for G1."""
-
-from typing import Any, Dict, Optional, Union
-
-from etils import epath
-import jax
-from ml_collections import config_dict
-import mujoco
-from mujoco import mjx
 import torch
-from mujoco_playground._src import mjx_env
-from mujoco_playground._src.locomotion.g1 import g1_constants as consts
-from metasim.cfg.scenario import ScenarioCfg
-from metasim.cfg.query_type import SensorData, SitePos
-from metasim.constants import SimType
-from metasim.utils.setup_util import get_sim_env_class
-def get_assets() -> Dict[str, bytes]:
-  assets = {}
-  mjx_env.update_assets(assets, consts.ROOT_PATH / "xmls", "*.xml")
-  mjx_env.update_assets(assets, consts.ROOT_PATH / "xmls" / "assets")
-  path = mjx_env.MENAGERIE_PATH / "unitree_g1"
-  mjx_env.update_assets(assets, path, "*.xml")
-  mjx_env.update_assets(assets, path / "assets")
-  return assets
+from metasim.cfg.query_type import SensorData, SitePos ,SiteXMat
+
 
 
 def extra_spec(self):
     """All extra observations required for the crawl task."""
     return {
-        # site positions (if still needed)
-        # "head_pos"         : SitePos(["head"]),
-
         # torso / pelvis IMU sensors
         "upvector_torso"        : SensorData("upvector_torso"),
         "local_linvel_torso"    : SensorData("local_linvel_torso"),
@@ -79,103 +56,109 @@ def extra_spec(self):
         "pelvis_rot" : SiteXMat("imu_in_pelvis"),
     }
 
-class G1Env(mjx_env.MjxEnv):
-  """Base class for G1 environments."""
 
-  def __init__(
-    self,
-    scenario: ScenarioCfg,
-    device: str | torch.device | None = None,
-  ) -> None:
-    super().__init__(config, config_overrides)
+import torch
 
-    EnvironmentClass = get_sim_env_class(SimType(scenario.sim))
-    self.env = EnvironmentClass(scenario)
+knees_bent_states = [
+    {
+        "robots": {
+            "g1": {
+                # -------- base (free joint) --------
+                "pos":      torch.tensor([0.0, 0.0, 0.755]),
+                "rot":      torch.tensor([1.0, 0.0, 0.0, 0.0]),
+                "vel":      torch.zeros(3),
+                "ang_vel":  torch.zeros(3),
 
-    self.num_envs = scenario.num_envs
-    self.robot = scenario.robots[0]
-    self.task = scenario.task
+                # -------- joints (29 DoF) ---------
+                "dof_pos": {
+                    # left leg
+                    "left_hip_yaw":   -0.312,
+                    "left_hip_roll":   0.0,
+                    "left_hip_pitch":  0.0,
+                    "left_knee":       0.669,
+                    "left_ankle":     -0.363,
+                    "left_toe":        0.0,
+                    # right leg
+                    "right_hip_yaw":  -0.312,
+                    "right_hip_roll":  0.0,
+                    "right_hip_pitch": 0.0,
+                    "right_knee":      0.669,
+                    "right_ankle":    -0.363,
+                    "right_toe":       0.0,
+                    # waist
+                    "waist_yaw":   0.0,
+                    "waist_roll":  0.0,
+                    "waist_pitch": 0.073,
+                    # left arm
+                    "left_shoulder_roll":  0.2,
+                    "left_shoulder_yaw":   0.2,
+                    "left_elbow":          0.0,
+                    "left_wrist_roll":     0.6,
+                    "left_wrist_pitch":    0.0,
+                    "left_wrist_yaw":      0.0,
+                    "left_hand":           0.0,
+                    # right arm
+                    "right_shoulder_roll":  0.2,
+                    "right_shoulder_yaw":  -0.2,
+                    "right_elbow":          0.0,
+                    "right_wrist_roll":     0.6,
+                    "right_wrist_pitch":    0.0,
+                    "right_wrist_yaw":      0.0,
+                    "right_hand":           0.0,
+                },
+            }
+        },
+    }
+]
 
-    # self._model_assets = get_assets()
-    # self._mj_model = mujoco.MjModel.from_xml_string(
-    #     epath.Path(xml_path).read_text(), assets=self._model_assets
-    # )
-    # self._mj_model.opt.timestep = self.sim_dt
 
-    # if self._config.restricted_joint_range:
-    #   self._mj_model.jnt_range[1:] = consts.RESTRICTED_JOINT_RANGE
-    #   self._mj_model.actuator_ctrlrange[:] = consts.RESTRICTED_JOINT_RANGE
+home_states = [
+    {
+        "robots": {
+            "g1": {
+                "pos":     torch.tensor([0.0, 0.0, 0.785]),
+                "rot":     torch.tensor([1.0, 0.0, 0.0, 0.0]),
+                "vel":     torch.zeros(3),
+                "ang_vel": torch.zeros(3),
 
-    # self._mj_model.vis.global_.offwidth = 3840
-    # self._mj_model.vis.global_.offheight = 2160
+                "dof_pos": {
+                    # left leg
+                    "left_hip_yaw":  -0.1,
+                    "left_hip_roll":  0.0,
+                    "left_hip_pitch": 0.0,
+                    "left_knee":      0.3,
+                    "left_ankle":    -0.2,
+                    "left_toe":       0.0,
+                    # right leg
+                    "right_hip_yaw":  -0.1,
+                    "right_hip_roll":  0.0,
+                    "right_hip_pitch": 0.0,
+                    "right_knee":      0.3,
+                    "right_ankle":    -0.2,
+                    "right_toe":       0.0,
+                    # waist
+                    "waist_yaw":   0.0,
+                    "waist_roll":  0.0,
+                    "waist_pitch": 0.0,
+                    # left arm
+                    "left_shoulder_roll":  0.2,
+                    "left_shoulder_yaw":   0.2,
+                    "left_elbow":          0.0,
+                    "left_wrist_roll":     1.28,
+                    "left_wrist_pitch":    0.0,
+                    "left_wrist_yaw":      0.0,
+                    "left_hand":           0.0,
+                    # right arm
+                    "right_shoulder_roll":  0.2,
+                    "right_shoulder_yaw":  -0.2,
+                    "right_elbow":          0.0,
+                    "right_wrist_roll":     1.28,
+                    "right_wrist_pitch":    0.0,
+                    "right_wrist_yaw":      0.0,
+                    "right_hand":           0.0,
+                },
+            }
+        },
+    }
+]
 
-    # self._mjx_model = mjx.put_model(self._mj_model)
-    # self._xml_path = xml_path
-
-  # Sensor readings.
-
-
-  def get_sensor_data(
-      model: mujoco.MjModel, data: mjx.Data, sensor_name: str
-  ) -> jax.Array:
-    """Gets sensor data given sensor name."""
-    sensor_id = model.sensor(sensor_name).id
-    sensor_adr = model.sensor_adr[sensor_id]
-    sensor_dim = model.sensor_dim[sensor_id]
-    return data.sensordata[sensor_adr : sensor_adr + sensor_dim]
-
-
-
-  def get_gravity(self, data: mjx.Data, frame: str) -> jax.Array:
-    """Return the gravity vector in the world frame."""
-    return mjx_env.get_sensor_data(
-        self.mj_model, data, f"{consts.GRAVITY_SENSOR}_{frame}"
-    )
-
-  def get_global_linvel(self, data: mjx.Data, frame: str) -> jax.Array:
-    """Return the linear velocity of the robot in the world frame."""
-    return mjx_env.get_sensor_data(
-        self.mj_model, data, f"{consts.GLOBAL_LINVEL_SENSOR}_{frame}"
-    )
-
-  def get_global_angvel(self, data: mjx.Data, frame: str) -> jax.Array:
-    """Return the angular velocity of the robot in the world frame."""
-    return mjx_env.get_sensor_data(
-        self.mj_model, data, f"{consts.GLOBAL_ANGVEL_SENSOR}_{frame}"
-    )
-
-  def get_local_linvel(self, data: mjx.Data, frame: str) -> jax.Array:
-    """Return the linear velocity of the robot in the local frame."""
-    return mjx_env.get_sensor_data(
-        self.mj_model, data, f"{consts.LOCAL_LINVEL_SENSOR}_{frame}"
-    )
-
-  def get_accelerometer(self, data: mjx.Data, frame: str) -> jax.Array:
-    """Return the accelerometer readings in the local frame."""
-    return mjx_env.get_sensor_data(
-        self.mj_model, data, f"{consts.ACCELEROMETER_SENSOR}_{frame}"
-    )
-
-  def get_gyro(self, data: mjx.Data, frame: str) -> jax.Array:
-    """Return the gyroscope readings in the local frame."""
-    return mjx_env.get_sensor_data(
-        self.mj_model, data, f"{consts.GYRO_SENSOR}_{frame}"
-    )
-
-  # Accessors.
-
-  @property
-  def xml_path(self) -> str:
-    return self._xml_path
-
-  @property
-  def action_size(self) -> int:
-    return self._mjx_model.nu
-
-  @property
-  def mj_model(self) -> mujoco.MjModel:
-    return self._mj_model
-
-  @property
-  def mjx_model(self) -> mjx.Model:
-    return self._mjx_model

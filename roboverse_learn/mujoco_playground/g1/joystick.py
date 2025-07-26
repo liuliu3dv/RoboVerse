@@ -29,7 +29,9 @@ from mujoco_playground._src import mjx_env
 from mujoco_playground._src.collision import geoms_colliding
 from mujoco_playground._src.locomotion.g1 import base as g1_base # type: ignore
 from mujoco_playground._src.locomotion.g1 import g1_constants as consts
-
+from metasim.cfg.scenario import ScenarioCfg
+from metasim.utils.setup_util import get_sim_env_class
+from metasim.constants import SimType
 
 def default_config() -> config_dict.ConfigDict:
   return config_dict.create(
@@ -106,20 +108,19 @@ def default_config() -> config_dict.ConfigDict:
   )
 
 
-class Joystick(g1_base.G1Env):
+class Joystick():
   """Track a joystick command."""
 
   def __init__(
       self,
+      scenario: ScenarioCfg,
       task: str = "flat_terrain",
-      config: config_dict.ConfigDict = default_config(),
-      config_overrides: Optional[Dict[str, Union[str, int, list[Any]]]] = None,
   ):
-    super().__init__(
-        xml_path=consts.task_to_xml(task).as_posix(),
-        config=config,
-        config_overrides=config_overrides,
-    )
+    EnvironmentClass = get_sim_env_class(SimType(scenario.sim))
+    self.env = EnvironmentClass(scenario)
+    self.num_envs = scenario.num_envs
+    self.robot = scenario.robots[0]
+    self.task = scenario.task
     self._post_init()
 
   def _post_init(self) -> None:

@@ -8,6 +8,29 @@ import torch
 from metasim.cfg.query_type import ContactForce, SitePos, SiteXMat, SensorData
 
 
+FEET_SITES = [
+    "left_foot",
+    "right_foot",
+]
+
+HAND_SITES = [
+    "left_palm",
+    "right_palm",
+]
+
+LEFT_FEET_GEOMS = ["left_foot"]
+RIGHT_FEET_GEOMS = ["right_foot"]
+FEET_GEOMS = LEFT_FEET_GEOMS + RIGHT_FEET_GEOMS
+
+ROOT_BODY = "torso_link"
+
+GRAVITY_SENSOR = "upvector"
+GLOBAL_LINVEL_SENSOR = "global_linvel"
+GLOBAL_ANGVEL_SENSOR = "global_angvel"
+LOCAL_LINVEL_SENSOR = "local_linvel"
+ACCELEROMETER_SENSOR = "accelerometer"
+GYRO_SENSOR = "gyro"
+
 class MJXQuerier:
     """
     Add new Query types by inserting into QUERY_MAP.
