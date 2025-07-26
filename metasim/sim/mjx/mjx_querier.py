@@ -5,8 +5,7 @@ import jax.numpy as jnp
 import mujoco
 import torch
 
-from metasim.cfg.query_type import ContactForce, SitePos, SiteXMat, SensorData
-
+from metasim.cfg.query_type import ContactForce, SensorData, SitePos, SiteXMat
 
 FEET_SITES = [
     "left_foot",
@@ -30,6 +29,7 @@ GLOBAL_ANGVEL_SENSOR = "global_angvel"
 LOCAL_LINVEL_SENSOR = "local_linvel"
 ACCELEROMETER_SENSOR = "accelerometer"
 GYRO_SENSOR = "gyro"
+
 
 class MJXQuerier:
     """
@@ -89,7 +89,6 @@ class MJXQuerier:
         contact_force = handler._data.cfrc_ext[:, jnp.asarray([bid], jnp.int32)]
         return contact_force[:, 0, :]  # (N_env, 6)
 
-
     @classmethod
     def site_xmat(cls, q: SiteXMat, handler):
         """Return (N_env, 9) flattened site rotation matrix."""
@@ -98,11 +97,11 @@ class MJXQuerier:
         cache = cls._site_cache.setdefault(key, {})
 
         if q.name not in cache:
-            cache[q.name] = mdl.site(q.name).id           # cache site id
+            cache[q.name] = mdl.site(q.name).id  # cache site id
         sid = cache[q.name]
 
         # dat.site_xmat shape: (N_env, N_site, 9)
-        return dat.site_xmat[:, sid]   
+        return dat.site_xmat[:, sid]
 
     @classmethod
     def sensor(cls, q: SensorData, handler):
@@ -112,12 +111,13 @@ class MJXQuerier:
         cache = cls._sensor_cache.setdefault(key, {})
 
         if q.name not in cache:
-            sid  = mdl.sensor(q.name).id
+            sid = mdl.sensor(q.name).id
             cache[q.name] = (mdl.sensor_adr[sid], mdl.sensor_dim[sid])
 
         adr, dim = cache[q.name]
         return dat.sensordata[:, jnp.arange(adr, adr + dim)]  # (N_env, dim)
-    
+
+
 def j2t(a: jax.Array, device="cuda") -> torch.Tensor:
     """Convert a JAX array to a PyTorch tensor, keeping it on the requested device."""
     if device:

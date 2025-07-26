@@ -14,12 +14,16 @@ class ContactForce:
 
     sensor_name: str
 
+
 @dataclass
 class SensorData:
     """Return a named sensor."""
+
     name: str
+
 
 @dataclass
 class SiteXMat:
     """World frame 3*3 rotation matrix of one site (flattened to 9)."""
+
     name: str
