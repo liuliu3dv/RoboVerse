@@ -15,7 +15,7 @@
 """Joystick task for Unitree G1."""
 
 from typing import Any, Dict, Optional, Union
-
+import torch
 import jax
 import jax.numpy as jp
 from ml_collections import config_dict
@@ -343,6 +343,7 @@ class Joystick(g1_base.G1Env):
     contact_filt = contact | state.info["last_contact"]
     first_contact = (state.info["feet_air_time"] > 0.0) * contact_filt
     state.info["feet_air_time"] += self.dt
+
     p_f = data.site_xpos[self._feet_site_id]
     p_fz = p_f[..., -1]
     state.info["swing_peak"] = jp.maximum(state.info["swing_peak"], p_fz)
@@ -429,7 +430,7 @@ class Joystick(g1_base.G1Env):
         * self._config.noise_config.level
         * self._config.noise_config.scales.gyro
     )
-    gravity = env_extra[]
+    gravity = env_state.extras["pelvis_rot"] @ torch.tensor([0, 0, -1])
     # gravity = data.site_xmat[self._pelvis_imu_site_id].T @ jp.array([0, 0, -1])
     info["rng"], noise_rng = jax.random.split(info["rng"])
     noisy_gravity = (
@@ -484,11 +485,15 @@ class Joystick(g1_base.G1Env):
         info["last_act"],  # 29
         phase,
     ])
-    accelerometer = env_extra[]
-    global_angvel = env_extra[]
+    accelerometer = env_state.extras["accelerometer_pelvis"]
+    global_angvel = env_state.extras["global_angvel_pelvis"]
     # accelerometer = self.get_accelerometer(data, "pelvis")
     # global_angvel = self.get_global_angvel(data, "pelvis")
-    feet_vel = env_extra[]
+    left_feet_vel = env_state.extras["left_foot_global_linvel"]
+    right_feet_vel = env_state.extras["right_foot_global_linvel"]
+    feet_vel= jp.concatenate(
+        [left_feet_vel, right_feet_vel], axis=-1
+    )
     # feet_vel = data.sensordata[self._foot_linvel_sensor_adr].ravel()
     root_height = env_state[]
 
@@ -535,13 +540,13 @@ class Joystick(g1_base.G1Env):
         ),
         # Base-related rewards.
         "lin_vel_z": self._cost_lin_vel_z(
-            self.get_global_linvel(data, "pelvis"),
-            self.get_global_linvel(data, "torso"),
+            env_state.extras["global_linvel_pelvis"],
+            env_state.extras["global_linvel_torso"],
         ),
         "ang_vel_xy": self._cost_ang_vel_xy(
-            self.get_global_angvel(data, "torso")
+            env_state.extras["global_angvel_torso"],
         ),
-        "orientation": self._cost_orientation(self.get_gravity(data, "torso")),
+        "orientation": self._cost_orientation(env_state.extras["upvector_torso"]),
         "base_height": self._cost_base_height(data.qpos[2]),
         # Energy related rewards.
         "torques": self._cost_torques(data.actuator_force),
@@ -714,7 +719,8 @@ class Joystick(g1_base.G1Env):
       self, data: mjx.Data, contact: jax.Array, info: dict[str, Any]
   ) -> jax.Array:
     del info  # Unused.
-    body_vel = self.get_global_linvel(data, "pelvis")[:2]
+    body_vel = env_state.extras["global_linvel_pelvis"]
+    # body_vel = self.get_global_linvel(data, "pelvis")[:2]
     reward = jp.sum(jp.linalg.norm(body_vel, axis=-1) * contact)
     return reward
 
@@ -763,7 +769,7 @@ class Joystick(g1_base.G1Env):
       command: jax.Array,
   ) -> jax.Array:
     # Reward for tracking the desired foot height.
-    foot_pos = env_extra[key]
+    foot_pos = data.site_xpos[self._feet_site_id]
     foot_z = foot_pos[..., -1]
     rz = gait.get_rz(phase, swing_height=foot_height)
     error = jp.sum(jp.square(foot_z - rz))
