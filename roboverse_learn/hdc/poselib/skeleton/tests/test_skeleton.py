@@ -5,22 +5,19 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-from ...core import *
-from ..skeleton3d import SkeletonTree, SkeletonState, SkeletonMotion
-
 import numpy as np
 import torch
 
+from ...core import *
 from ...visualization.common import (
-    plot_skeleton_state,
     plot_skeleton_motion_interactive,
+    plot_skeleton_state,
 )
-
 from ...visualization.plt_plotter import Matplotlib3DPlotter
 from ...visualization.skeleton_plotter_tasks import (
-    Draw3DSkeletonMotion,
     Draw3DSkeletonState,
 )
+from ..skeleton3d import SkeletonMotion, SkeletonState, SkeletonTree
 
 
 def test_skel_tree():
@@ -40,9 +37,7 @@ def test_skel_tree():
 
 
 def test_skel_motion():
-    skel_motion = SkeletonMotion.from_file(
-        "/tmp/tmp.npy", backend="pytorch", load_context=True
-    )
+    skel_motion = SkeletonMotion.from_file("/tmp/tmp.npy", backend="pytorch", load_context=True)
 
     plot_skeleton_motion_interactive(skel_motion)
 
@@ -119,10 +114,8 @@ def test_grad():
 
     for i in range(max_its):
         r = quat_normalize(q)
-        s = SkeletonState.from_rotation_and_root_translation(
-            skeleton_tree, r=r, t=root_translation, is_local=True
-        )
-        print("  quat norm: {}".format(q.norm(p=2, dim=-1).mean().numpy()))
+        s = SkeletonState.from_rotation_and_root_translation(skeleton_tree, r=r, t=root_translation, is_local=True)
+        print(f"  quat norm: {q.norm(p=2, dim=-1).mean().numpy()}")
 
         task.update(s)
         plotter.update()

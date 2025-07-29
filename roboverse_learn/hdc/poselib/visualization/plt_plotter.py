@@ -9,11 +9,11 @@
 The matplotlib plotter implementation for all the primitive tasks (in our case: lines and
 dots)
 """
-from typing import Any, Callable, Dict, List
+
+from typing import Any, Callable, Dict
 
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as p3
-
 import numpy as np
 
 from .core import BasePlotter, BasePlotterTask
@@ -86,10 +86,7 @@ class Matplotlib2DPlotter(BasePlotter):
 
     def _set_lim(self):
         if not (
-            self._curr_x_min is None
-            or self._curr_x_max is None
-            or self._curr_y_min is None
-            or self._curr_y_max is None
+            self._curr_x_min is None or self._curr_x_max is None or self._curr_y_min is None or self._curr_y_max is None
         ):
             self._ax.set_xlim(self._curr_x_min, self._curr_x_max)
             self._ax.set_ylim(self._curr_y_min, self._curr_y_max)
@@ -110,7 +107,7 @@ class Matplotlib2DPlotter(BasePlotter):
                 *Matplotlib2DPlotter._lines_extract_xy_impl(i, lines_task),
                 color=color,
                 linewidth=lines_task.line_width,
-                alpha=lines_task.alpha
+                alpha=lines_task.alpha,
             )[0]
             for i in range(len(lines_task))
         ]
@@ -150,7 +147,7 @@ class Matplotlib2DPlotter(BasePlotter):
                 *Matplotlib2DPlotter._trail_extract_xy_impl(i, trail_task),
                 color=trail_task.color,
                 linewidth=trail_task.line_width,
-                alpha=trail_task.alpha * (1.0 - i / (trail_length - 1))
+                alpha=trail_task.alpha * (1.0 - i / (trail_length - 1)),
             )[0]
             for i in range(trail_length)
         ]
@@ -185,13 +182,7 @@ class Matplotlib2DPlotter(BasePlotter):
             xmean = 0
             ymean = 0
 
-        plot_radius = max(
-            [
-                abs(lim - mean_)
-                for lims, mean_ in ((xlim, xmean), (ylim, ymean))
-                for lim in lims
-            ]
-        )
+        plot_radius = max([abs(lim - mean_) for lims, mean_ in ((xlim, xmean), (ylim, ymean)) for lim in lims])
 
         self._ax.set_xlim([xmean - plot_radius, xmean + plot_radius])
         self._ax.set_ylim([ymean - plot_radius, ymean + plot_radius])
@@ -305,7 +296,7 @@ class Matplotlib3DPlotter(BasePlotter):
                 *Matplotlib3DPlotter._lines_extract_xyz_impl(i, lines_task),
                 color=color,
                 linewidth=lines_task.line_width,
-                alpha=lines_task.alpha
+                alpha=lines_task.alpha,
             )[0]
             for i in range(len(lines_task))
         ]
@@ -348,7 +339,7 @@ class Matplotlib3DPlotter(BasePlotter):
                 *Matplotlib3DPlotter._trail_extract_xyz_impl(i, trail_task),
                 color=trail_task.color,
                 linewidth=trail_task.line_width,
-                alpha=trail_task.alpha * (1.0 - i / (trail_length - 1))
+                alpha=trail_task.alpha * (1.0 - i / (trail_length - 1)),
             )[0]
             for i in range(trail_length)
         ]
@@ -382,13 +373,9 @@ class Matplotlib3DPlotter(BasePlotter):
         ymean = np.mean(ylim)
         zmean = np.mean(zlim)
 
-        plot_radius = max(
-            [
-                abs(lim - mean_)
-                for lims, mean_ in ((xlim, xmean), (ylim, ymean), (zlim, zmean))
-                for lim in lims
-            ]
-        )
+        plot_radius = max([
+            abs(lim - mean_) for lims, mean_ in ((xlim, xmean), (ylim, ymean), (zlim, zmean)) for lim in lims
+        ])
 
         self._ax.set_xlim3d([xmean - plot_radius, xmean + plot_radius])
         self._ax.set_ylim3d([ymean - plot_radius, ymean + plot_radius])

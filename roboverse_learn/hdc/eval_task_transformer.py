@@ -39,7 +39,7 @@ CKPT_PATH = args.ckpt_path
 MOTION_FILE = args.motion_file
 NUM_ENVS = args.num_envs
 # 定义路径和其他固定参数
-#CKPT_PATH = "/home/yunshen/code/test_ckpt/amass_200k_mix@amass_100k_easy_clean/"
+# CKPT_PATH = "/home/yunshen/code/test_ckpt/amass_200k_mix@amass_100k_easy_clean/"
 SCRIPT_PATH = "roboverse_learn/hdc/eval_hydra_BC_policy.py"
 # SCRIPT_PATH = "legged_gym/legged_gym/scripts/eval_hydra_BC_policy.py"
 CONFIG_NAME = "config_teleop_humanoid_data_gene_student_obs_for_play_8_4_transformer_15_step_x0_delay_data_8_8_256_0"
@@ -58,9 +58,10 @@ CHECKPOINT = 555000
 
 HEADLESS = True
 REWARDS = "rewards_teleop_omnih2o_teacher"
-#MOTION_FILE = "resources/motions/h1/kit_6.pkl"
+# MOTION_FILE = "resources/motions/h1/kit_6.pkl"
 PLAY_IN_ORDER = "False"
 LOG_ROOT = "default"
+
 
 # ---------------------------------------------------------------------
 def step_num(fname: str) -> int:
@@ -74,8 +75,9 @@ ckpts = sorted(
 )
 
 for ck in ckpts:
-    cmd =  [
-        "python", SCRIPT_PATH,
+    cmd = [
+        "python",
+        SCRIPT_PATH,
         f"--config-name={CONFIG_NAME}",
         f"task={TASK}",
         f"env.num_observations={ENV_NUM_OBSERVATIONS}",
@@ -96,7 +98,6 @@ for ck in ckpts:
         f"log_root={LOG_ROOT}",
         f"BC_ckpt_path={ck}",
         f"motion.future_tracks={MOTION_FUTURE_TRACKS}",
-
     ]
 
     print("Running:", " ".join(cmd))

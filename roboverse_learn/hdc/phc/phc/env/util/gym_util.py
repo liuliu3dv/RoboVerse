@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from isaacgym import gymapi
 from isaacgym.torch_utils import *
-
 from phc.utils import logger
 
 

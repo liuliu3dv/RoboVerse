@@ -39,9 +39,9 @@ import gc
 
 import numpy as np
 import torch
+from phc.smpllib.smpl_eval import compute_metrics_lite
 from tqdm import tqdm
 
-from phc.smpllib.smpl_eval import compute_metrics_lite
 from rsl_rl.env import VecEnv
 
 
@@ -237,7 +237,7 @@ class EvalRunnerBCModified:
                         # urdf order
                         self.env.env.handler.dof_pos_limits[:, 0],
                         self.env.env.handler.dof_pos_limits[:, 1],
-                )   # urdf order
+                    )  # urdf order
                     - self.env.env.handler.default_dof_pos
                 ) * 4
             _, _, rews, dones, infos = self.env.step(actions.detach())

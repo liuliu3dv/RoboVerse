@@ -1,17 +1,17 @@
 """
 Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
 
-NVIDIA CORPORATION and its licensors retain all intellectual property and proprietary 
-rights in and to this software, related documentation and any modifications thereto. Any 
-use, reproduction, disclosure or distribution of this software and related documentation 
+NVIDIA CORPORATION and its licensors retain all intellectual property and proprietary
+rights in and to this software, related documentation and any modifications thereto. Any
+use, reproduction, disclosure or distribution of this software and related documentation
 without an express license agreement from NVIDIA CORPORATION is strictly prohibited.
 """
 
 """
-This script reads an fbx file and saves the joint names, parents, and transforms to a 
+This script reads an fbx file and saves the joint names, parents, and transforms to a
 numpy array.
 
-NOTE: It must be run from python 2.7 with the fbx SDK installed. To use this script, 
+NOTE: It must be run from python 2.7 with the fbx SDK installed. To use this script,
 please use the read_fbx file
 """
 
@@ -23,12 +23,9 @@ try:
     import fbx
     import FbxCommon
 except ImportError as e:
-    print("Error: FBX Import Failed. Message: {}".format(e))
+    print(f"Error: FBX Import Failed. Message: {e}")
     if sys.version_info[0] >= 3:
-        print(
-            "WARNING: you are using python 3 when this script should only be run from "
-            "python 2"
-        )
+        print("WARNING: you are using python 3 when this script should only be run from python 2")
     else:
         print(
             "You are using python 2 but importing fbx failed. You must install it from "
@@ -43,7 +40,7 @@ def fbx_to_npy(file_name_in, file_name_out, root_joint_name, fps):
     """
     This function reads in an fbx file, and saves the relevant info to a numpy array
 
-    Fbx files have a series of animation curves, each of which has animations at different 
+    Fbx files have a series of animation curves, each of which has animations at different
     times. This script assumes that for mocap data, there is only one animation curve that
     contains all the joints. Otherwise it is unclear how to read in the data.
 
@@ -60,15 +57,15 @@ def fbx_to_npy(file_name_in, file_name_out, root_joint_name, fps):
 
     """
     To read in the animation, we must find the root node of the skeleton.
-    
-    Unfortunately fbx files can have "scene parents" and other parts of the tree that are 
+
+    Unfortunately fbx files can have "scene parents" and other parts of the tree that are
     not joints
-    
-    As a crude fix, this reader just takes and finds the first thing which has an 
+
+    As a crude fix, this reader just takes and finds the first thing which has an
     animation curve attached
     """
 
-    search_root = (root_joint_name is None or root_joint_name == "")
+    search_root = root_joint_name is None or root_joint_name == ""
 
     # Get the root node of the skeleton, which is the child of the scene's root node
     possible_root_nodes = [fbx_scene.GetRootNode()]
@@ -111,7 +108,7 @@ def fbx_to_npy(file_name_in, file_name_out, root_joint_name, fps):
     anim_range, frame_count, frame_rate = _get_frame_count(fbx_scene)
 
     local_transforms = []
-    #for frame in range(frame_count):
+    # for frame in range(frame_count):
     time_sec = anim_range.GetStart().GetSecondDouble()
     time_range_sec = anim_range.GetStop().GetSecondDouble() - time_sec
     fbx_fps = frame_count / time_range_sec
@@ -125,7 +122,7 @@ def fbx_to_npy(file_name_in, file_name_out, root_joint_name, fps):
         transforms_current_frame = []
 
         # Fbx has a unique time object which you need
-        #fbx_time = root_curve.KeyGetTime(frame)
+        # fbx_time = root_curve.KeyGetTime(frame)
         for joint in joint_list:
             arr = np.array(_recursive_to_list(joint.EvaluateLocalTransform(fbx_time)))
             scales = np.array(_recursive_to_list(joint.EvaluateLocalScaling(fbx_time)))
@@ -149,7 +146,7 @@ def fbx_to_npy(file_name_in, file_name_out, root_joint_name, fps):
             rotY = curve.Evaluate(fbx_time)[0] if curve else lcl_rot[1]
             curve = joint.LclRotation.GetCurve(anim_layer, "Z")
             rotZ = curve.Evaluate(fbx_time)[0] if curve else lcl_rot[2]
-            
+
             lcl_matrix.SetR(fbx.FbxVector4(rotX, rotY, rotZ, 1.0))
             lcl_matrix.SetT(fbx.FbxVector4(transX, transY, transZ, 1.0))
             lcl_matrix = np.array(_recursive_to_list(lcl_matrix))
@@ -167,21 +164,18 @@ def fbx_to_npy(file_name_in, file_name_out, root_joint_name, fps):
             transforms_current_frame.append(lcl_matrix)
         local_transforms.append(transforms_current_frame)
 
-        time_sec += (1.0/fbx_fps)
+        time_sec += 1.0 / fbx_fps
 
     local_transforms = np.array(local_transforms)
     print("Frame Count: ", len(local_transforms))
 
     # Write to numpy array
-    np.savez_compressed(
-        file_name_out, names=joint_names, parents=parents, transforms=local_transforms, fps=fbx_fps
-    )
+    np.savez_compressed(file_name_out, names=joint_names, parents=parents, transforms=local_transforms, fps=fbx_fps)
+
 
 def _get_frame_count(fbx_scene):
     # Get the animation stacks and layers, in order to pull off animation curves later
-    num_anim_stacks = fbx_scene.GetSrcObjectCount(
-        FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimStack.ClassId)
-    )
+    num_anim_stacks = fbx_scene.GetSrcObjectCount(FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimStack.ClassId))
     # if num_anim_stacks != 1:
     #     raise RuntimeError(
     #         "More than one animation stack was found. "
@@ -191,9 +185,7 @@ def _get_frame_count(fbx_scene):
         index = 1
     else:
         index = 0
-    anim_stack = fbx_scene.GetSrcObject(
-        FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimStack.ClassId), index
-    )
+    anim_stack = fbx_scene.GetSrcObject(FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimStack.ClassId), index)
 
     anim_range = anim_stack.GetLocalTimeSpan()
     duration = anim_range.GetDuration()
@@ -202,11 +194,10 @@ def _get_frame_count(fbx_scene):
 
     return anim_range, frame_count, fps
 
+
 def _get_animation_curve(joint, fbx_scene):
     # Get the animation stacks and layers, in order to pull off animation curves later
-    num_anim_stacks = fbx_scene.GetSrcObjectCount(
-        FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimStack.ClassId)
-    )
+    num_anim_stacks = fbx_scene.GetSrcObjectCount(FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimStack.ClassId))
     # if num_anim_stacks != 1:
     #     raise RuntimeError(
     #         "More than one animation stack was found. "
@@ -216,21 +207,14 @@ def _get_animation_curve(joint, fbx_scene):
         index = 1
     else:
         index = 0
-    anim_stack = fbx_scene.GetSrcObject(
-        FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimStack.ClassId), index
-    )
+    anim_stack = fbx_scene.GetSrcObject(FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimStack.ClassId), index)
 
-    num_anim_layers = anim_stack.GetSrcObjectCount(
-        FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimLayer.ClassId)
-    )
+    num_anim_layers = anim_stack.GetSrcObjectCount(FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimLayer.ClassId))
     if num_anim_layers != 1:
         raise RuntimeError(
-            "More than one animation layer was found. "
-            "This script must be modified to handle this case. Exiting"
+            "More than one animation layer was found. This script must be modified to handle this case. Exiting"
         )
-    animation_layer = anim_stack.GetSrcObject(
-        FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimLayer.ClassId), 0
-    )
+    animation_layer = anim_stack.GetSrcObject(FbxCommon.FbxCriteria.ObjectType(FbxCommon.FbxAnimLayer.ClassId), 0)
 
     def _check_longest_curve(curve, max_curve_key_count):
         longest_curve = None
@@ -243,15 +227,11 @@ def _get_animation_curve(joint, fbx_scene):
     max_curve_key_count = [0]
     longest_curve = None
     for c in ["X", "Y", "Z"]:
-        curve = joint.LclTranslation.GetCurve(
-            animation_layer, c
-        )  # sample curve for translation
+        curve = joint.LclTranslation.GetCurve(animation_layer, c)  # sample curve for translation
         if _check_longest_curve(curve, max_curve_key_count):
             longest_curve = curve
 
-        curve = joint.LclRotation.GetCurve(
-            animation_layer, "X"
-        )
+        curve = joint.LclRotation.GetCurve(animation_layer, "X")
         if _check_longest_curve(curve, max_curve_key_count):
             longest_curve = curve
 
@@ -259,7 +239,6 @@ def _get_animation_curve(joint, fbx_scene):
 
 
 def _get_skeleton(root_joint):
-
     # Do a depth first search of the skeleton to extract all the joints
     joint_list = [root_joint]
     joint_names = [root_joint.GetName()]
@@ -285,7 +264,7 @@ def _get_skeleton(root_joint):
 
 def _recursive_to_list(array):
     """
-    Takes some iterable that might contain iterables and converts it to a list of lists 
+    Takes some iterable that might contain iterables and converts it to a list of lists
     [of lists... etc]
 
     Mainly used for converting the strange fbx wrappers for c++ arrays into python lists
@@ -299,7 +278,6 @@ def _recursive_to_list(array):
 
 
 if __name__ == "__main__":
-
     # Read in the input and output files, then read the fbx
     file_name_in, file_name_out = sys.argv[1:3]
     root_joint_name = sys.argv[3]

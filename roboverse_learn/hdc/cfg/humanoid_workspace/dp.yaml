@@ -17,14 +17,14 @@ keypoint_visible_rate: 1.0
 # obs_as_global_cond: True
 pred_action_steps_only: False
 obs_as_cond: True
-obs_dim: 71 
+obs_dim: 71
 action_dim: 19
 keypoint_dim: 0
 
-task: 
+task:
   name: humanoid
 
-  obs_dim: ${..obs_dim} 
+  obs_dim: ${..obs_dim}
   action_dim: ${..action_dim}
   keypoint_dim: ${..keypoint_dim}
 
@@ -84,7 +84,7 @@ policy:
     time_as_cond: True # if false, use BERT like encoder only arch, time as input
     obs_as_cond: ${...obs_as_cond}
     n_cond_layers: 0 # >0: use transformer encoder for cond, otherwise use MLP
-  
+
   # noise_scheduler:
   #   _target_: diffusers.schedulers.scheduling_ddim.DDIMScheduler
   #   num_train_timesteps: 25
@@ -203,4 +203,3 @@ hydra:
     dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_humanoid_BC
     #data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
     #subdir: ${hydra.job.num}
-

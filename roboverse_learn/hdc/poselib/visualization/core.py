@@ -9,10 +9,11 @@
 The base abstract classes for plotter and the plotting tasks. It describes how the plotter
 deals with the tasks in the general cases
 """
+
 from typing import List
 
 
-class BasePlotterTask(object):
+class BasePlotterTask:
     _task_name: str  # unique name of the task
     _task_type: str  # type of the task is used to identify which callable
 
@@ -32,12 +33,11 @@ class BasePlotterTask(object):
         return self._task_name + "/" + name
 
     def __iter__(self):
-        """Should override this function to return a list of task primitives
-        """
+        """Should override this function to return a list of task primitives"""
         raise NotImplementedError
 
 
-class BasePlotterTasks(object):
+class BasePlotterTasks:
     def __init__(self, tasks) -> None:
         self._tasks = tasks
 
@@ -46,7 +46,7 @@ class BasePlotterTasks(object):
             yield from task
 
 
-class BasePlotter(object):
+class BasePlotter:
     """An abstract plotter which deals with a plotting task. The children class needs to implement
     the functions to create/update the objects according to the task given
     """

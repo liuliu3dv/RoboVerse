@@ -6,22 +6,21 @@ Fill in the TODO blocks as you port features.
 
 from __future__ import annotations
 
-from isaacgym.torch_utils import * # noqa
-
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from easydict import EasyDict
+from isaacgym.torch_utils import *
+from phc.utils import torch_utils
+from phc.utils.motion_lib_h1 import MotionLibH1
+from poselib.skeleton.skeleton3d import SkeletonTree
 
-
+# try:
+from metasim.cfg.scenario import ScenarioCfg
 from metasim.utils.humanoid_robot_util import (
     get_euler_xyz_tensor,
 )
-# try:
-
-from metasim.cfg.scenario import ScenarioCfg
-from phc.utils import torch_utils
 
 # - -- project specific (adapt paths/names) --------------------------------
 # -- project specific (adapt paths/names) ---------------------------------
@@ -29,20 +28,15 @@ from phc.utils import torch_utils
 # -------------------------------------------------------------------------
 from roboverse_learn.hdc.lpf import ActionFilterButterTorch
 from roboverse_learn.rsl_rl.rsl_rl.modules.velocity_estimator import VelocityEstimatorGRU
-# from roboverse_learn.skillblender_rl.env_wrappers.base.base_humanoid_wrapper import HumanoidBaseWrapper
 
+# from roboverse_learn.skillblender_rl.env_wrappers.base.base_humanoid_wrapper import HumanoidBaseWrapper
 from roboverse_learn.rsl_rl.rsl_rl_wrapper import RslRlWrapper
 from roboverse_learn.skillblender_rl.utils import (
-    get_body_reindexed_indices_from_substring,
     get_joint_reindexed_indices_from_substring,
 )
 
-from phc.utils.motion_lib_h1 import MotionLibH1
-from phc.learning.network_loader import load_mcp_mlp
-from poselib.skeleton.skeleton3d import SkeletonTree
-from termcolor import colored
-
 from .envs.base.legged_robot_config import LeggedRobotCfg
+
 
 class HDCWrapper(RslRlWrapper):
     """rsl_rl vector-env wrapper for H2O."""
@@ -50,7 +44,7 @@ class HDCWrapper(RslRlWrapper):
     # ------------------------------------------------------------------ #
     # 1. ctor & indices                                                  #
     # ------------------------------------------------------------------ #
-    def __init__(self, cfg:LeggedRobotCfg,  scenario: ScenarioCfg):
+    def __init__(self, cfg: LeggedRobotCfg, scenario: ScenarioCfg):
         super().__init__(scenario)
 
         _, _ = self.env.reset(self.init_states)
@@ -62,7 +56,6 @@ class HDCWrapper(RslRlWrapper):
         self.dt = scenario.decimation * scenario.sim_params.dt
         self._get_env_origins()
         self._init_buffers()
-
 
         # self.cfg = LeggedRobotCfg()
         self.height_samples = None
@@ -101,7 +94,6 @@ class HDCWrapper(RslRlWrapper):
         self._body_list = self.env.handler.get_body_names(self.robot.name, sort=False)
         # self._body_list_2= self.env.handler.get_body_names(self.robot.name, sort=False)
 
-
         # no need to change because we should input unsorted order obs input policy
         if self.cfg.motion.teleop:
             # TODO aligned this id
@@ -126,7 +118,6 @@ class HDCWrapper(RslRlWrapper):
         self.num_compute_average_epl = self.cfg.rewards.num_compute_average_epl
         self.average_episode_length = 0.0  # num_compute_average_epl last termination episode length
 
-
     # ---------------- rigid-body indices ------------------------------ #
     # ---------------- joint indices ----------------------------------- #
     def _parse_joint_indices(self, robot_cfg):
@@ -134,7 +125,6 @@ class HDCWrapper(RslRlWrapper):
         self.cfg.upper_body_joint_indices = get_joint_reindexed_indices_from_substring(
             self.env.handler, robot_cfg.name, robot_cfg.upper_body_joints, device=self.device
         )
-
 
     # ----------------------------------------
     def _init_buffers(self):
@@ -189,7 +179,9 @@ class HDCWrapper(RslRlWrapper):
         #     self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False
         # )
         self.base_lin_vel = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
-        self.last_base_lin_vel = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
+        self.last_base_lin_vel = torch.zeros(
+            self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False
+        )
 
         self.base_ang_vel = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
 
@@ -223,49 +215,46 @@ class HDCWrapper(RslRlWrapper):
         self.last_root_pos = torch.zeros(self.num_envs, 3, device=self.device, requires_grad=False)
         self.last_root_vel = torch.zeros(self.num_envs, 6, device=self.device, requires_grad=False)
 
-
-
         # self.feet_pos = torch.zeros((self.num_envs, len(self.feet_indices), 3), device=self.device, requires_grad=False)
         # self.feet_height = torch.zeros((self.num_envs, len(self.feet_indices)), device=self.device, requires_grad=False)
 
         self.rand_push_force = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
         self.rand_push_torque = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
 
-
         self.env_frictions = torch.zeros(self.num_envs, 1, dtype=torch.float32, device=self.device)  # TODO now set 0
         self.body_mass = torch.zeros(self.num_envs, 1, dtype=torch.float32, device=self.device, requires_grad=False)
 
         init_state_list = [
-        {
-            "objects": {},
-            "robots": {
-                "h1_verse": {
-                    "pos": torch.tensor([0.0, 0.0, 1.0]),
-                    "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-                    "dof_pos": {
-                        "left_hip_yaw": 0.0,
-                        "left_hip_roll": 0.0,
-                        "left_hip_pitch": -0.4,
-                        "left_knee": 0.8,
-                        "left_ankle": -0.4,
-                        "right_hip_yaw": 0.0,
-                        "right_hip_roll": 0.0,
-                        "right_hip_pitch": -0.4,
-                        "right_knee": 0.8,
-                        "right_ankle": -0.4,
-                        "torso": 0.0,
-                        "left_shoulder_pitch": 0.0,
-                        "left_shoulder_roll": 0.0,
-                        "left_shoulder_yaw": 0.0,
-                        "left_elbow": 0.0,
-                        "right_shoulder_pitch": 0.0,
-                        "right_shoulder_roll": 0.0,
-                        "right_shoulder_yaw": 0.0,
-                        "right_elbow": 0.0,
+            {
+                "objects": {},
+                "robots": {
+                    "h1_verse": {
+                        "pos": torch.tensor([0.0, 0.0, 1.0]),
+                        "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+                        "dof_pos": {
+                            "left_hip_yaw": 0.0,
+                            "left_hip_roll": 0.0,
+                            "left_hip_pitch": -0.4,
+                            "left_knee": 0.8,
+                            "left_ankle": -0.4,
+                            "right_hip_yaw": 0.0,
+                            "right_hip_roll": 0.0,
+                            "right_hip_pitch": -0.4,
+                            "right_knee": 0.8,
+                            "right_ankle": -0.4,
+                            "torso": 0.0,
+                            "left_shoulder_pitch": 0.0,
+                            "left_shoulder_roll": 0.0,
+                            "left_shoulder_yaw": 0.0,
+                            "left_elbow": 0.0,
+                            "right_shoulder_pitch": 0.0,
+                            "right_shoulder_roll": 0.0,
+                            "right_shoulder_yaw": 0.0,
+                            "right_elbow": 0.0,
+                        },
                     },
                 },
             }
-        }
         ]
 
         self._get_init_states(init_state_list)
@@ -273,7 +262,6 @@ class HDCWrapper(RslRlWrapper):
         env_states, _ = self.env.reset()
         self.reset_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.bool)
         self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.int)
-
 
         self.num_dof = len(self.env.handler.get_joint_names(self.robot.name))
         # Init for motion reference
@@ -384,7 +372,6 @@ class HDCWrapper(RslRlWrapper):
         self.env_origins[:, 1] = spacing * yy.flatten()[: self.num_envs]
         self.env_origins[:, 2] = 0.0
 
-
     def _resample_motion_times(self, env_ids):
         if len(env_ids) == 0:
             return
@@ -398,10 +385,10 @@ class HDCWrapper(RslRlWrapper):
         else:
             self.motion_start_times[env_ids] = self._motion_lib.sample_time(self.motion_ids[env_ids])
         # self.motion_start_times[env_ids] = self._motion_lib.sample_time(self.motion_ids[env_ids])
-        offset=(self.env_origins + self.env_origins_init_3Doffset)
-        motion_times = (self.episode_length_buf ) * self.dt + self.motion_start_times # next frames so +1
+        offset = self.env_origins + self.env_origins_init_3Doffset
+        motion_times = (self.episode_length_buf) * self.dt + self.motion_start_times  # next frames so +1
         # motion_res = self._get_state_from_motionlib_cache(self.motion_ids, motion_times, offset= offset)
-        motion_res = self._get_state_from_motionlib_cache_trimesh(self.motion_ids, motion_times, offset= offset)
+        motion_res = self._get_state_from_motionlib_cache_trimesh(self.motion_ids, motion_times, offset=offset)
 
         self.ref_base_pos_init[env_ids] = motion_res["root_pos"][env_ids]
         self.ref_base_rot_init[env_ids] = motion_res["root_rot"][env_ids]
@@ -434,7 +421,6 @@ class HDCWrapper(RslRlWrapper):
         self.last_root_vel[:] = self.root_states[:, 7:13]
         self.last_root_pos[:] = self.root_states[:, 0:3]
 
-
         if self.cfg.env.im_eval:
             offset = self.env_origins + self.env_origins_init_3Doffset
             time = (self.episode_length_buf) * self.dt + self.motion_start_times
@@ -445,7 +431,7 @@ class HDCWrapper(RslRlWrapper):
 
             body_rot = envstates.robots[self.robot.name].body_state[:, :, 3:7]
             # from wxyz to xyzw
-            body_rot = torch.cat([body_rot[:, :,1:4], body_rot[:,:, 0:1]], dim=-1)
+            body_rot = torch.cat([body_rot[:, :, 1:4], body_rot[:, :, 0:1]], dim=-1)
             body_pos = envstates.robots[self.robot.name].body_state[:, :, 0:3]
 
             extend_curr_pos = (
@@ -470,7 +456,6 @@ class HDCWrapper(RslRlWrapper):
         st = self._physics_step(acts)
         obs, priv, rew = self._post_physics_step(st)
         return obs, priv, rew, self.reset_buf, self.extras
-
 
     def _update_refreshed_tensors(self, env_states):
         """Update tensors from are refreshed tensors after physics step."""
@@ -525,7 +510,6 @@ class HDCWrapper(RslRlWrapper):
 
         self._push_robots()
 
-
     def reset(self, env_ids: list[int] | None = None):
         if env_ids is None:
             env_ids = list(range(self.num_envs))
@@ -539,7 +523,6 @@ class HDCWrapper(RslRlWrapper):
     def compute_observations(self):
         env_states = self.env.handler.get_states()
         self.obs_buf = self.compute_self_and_task_obs(env_states)
-
 
     # Example reward stub
     def reward_alive(self, env_state, robot, cfg):
@@ -579,9 +562,14 @@ class HDCWrapper(RslRlWrapper):
 
     def begin_seq_motion_samples(self):
         self.start_idx = 0
-        self._motion_lib.load_motions(skeleton_trees=self.skeleton_trees, gender_betas=[torch.zeros(17)] * self.num_envs, limb_weights=[np.zeros(10)] * self.num_envs, random_sample=False, start_idx=self.start_idx)
+        self._motion_lib.load_motions(
+            skeleton_trees=self.skeleton_trees,
+            gender_betas=[torch.zeros(17)] * self.num_envs,
+            limb_weights=[np.zeros(10)] * self.num_envs,
+            random_sample=False,
+            start_idx=self.start_idx,
+        )
         self.reset()
-
 
     def forward_motion_samples(self):
         pass
@@ -653,7 +641,6 @@ class HDCWrapper(RslRlWrapper):
                 requires_grad=False,
             )
 
-
         self.trajectories[env_ids] *= 0
         self.trajectories_with_linvel[env_ids] *= 0
 
@@ -682,13 +669,12 @@ class HDCWrapper(RslRlWrapper):
         self.marker_coords[:] = ref_body_pos_extend.reshape(B, -1, 3)
 
         if self.cfg.motion.teleop_obs_version == "v-teleop-extend-max-full":
-
             body_reverse_index = self.env.handler.get_body_reindex(self.robot.name, inverse=True)
             # sorted order --> isaacgym order since ckpt is trained
             body_pos = envstate.robots[self.robot.name].body_state[:, body_reverse_index, 0:3]
             body_rot = envstate.robots[self.robot.name].body_state[:, body_reverse_index, 3:7]
             # from wxyz to xyzw
-            body_rot = torch.cat([body_rot[:, :,1:4], body_rot[:,:, 0:1]], dim=-1)
+            body_rot = torch.cat([body_rot[:, :, 1:4], body_rot[:, :, 0:1]], dim=-1)
             body_vel = envstate.robots[self.robot.name].body_state[:, body_reverse_index, 7:10]
             body_ang_vel = envstate.robots[self.robot.name].body_state[:, body_reverse_index, 10:13]
 
@@ -1026,23 +1012,46 @@ class HDCWrapper(RslRlWrapper):
 
         self.reset_buf |= self.time_out_buf
 
-
     def _load_motion(self):
         # motion_path = self.cfg.motion.motion_file.format(LEGGED_GYM_ROOT_DIR=LEGGED_GYM_ROOT_DIR)
         motion_path = "roboverse_data/hdc_3/stable_punch.pkl"
         # skeleton_path = self.cfg.motion.skeleton_file.format(LEGGED_GYM_ROOT_DIR=LEGGED_GYM_ROOT_DIR)
-        skeleton_path = 'roboverse_data/hdc_3/h1.xml'
-        self._motion_lib = MotionLibH1(motion_file=motion_path, device=self.device, masterfoot_conifg=None, fix_height=False,multi_thread=False,mjcf_file=skeleton_path, extend_head=self.cfg.motion.extend_head) #multi_thread=True doesn't work
+        skeleton_path = "roboverse_data/hdc_3/h1.xml"
+        self._motion_lib = MotionLibH1(
+            motion_file=motion_path,
+            device=self.device,
+            masterfoot_conifg=None,
+            fix_height=False,
+            multi_thread=False,
+            mjcf_file=skeleton_path,
+            extend_head=self.cfg.motion.extend_head,
+        )  # multi_thread=True doesn't work
         sk_tree = SkeletonTree.from_mjcf(skeleton_path)
 
         self.skeleton_trees = [sk_tree] * self.num_envs
         if self.cfg.env.test:
             if self.cfg.play_in_order:
-                self._motion_lib.load_motions(skeleton_trees=self.skeleton_trees, gender_betas=[torch.zeros(17)] * self.num_envs, limb_weights=[np.zeros(10)] * self.num_envs, random_sample=True ,selected_idxes= self.motion_idxes)
+                self._motion_lib.load_motions(
+                    skeleton_trees=self.skeleton_trees,
+                    gender_betas=[torch.zeros(17)] * self.num_envs,
+                    limb_weights=[np.zeros(10)] * self.num_envs,
+                    random_sample=True,
+                    selected_idxes=self.motion_idxes,
+                )
             else:
-                self._motion_lib.load_motions(skeleton_trees=self.skeleton_trees, gender_betas=[torch.zeros(17)] * self.num_envs, limb_weights=[np.zeros(10)] * self.num_envs, random_sample=True )
+                self._motion_lib.load_motions(
+                    skeleton_trees=self.skeleton_trees,
+                    gender_betas=[torch.zeros(17)] * self.num_envs,
+                    limb_weights=[np.zeros(10)] * self.num_envs,
+                    random_sample=True,
+                )
         else:
-            self._motion_lib.load_motions(skeleton_trees=self.skeleton_trees, gender_betas=[torch.zeros(17)] * self.num_envs, limb_weights=[np.zeros(10)] * self.num_envs, random_sample=True)
+            self._motion_lib.load_motions(
+                skeleton_trees=self.skeleton_trees,
+                gender_betas=[torch.zeros(17)] * self.num_envs,
+                limb_weights=[np.zeros(10)] * self.num_envs,
+                random_sample=True,
+            )
         self.motion_dt = self._motion_lib._motion_dt
 
     # ------------ helper functions ---------------
@@ -1081,9 +1090,7 @@ class HDCWrapper(RslRlWrapper):
             self.reward_scales = self.class_to_dict(self.cfg.rewards.scales)
             self.command_ranges = self.class_to_dict(self.cfg.commands.ranges)
 
-
-
-        if self.cfg.terrain.mesh_type not in ['heightfield', 'trimesh']:
+        if self.cfg.terrain.mesh_type not in ["heightfield", "trimesh"]:
             self.cfg.terrain.curriculum = False
 
         self.max_episode_length_s = self.cfg.env.episode_length_s
@@ -1094,12 +1101,13 @@ class HDCWrapper(RslRlWrapper):
 
         self.cfg.domain_rand.push_interval = np.ceil(self.cfg.domain_rand.push_interval_s / self.dt)
         self.cfg.domain_rand.package_loss_interval = np.ceil(self.cfg.domain_rand.package_loss_interval_s / self.dt)
-        self.cfg.motion.resample_motions_for_envs_interval = np.ceil(self.cfg.motion.resample_motions_for_envs_interval_s / self.dt)
+        self.cfg.motion.resample_motions_for_envs_interval = np.ceil(
+            self.cfg.motion.resample_motions_for_envs_interval_s / self.dt
+        )
 
     @staticmethod
     def class_to_dict(self, obj) -> dict:
-
-        if not  hasattr(obj,"__dict__"):
+        if not hasattr(obj, "__dict__"):
             return obj
 
         if isinstance(obj, dict):

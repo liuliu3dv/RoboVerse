@@ -21,10 +21,10 @@ obs_dim: 71
 action_dim: 19
 keypoint_dim: 0
 
-task: 
+task:
   name: humanoid
 
-  obs_dim: ${..obs_dim} 
+  obs_dim: ${..obs_dim}
   action_dim: ${..action_dim}
   keypoint_dim: ${..keypoint_dim}
 
@@ -176,4 +176,3 @@ hydra:
     dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_humanoid_BC
     #data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
     #subdir: ${hydra.job.num}
-

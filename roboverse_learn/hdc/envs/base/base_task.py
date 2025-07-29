@@ -1,13 +1,11 @@
-
 import sys
-from isaacgym import gymapi
-from isaacgym import gymutil
-import numpy as np
+
 import torch
+from isaacgym import gymapi, gymutil
+
 
 # Base class for RL tasks
-class BaseTask():
-
+class BaseTask:
     def __init__(self, cfg, sim_params, physics_engine, sim_device, headless):
         self.gym = gymapi.acquire_gym()
 
@@ -19,11 +17,11 @@ class BaseTask():
         self.headless = headless
 
         # env device is GPU only if sim is on GPU and use_gpu_pipeline=True, otherwise returned tensors are copied to CPU by physX.
-        if sim_device_type=='cuda' and sim_params.use_gpu_pipeline:
+        if sim_device_type == "cuda" and sim_params.use_gpu_pipeline:
             self.device = self.sim_device
         else:
-            self.device = 'cpu'
-        
+            self.device = "cpu"
+
         # graphics device for rendering, -1 for no rendering
         self.graphics_device_id = self.sim_device_id
         if self.headless == True:
@@ -46,8 +44,10 @@ class BaseTask():
         self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
         self.time_out_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
         if self.num_privileged_obs is not None:
-            self.privileged_obs_buf = torch.zeros(self.num_envs, self.num_privileged_obs, device=self.device, dtype=torch.float)
-        else: 
+            self.privileged_obs_buf = torch.zeros(
+                self.num_envs, self.num_privileged_obs, device=self.device, dtype=torch.float
+            )
+        else:
             self.privileged_obs_buf = None
             # self.num_privileged_obs = self.num_obs
 
@@ -63,8 +63,7 @@ class BaseTask():
         # if running with a viewer, set up keyboard shortcuts and camera
         if self.headless == False:
             # subscribe to keyboard shortcuts
-            self.viewer = self.gym.create_viewer(
-                self.sim, gymapi.CameraProperties())
+            self.viewer = self.gym.create_viewer(self.sim, gymapi.CameraProperties())
             self.gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_ESCAPE, "QUIT")
             self.gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_V, "toggle_viewer_sync")
             self.gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_R, "RESET")
@@ -72,7 +71,7 @@ class BaseTask():
 
     def get_observations(self):
         return self.obs_buf
-    
+
     def get_privileged_observations(self):
         return self.privileged_obs_buf
 
@@ -81,24 +80,25 @@ class BaseTask():
         raise NotImplementedError
 
     def reset(self):
-        """ Reset all robots"""
-        #import ipdb;ipdb.set_trace()
+        """Reset all robots"""
+        # import ipdb;ipdb.set_trace()
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
-        #obs, privileged_obs, _, _, _ = self.step(torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False))
+        # obs, privileged_obs, _, _, _ = self.step(torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False))
         # self.gym.refresh_actor_root_state_tensor(self.sim)
         # self.gym.refresh_net_contact_force_tensor(self.sim)
         # self.gym.refresh_rigid_body_state_tensor(self.sim)
         # self.compute_observations()
         # obs, privileged_obs = self.get_observation_legged_robot()
-        
-        #return obs, privileged_obs
+
+        # return obs, privileged_obs
         return None, None
 
     def step(self, actions):
         raise NotImplementedError
-    
+
     def next_task(self):
-        pass 
+        pass
+
     def render(self, sync_frame_time=True):
         if self.viewer:
             # check for window closed
@@ -117,7 +117,7 @@ class BaseTask():
                     self.next_task()
 
             # fetch results
-            if self.device != 'cpu':
+            if self.device != "cpu":
                 self.gym.fetch_results(self.sim, True)
 
             # step graphics

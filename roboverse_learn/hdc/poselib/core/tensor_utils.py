@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -7,15 +5,15 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-from collections import OrderedDict
-from .backend import Serializable
 import torch
+
+from .backend import Serializable
 
 
 class TensorUtils(Serializable):
     @classmethod
     def from_dict(cls, dict_repr, *args, **kwargs):
-        """ Read the object from an ordered dictionary
+        """Read the object from an ordered dictionary
 
         :param dict_repr: the ordered dictionary that is used to construct the object
         :type dict_repr: OrderedDict
@@ -25,21 +23,17 @@ class TensorUtils(Serializable):
         return torch.from_numpy(dict_repr["arr"].astype(dict_repr["context"]["dtype"]))
 
     def to_dict(self):
-        """ Construct an ordered dictionary from the object
-        
+        """Construct an ordered dictionary from the object
+
         :rtype: OrderedDict
         """
         return NotImplemented
 
+
 def tensor_to_dict(x):
-    """ Construct an ordered dictionary from the object
-    
+    """Construct an ordered dictionary from the object
+
     :rtype: OrderedDict
     """
     x_np = x.numpy()
-    return {
-        "arr": x_np,
-        "context": {
-            "dtype": x_np.dtype.name
-        }
-    }
+    return {"arr": x_np, "context": {"dtype": x_np.dtype.name}}

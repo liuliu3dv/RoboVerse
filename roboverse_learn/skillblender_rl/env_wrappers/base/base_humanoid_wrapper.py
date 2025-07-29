@@ -13,13 +13,9 @@ from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.tasks.skillblender.base_legged_cfg import BaseLeggedTaskCfg
 from metasim.utils.humanoid_robot_util import (
     contact_forces_tensor,
-    dof_vel_tensor,
     gait_phase_tensor,
     get_euler_xyz_tensor,
-    robot_ang_velocity_tensor,
     robot_root_state_tensor,
-    robot_rotation_tensor,
-    robot_velocity_tensor,
 )
 from metasim.utils.math import quat_apply, quat_rotate_inverse
 from roboverse_learn.rsl_rl.rsl_rl_wrapper import RslRlWrapper

@@ -2,7 +2,7 @@ defaults:
   - ppo_base
 
 distill: False
-distill_model_config: 
+distill_model_config:
   obs_v: v-teleop-extend-max-full
   extend_head: True
   future_tracks: True
@@ -29,7 +29,7 @@ algorithm:
     desired_kl : 0.01
     max_grad_norm : 0.2
     action_smoothness_coef : 0.000 # 0.003
-    
+
 runner:
     policy_class_name : 'ActorCritic'
     run_name : ''

@@ -55,13 +55,11 @@ class RslRlWrapper(VecEnv):
         self.max_episode_length = scenario.task.max_episode_length
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.cfg = scenario.task
-        from metasim.utils.dict import class_to_dict
 
         # self.train_cfg = class_to_dict(scenario.task.ppo_cfg)
 
     def _get_init_states(self, init_states_list):
         """Get initial states from the scenario configuration."""
-
 
         if len(init_states_list) < self.num_envs:
             init_states_list = (
@@ -73,7 +71,7 @@ class RslRlWrapper(VecEnv):
 
         self.init_states = init_states_list
 
-        if self.scenario.sim == SimType.ISAACGYM or self.scenario.sim == 'isaacgym':
+        if self.scenario.sim == SimType.ISAACGYM or self.scenario.sim == "isaacgym":
             # tensorize the initial states as TensorState, now we only support IsaacGym
             self.init_states = list_state_to_tensor(self.env.handler, init_states_list, device=self.device)
 

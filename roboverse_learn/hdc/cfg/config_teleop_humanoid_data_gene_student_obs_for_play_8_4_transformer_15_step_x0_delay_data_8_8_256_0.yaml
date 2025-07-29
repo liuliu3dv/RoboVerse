@@ -7,14 +7,14 @@ defaults:
   - env: env_teleop
   - init_state: init_state_teleop
   - motion: motion_teleop
-  - noise: noise_teleop_hdc 
+  - noise: noise_teleop_hdc
   - normalization: normalization_teleop
   - train: ppo_teleop
   - rewards: rewards_teleop
   - sim: sim_teleop
   - terrain: terrain_teleop
   - viewer: viewer_base
-  - humanoid_workspace: train_humanoid_tedi_transformer_lowdim_workspace_student_obs_8_4_15_step_x0_delay_data_8_8_256_0 #ddim_student_obs_8_4  
+  - humanoid_workspace: train_humanoid_tedi_transformer_lowdim_workspace_student_obs_8_4_15_step_x0_delay_data_8_8_256_0 #ddim_student_obs_8_4
 
 
 project_name: "H1"
@@ -24,7 +24,7 @@ headless: True
 seed: 1
 no_log: False
 log_root: "default"
-test: False 
+test: False
 sim_device: "cuda:0"
 rl_device: "cuda:0"
 sim_device_id: 0
@@ -37,13 +37,13 @@ task: "h1:teleop"
 #BC_ckpt_path : "/home/yunshen/code/test_ckpt/pretrain_amass_medium_800k_t25_x0/test/epoch_20_step_186857.ckpt"
 #BC_ckpt_path: "/home/yunshen/code/test_ckpt/pretrain_amass_200k_aen0.4_100k_ae_100k_t25_x0_continue/epoch_102_step_1059901.ckpt"
 # BC_ckpt_path: "/home/yunshen/code/DiffusionController/data/outputs/2025.04.12/00.42.41_p_al6_delay_ca_ourdf_easy_en0.3_200k_t15_x0_882560_humanoid/checkpoints/epoch_87_step_1032151.ckpt"
-BC_ckpt_path: "/home/shz/project/H2O/weight/4_18/epoch_87_step_1032151.ckpt" 
+BC_ckpt_path: "/home/shz/project/H2O/weight/4_18/epoch_87_step_1032151.ckpt"
 #BC_ckpt_path: "/home/yunshen/code/test_ckpt/pretrain_amass_medium_800k_t25_x0/epoch_10_step_97877.ckpt"
 
-#BC_ckpt_path: "/home/yunshen/code/test_ckpt/amass_mix_200k_8_4/epoch_270_step_499181.ckpt"  
+#BC_ckpt_path: "/home/yunshen/code/test_ckpt/amass_mix_200k_8_4/epoch_270_step_499181.ckpt"
 #BC_ckpt_path: "/home/yunshen/code/test_ckpt/kit_train_100k_mix@amass_100k_easy_clean/epoch_330_step_271536.ckpt"
 #BC_ckpt_path: "/home/yunshen/code/DiffusionController/data/outputs/2025.01.03/14.33.56_pretrain_amass_mix_200k_transformer_humanoid/checkpoints/epoch_20_step_83999.ckpt"
-#BC_ckpt_path: "/home/yunshen/code/test_ckpt/ddim_amass_mix_200k_8_4/epoch_240_step_443921.ckpt"  
+#BC_ckpt_path: "/home/yunshen/code/test_ckpt/ddim_amass_mix_200k_8_4/epoch_240_step_443921.ckpt"
 #BC_ckpt_path: "/home/yunshen/code/test_ckpt/step_stand_punch_medium_5k_8_4/epoch_180_step_36199.ckpt"
 #BC_ckpt_path: "/home/yunshen/code/test_ckpt/step_stand_punch_medium_10k_8_4/epoch_240_step_99050.ckpt"
 #BC_ckpt_path: "/home/yunshen/code/test_ckpt/stand_and_stable_punch_medium_5k_8_4/epoch_200_step_39194.ckpt"

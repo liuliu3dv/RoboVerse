@@ -5,9 +5,9 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
+import math
 from typing import List, Optional
 
-import math
 import torch
 
 
@@ -85,7 +85,9 @@ def quat_norm_check(x):
     """
     verify that a quaternion has norm 1
     """
-    assert bool((abs(x.norm(p=2, dim=-1) - 1) < 1e-3).all()), "the quaternion is has non-1 norm: {}".format(abs(x.norm(p=2, dim=-1) - 1))
+    assert bool((abs(x.norm(p=2, dim=-1) - 1) < 1e-3).all()), (
+        f"the quaternion is has non-1 norm: {abs(x.norm(p=2, dim=-1) - 1)}"
+    )
     assert bool((x[..., 3] >= 0).all()), "the quaternion has negative real part"
 
 
@@ -121,7 +123,7 @@ def quat_identity(shape: List[int]):
 
 @torch.jit.script
 def quat_from_angle_axis(angle, axis, degree: bool = False):
-    """ Create a 3D rotation from angle and axis of rotation. The rotation is counter-clockwise 
+    """Create a 3D rotation from angle and axis of rotation. The rotation is counter-clockwise
     along the axis.
 
     The rotation can be interpreted as a_R_b where frame "b" is the new frame that
@@ -161,10 +163,10 @@ def quat_from_rotation_matrix(m):
     diag2 = m[..., 2, 2]
 
     # Math stuff.
-    w = (((diag0 + diag1 + diag2 + 1.0) / 4.0).clamp(0.0, None))**0.5
-    x = (((diag0 - diag1 - diag2 + 1.0) / 4.0).clamp(0.0, None))**0.5
-    y = (((-diag0 + diag1 - diag2 + 1.0) / 4.0).clamp(0.0, None))**0.5
-    z = (((-diag0 - diag1 + diag2 + 1.0) / 4.0).clamp(0.0, None))**0.5
+    w = (((diag0 + diag1 + diag2 + 1.0) / 4.0).clamp(0.0, None)) ** 0.5
+    x = (((diag0 - diag1 - diag2 + 1.0) / 4.0).clamp(0.0, None)) ** 0.5
+    y = (((-diag0 + diag1 - diag2 + 1.0) / 4.0).clamp(0.0, None)) ** 0.5
+    z = (((-diag0 - diag1 + diag2 + 1.0) / 4.0).clamp(0.0, None)) ** 0.5
 
     # Only modify quaternions where w > x, y, z.
     c0 = (w >= x) & (w >= y) & (w >= z)
@@ -233,7 +235,7 @@ def quat_angle_axis(x):
     The (angle, axis) representation of the rotation. The axis is normalized to unit length.
     The angle is guaranteed to be between [0, pi].
     """
-    s = 2 * (x[..., 3]**2) - 1
+    s = 2 * (x[..., 3] ** 2) - 1
     angle = s.clamp(-1, 1).arccos()  # just to be safe
     axis = x[..., :3]
     axis /= axis.norm(p=2, dim=-1, keepdim=True).clamp(min=1e-9)

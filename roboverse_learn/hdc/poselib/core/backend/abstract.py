@@ -5,12 +5,11 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-from abc import ABCMeta, abstractmethod, abstractclassmethod
-from collections import OrderedDict
 import json
+import os
+from abc import abstractclassmethod, abstractmethod
 
 import numpy as np
-import os
 
 TENSOR_CLASS = {}
 
@@ -31,7 +30,7 @@ def _get_cls(name):
 
 
 class NumpyEncoder(json.JSONEncoder):
-    """ Special json encoder for numpy types """
+    """Special json encoder for numpy types"""
 
     def default(self, obj):
         if isinstance(
@@ -51,7 +50,7 @@ class NumpyEncoder(json.JSONEncoder):
             ),
         ):
             return int(obj)
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+        elif isinstance(obj, (np.float64, np.float16, np.float32, np.float64)):
             return float(obj)
         elif isinstance(obj, (np.ndarray,)):
             return dict(__ndarray__=obj.tolist(), dtype=str(obj.dtype), shape=obj.shape)
@@ -66,14 +65,14 @@ def json_numpy_obj_hook(dct):
 
 
 class Serializable:
-    """ Implementation to read/write to file.
-    All class the is inherited from this class needs to implement to_dict() and 
+    """Implementation to read/write to file.
+    All class the is inherited from this class needs to implement to_dict() and
     from_dict()
     """
 
     @abstractclassmethod
     def from_dict(cls, dict_repr, *args, **kwargs):
-        """ Read the object from an ordered dictionary
+        """Read the object from an ordered dictionary
 
         :param dict_repr: the ordered dictionary that is used to construct the object
         :type dict_repr: OrderedDict
@@ -84,15 +83,15 @@ class Serializable:
 
     @abstractmethod
     def to_dict(self):
-        """ Construct an ordered dictionary from the object
-        
+        """Construct an ordered dictionary from the object
+
         :rtype: OrderedDict
         """
         pass
 
     @classmethod
     def from_file(cls, path, *args, **kwargs):
-        """ Read the object from a file (either .npy or .json)
+        """Read the object from a file (either .npy or .json)
 
         :param path: path of the file
         :type path: string
@@ -100,19 +99,17 @@ class Serializable:
         :type args, kwargs: additional arguments
         """
         if path.endswith(".json"):
-            with open(path, "r") as f:
+            with open(path) as f:
                 d = json.load(f, object_hook=json_numpy_obj_hook)
         elif path.endswith(".npy"):
             d = np.load(path, allow_pickle=True).item()
         else:
-            assert False, "failed to load {} from {}".format(cls.__name__, path)
-        assert d["__name__"] == cls.__name__, "the file belongs to {}, not {}".format(
-            d["__name__"], cls.__name__
-        )
+            assert False, f"failed to load {cls.__name__} from {path}"
+        assert d["__name__"] == cls.__name__, "the file belongs to {}, not {}".format(d["__name__"], cls.__name__)
         return cls.from_dict(d, *args, **kwargs)
 
     def to_file(self, path: str) -> None:
-        """ Write the object to a file (either .npy or .json)
+        """Write the object to a file (either .npy or .json)
 
         :param path: path of the file
         :type path: string

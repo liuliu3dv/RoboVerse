@@ -14,12 +14,11 @@ import hydra
 import numpy as np
 from easydict import EasyDict
 from omegaconf import DictConfig, OmegaConf
-from roboverse_learn.hdc.hdc_wrapper import HDCWrapper  # noqa: F401
-from roboverse_learn.rsl_rl.rsl_rl.runners.eval_runner_BC_modified import EvalRunnerBCModified
-
-from metasim.cfg.scenario import ScenarioCfg
 
 from metasim.cfg.control import ControlCfg
+from metasim.cfg.scenario import ScenarioCfg
+from roboverse_learn.hdc.hdc_wrapper import HDCWrapper
+from roboverse_learn.rsl_rl.rsl_rl.runners.eval_runner_BC_modified import EvalRunnerBCModified
 
 
 # ---------- helpers -------------------------------------------------
@@ -57,7 +56,6 @@ def play(cfg: DictConfig) -> None:
     cfg_humanoid_workspace = cfg.humanoid_workspace
     cfg = EasyDict(OmegaConf.to_container(cfg, resolve=True))
 
-
     control: ControlCfg = ControlCfg(action_scale=0.25, action_offset=True, torque_limit_scale=0.85)
     # scenario & env
     scenario = ScenarioCfg(
@@ -72,7 +70,6 @@ def play(cfg: DictConfig) -> None:
 
     scenario.control = control
 
-
     env = HDCWrapper(cfg, scenario)
 
     # tweak env cfg for eval
@@ -84,9 +81,6 @@ def play(cfg: DictConfig) -> None:
     env_cfg.add_eval_noise = False
     env_cfg.env.episode_length_s = 20
     env_cfg.env.test = True
-
-
-
 
     # load policy
     train_cfg.runner.resume = True

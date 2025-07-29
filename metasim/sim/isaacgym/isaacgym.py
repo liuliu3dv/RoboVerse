@@ -286,7 +286,6 @@ class IsaacgymHandler(BaseSimHandler):
         robot_lower_limits = robot_dof_props["lower"]
         robot_upper_limits = robot_dof_props["upper"]
 
-
         self.dof_pos_limits = torch.zeros(
             len(robot_dof_props["lower"]), 2, dtype=torch.float, device=self.device, requires_grad=False
         )
@@ -308,7 +307,6 @@ class IsaacgymHandler(BaseSimHandler):
 
         self.robot_low_joint_limits = robot_lower_limits
         self.robot_high_joint_limits = robot_upper_limits
-
 
         robot_mids = 0.3 * (robot_upper_limits + robot_lower_limits)
         num_actions = 0

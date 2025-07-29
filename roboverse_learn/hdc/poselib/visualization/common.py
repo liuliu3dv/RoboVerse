@@ -21,7 +21,7 @@ def plot_skeleton_state(skeleton_state, task_name=""):
     :type skeleton_state: SkeletonState
     :type task_name: string, optional
     """
-    logger.info("plotting {}".format(task_name))
+    logger.info(f"plotting {task_name}")
     task = Draw3DSkeletonState(task_name=task_name, skeleton_state=skeleton_state)
     plotter = Matplotlib3DPlotter(task)
     plotter.show()
@@ -36,7 +36,7 @@ def plot_skeleton_states(skeleton_state, skip_n=1, task_name=""):
     :type skeleton_state: SkeletonState
     :type task_name: string, optional
     """
-    logger.info("plotting {} motion".format(task_name))
+    logger.info(f"plotting {task_name} motion")
     assert len(skeleton_state.shape) == 1, "the state must have only one dimension"
     task = Draw3DSkeletonState(task_name=task_name, skeleton_state=skeleton_state[0])
     plotter = Matplotlib3DPlotter(task)
@@ -57,10 +57,8 @@ def plot_skeleton_motion(skeleton_motion, skip_n=1, task_name=""):
     :type skeleton_motion: SkeletonMotion
     :type task_name: string, optional
     """
-    logger.info("plotting {} motion".format(task_name))
-    task = Draw3DSkeletonMotion(
-        task_name=task_name, skeleton_motion=skeleton_motion, frame_index=0
-    )
+    logger.info(f"plotting {task_name} motion")
+    task = Draw3DSkeletonMotion(task_name=task_name, skeleton_motion=skeleton_motion, frame_index=0)
     plotter = Matplotlib3DPlotter(task)
     for frame_id in range(len(skeleton_motion)):
         if frame_id % skip_n != 0:
@@ -88,9 +86,7 @@ def plot_skeleton_motion_interactive_base(skeleton_motion, task_name=""):
             self.playback_speed = other.playback_speed
             self.total_num_frames = other.total_num_frames
 
-    task = Draw3DSkeletonMotion(
-        task_name=task_name, skeleton_motion=skeleton_motion, frame_index=0
-    )
+    task = Draw3DSkeletonMotion(task_name=task_name, skeleton_motion=skeleton_motion, frame_index=0)
     plotter = Matplotlib3DPlotter(task)
 
     plot_params = PlotParams(total_num_frames=len(skeleton_motion))
@@ -109,14 +105,14 @@ def plot_skeleton_motion_interactive_base(skeleton_motion, task_name=""):
             plot_params.current_frame = plot_params.current_frame + 20
         elif event.key == "w":
             plot_params.looping = not plot_params.looping
-            print("Looping: {}".format(plot_params.looping))
+            print(f"Looping: {plot_params.looping}")
         elif event.key == "v":
             plot_params.playback_speed *= 2
-            print("playback speed: {}".format(plot_params.playback_speed))
+            print(f"playback speed: {plot_params.playback_speed}")
         elif event.key == "b":
             if plot_params.playback_speed != 1:
                 plot_params.playback_speed //= 2
-            print("playback speed: {}".format(plot_params.playback_speed))
+            print(f"playback speed: {plot_params.playback_speed}")
         elif event.key == "n":
             plot_params.confirmed = True
         elif event.key == "h":
@@ -136,9 +132,7 @@ def plot_skeleton_motion_interactive_base(skeleton_motion, task_name=""):
             print("=" * columns)
 
         print(
-            'current frame index: {}/{} (press "n" to quit)'.format(
-                plot_params.current_frame, plot_params.total_num_frames - 1
-            )
+            f'current frame index: {plot_params.current_frame}/{plot_params.total_num_frames - 1} (press "n" to quit)'
         )
 
     plotter.fig.canvas.mpl_connect("key_press_event", press)
@@ -186,4 +180,3 @@ def plot_skeleton_motion_interactive_multiple(*callables, sync=True):
 
 
 # def plot_skeleton_motion_interactive_multiple_same(skeleton_motions, task_name=""):
-

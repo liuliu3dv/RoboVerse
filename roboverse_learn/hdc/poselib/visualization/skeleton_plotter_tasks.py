@@ -9,6 +9,7 @@
 This is where all skeleton related complex tasks are defined (skeleton state and skeleton
 motion)
 """
+
 import numpy as np
 
 from .core import BasePlotterTask
@@ -29,12 +30,8 @@ class Draw3DSkeletonState(BasePlotterTask):
     ) -> None:
         super().__init__(task_name=task_name, task_type="3DSkeletonState")
         lines, dots = Draw3DSkeletonState._get_lines_and_dots(skeleton_state)
-        self._lines_task = Draw3DLines(
-            self.get_scoped_name("bodies"), lines, joints_color, alpha=alpha
-        )
-        self._dots_task = Draw3DDots(
-            self.get_scoped_name("joints"), dots, lines_color, alpha=alpha
-        )
+        self._lines_task = Draw3DLines(self.get_scoped_name("bodies"), lines, joints_color, alpha=alpha)
+        self._dots_task = Draw3DDots(self.get_scoped_name("joints"), dots, lines_color, alpha=alpha)
 
     @property
     def name(self):
@@ -45,11 +42,8 @@ class Draw3DSkeletonState(BasePlotterTask):
 
     @staticmethod
     def _get_lines_and_dots(skeleton_state):
-        """Get all the lines and dots needed to draw the skeleton state
-        """
-        assert (
-            len(skeleton_state.tensor.shape) == 1
-        ), "the state has to be zero dimensional"
+        """Get all the lines and dots needed to draw the skeleton state"""
+        assert len(skeleton_state.tensor.shape) == 1, "the state has to be zero dimensional"
         dots = skeleton_state.global_translation.numpy()
         skeleton_tree = skeleton_state.skeleton_tree
         parent_indices = skeleton_tree.parent_indices.numpy()
@@ -100,12 +94,8 @@ class Draw3DSkeletonMotion(BasePlotterTask):
             lines_color=lines_color,
             alpha=alpha,
         )
-        vel_lines, avel_lines = Draw3DSkeletonMotion._get_vel_and_avel(
-            curr_skeleton_motion
-        )
-        self._com_pos = curr_skeleton_motion.root_translation.numpy()[
-            np.newaxis, ...
-        ].repeat(trail_length, axis=0)
+        vel_lines, avel_lines = Draw3DSkeletonMotion._get_vel_and_avel(curr_skeleton_motion)
+        self._com_pos = curr_skeleton_motion.root_translation.numpy()[np.newaxis, ...].repeat(trail_length, axis=0)
         self._vel_task = Draw3DLines(
             self.get_scoped_name("velocity"),
             vel_lines,
@@ -141,9 +131,9 @@ class Draw3DSkeletonMotion(BasePlotterTask):
         if frame_index is not None:
             curr_skeleton_motion.tensor = curr_skeleton_motion.tensor[frame_index, :]
         if reset_trail:
-            self._com_pos = curr_skeleton_motion.root_translation.numpy()[
-                np.newaxis, ...
-            ].repeat(self._trail_length, axis=0)
+            self._com_pos = curr_skeleton_motion.root_translation.numpy()[np.newaxis, ...].repeat(
+                self._trail_length, axis=0
+            )
         else:
             self._com_pos = np.concatenate(
                 (
@@ -158,8 +148,7 @@ class Draw3DSkeletonMotion(BasePlotterTask):
 
     @staticmethod
     def _get_vel_and_avel(skeleton_motion):
-        """Get all the velocity and angular velocity lines
-        """
+        """Get all the velocity and angular velocity lines"""
         pos = skeleton_motion.global_translation.numpy()
         vel = skeleton_motion.global_velocity.numpy()
         avel = skeleton_motion.global_angular_velocity.numpy()
