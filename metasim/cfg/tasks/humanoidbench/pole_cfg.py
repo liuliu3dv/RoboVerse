@@ -45,7 +45,3 @@ class PoleCfg(HumanoidTaskCfg):
     checker = _PoleChecker()
     reward_weights = [1.0]
     reward_functions = [PoleReward]
-
-    def extra_spec(self):
-        """This task does not require any extra observations."""
-        return {}

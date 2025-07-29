@@ -15,10 +15,10 @@ from .franka_with_gripper_extension_cfg import FrankaWithGripperExtensionCfg
 from .g1_cfg import G1Cfg
 from .google_robot_static_cfg import GoogleRobotStaticCfg
 from .h1_2_without_hand_cfg import H12WithoutHandCfg
-from .h1_body_collision import H1BodyCollisionCfg
 from .h1_cfg import H1Cfg
 from .h1_hand_cfg import H1HandCfg
 from .h1_simple_hand_cfg import H1SimpleHandCfg
+from .h1_verse_cfg import H1VerseCfg
 from .h1_wrist_cfg import H1WristCfg
 from .iiwa_cfg import IiwaCfg
 from .kinova_gen3_cfg import KinovaGen3Cfg
