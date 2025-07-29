@@ -14,98 +14,115 @@
 # ==============================================================================
 """Joystick task for Unitree G1."""
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 import torch
-import jax
-import jax.numpy as jp
-from ml_collections import config_dict
 from mujoco import mjx
 from mujoco.mjx._src import math
 import numpy as np
 
-from mujoco_playground._src import collision
-from mujoco_playground._src import gait
-from mujoco_playground._src import mjx_env
-from mujoco_playground._src.collision import geoms_colliding
-from mujoco_playground._src.locomotion.g1 import base as g1_base # type: ignore
-from mujoco_playground._src.locomotion.g1 import g1_constants as consts
+
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.utils.setup_util import get_sim_env_class
 from metasim.constants import SimType
 
-def default_config() -> config_dict.ConfigDict:
-  return config_dict.create(
-      ctrl_dt=0.02,
-      sim_dt=0.002,
-      episode_length=1000,
-      action_repeat=1,
-      action_scale=0.5,
-      history_len=1,
-      restricted_joint_range=False,
-      soft_joint_pos_limit_factor=0.95,
-      noise_config=config_dict.create(
-          level=1.0,  # Set to 0.0 to disable noise.
-          scales=config_dict.create(
-              joint_pos=0.03,
-              joint_vel=1.5,
-              gravity=0.05,
-              linvel=0.1,
-              gyro=0.2,
-          ),
-      ),
-      reward_config=config_dict.create(
-          scales=config_dict.create(
-              # Tracking related rewards.
-              tracking_lin_vel=1.0,
-              tracking_ang_vel=0.75,
-              # Base related rewards.
-              lin_vel_z=0.0,
-              ang_vel_xy=-0.15,
-              orientation=-2.0,
-              base_height=0.0,
-              # Energy related rewards.
-              torques=0.0,
-              action_rate=0.0,
-              energy=0.0,
-              dof_acc=0.0,
-              # Feet related rewards.
-              feet_clearance=0.0,
-              feet_air_time=2.0,
-              feet_slip=-0.25,
-              feet_height=0.0,
-              feet_phase=1.0,
-              # Other rewards.
-              alive=0.0,
-              stand_still=-1.0,
-              termination=-100.0,
-              collision=-0.1,
-              contact_force=-0.01,
-              # Pose related rewards.
-              joint_deviation_knee=-0.1,
-              joint_deviation_hip=-0.25,
-              dof_pos_limits=-1.0,
-              pose=-0.1,
-          ),
-          tracking_sigma=0.25,
-          max_foot_height=0.15,
-          base_height_target=0.5,
-          max_contact_force=500.0,
-      ),
-      push_config=config_dict.create(
-          enable=True,
-          interval_range=[5.0, 10.0],
-          magnitude_range=[0.1, 2.0],
-      ),
-      command_config=config_dict.create(
-          # Uniform distribution for command amplitude.
-          a=[1.0, 0.8, 1.0],
-          # Probability of not zeroing out new command.
-          b=[0.9, 0.25, 0.5],
-      ),
-      lin_vel_x=[-1.0, 1.0],
-      lin_vel_y=[-0.5, 0.5],
-      ang_vel_yaw=[-1.0, 1.0],
-  )
+CONFIG = {
+    "episode_length": 1000,
+    "action_repeat": 1,
+    "action_scale": 0.5,
+    "history_len": 1,
+    "restricted_joint_range": False,
+    "soft_joint_pos_limit_factor": 0.95,
+
+    "noise_config": {
+        "level": 1.0,  # Set to 0.0 to disable noise.
+        "scales": {
+            "joint_pos": 0.03,
+            "joint_vel": 1.5,
+            "gravity": 0.05,
+            "linvel": 0.1,
+            "gyro": 0.2,
+        },
+    },
+
+    "reward_config": {
+        "scales": {
+            "tracking_lin_vel": 1.0,
+            "tracking_ang_vel": 0.75,
+            "lin_vel_z": 0.0,
+            "ang_vel_xy": -0.15,
+            "orientation": -2.0,
+            "base_height": 0.0,
+            "torques": 0.0,
+            "action_rate": 0.0,
+            "energy": 0.0,
+            "dof_acc": 0.0,
+            "feet_clearance": 0.0,
+            "feet_air_time": 2.0,
+            "feet_slip": -0.25,
+            "feet_height": 0.0,
+            "feet_phase": 1.0,
+            "alive": 0.0,
+            "stand_still": -1.0,
+            "termination": -100.0,
+            "collision": -0.1,
+            "contact_force": -0.01,
+            "joint_deviation_knee": -0.1,
+            "joint_deviation_hip": -0.25,
+            "dof_pos_limits": -1.0,
+            "pose": -0.1,
+        },
+        "tracking_sigma": 0.25,
+        "max_foot_height": 0.15,
+        "base_height_target": 0.5,
+        "max_contact_force": 500.0,
+    },
+
+    "push_config": {
+        "enable": True,
+        "interval_range": [5.0, 10.0],
+        "magnitude_range": [0.1, 2.0],
+    },
+
+    "command_config": {
+        "a": [1.0, 0.8, 1.0],  # Amplitudes
+        "b": [0.9, 0.25, 0.5],  # Probability of nonzero commands
+    },
+
+    "lin_vel_x": [-1.0, 1.0],
+    "lin_vel_y": [-0.5, 0.5],
+    "ang_vel_yaw": [-1.0, 1.0],
+}
+
+
+KNEE_BENT_STATE = {
+    "robots": {
+        "g1": {
+            # [x, y, z | qw, qx, qy, qz | vx, vy, vz | wx, wy, wz]
+            "root_state": torch.tensor(
+                [[0.0, 0.0, 0.755,
+                  1.0, 0.0, 0.0, 0.0,
+                  0.0, 0.0, 0.0,
+                  0.0, 0.0, 0.0]], dtype=torch.float32
+            ),
+            # joint order identical to simulator
+            "joint_pos": torch.tensor(
+                [[
+                    # left leg
+                    -0.312, 0.0, 0.0, 0.669, -0.363, 0.0,
+                    # right leg
+                    -0.312, 0.0, 0.0, 0.669, -0.363, 0.0,
+                    # waist
+                     0.0, 0.0, 0.073,
+                    # left arm
+                     0.2, 0.2, 0.0, 0.6, 0.0, 0.0, 0.0,
+                    # right arm
+                     0.2, -0.2, 0.0, 0.6, 0.0, 0.0, 0.0
+                ]],
+                dtype=torch.float32
+            ),
+        }
+    },
+}
 
 
 class Joystick():
@@ -114,316 +131,237 @@ class Joystick():
   def __init__(
       self,
       scenario: ScenarioCfg,
-      task: str = "flat_terrain",
+    #   task: str = "flat_terrain",
+      device: str | torch.device | None = None,
   ):
     EnvironmentClass = get_sim_env_class(SimType(scenario.sim))
     self.env = EnvironmentClass(scenario)
     self.num_envs = scenario.num_envs
     self.robot = scenario.robots[0]
+    self.robot_name = self.robot.name
     self.task = scenario.task
+    self.device = device
     self._post_init()
 
   def _post_init(self) -> None:
-    self._init_q = jp.array(self._mj_model.keyframe("knees_bent").qpos)
-    self._default_pose = jp.array(
-        self._mj_model.keyframe("knees_bent").qpos[7:]
+    self.initial_state = KNEE_BENT_STATE     
+
+    kb_joint_pos = KNEE_BENT_STATE["robots"][self.robot.name]["joint_pos"][0]
+    self._default_pose = kb_joint_pos.to(device=self.device, dtype=self.dtype).clone()
+
+    limits       = self.robot.joint_limits   
+    self.joiners = torch.tensor(
+        [limits[j][0] for j in self.joint_names],
+        device=self.device, dtype=self.dtype,
+    )
+    self._uppers = torch.tensor(
+        [limits[j][1] for j in self.joint_names],
+        device=self.device, dtype=self.dtype,
     )
 
-    # Note: First joint is freejoint.
-    self._lowers, self._uppers = self.mj_model.jnt_range[1:].T
-    c = (self._lowers + self._uppers) / 2
+    c = (self._lowers + self._uppers) * 0.5
     r = self._uppers - self._lowers
-    self._soft_lowers = c - 0.5 * r * self._config.soft_joint_pos_limit_factor
-    self._soft_uppers = c + 0.5 * r * self._config.soft_joint_pos_limit_factor
-
-    waist_indices = []
-    waist_joint_names = [
-        "waist_yaw",
-        "waist_roll",
-        "waist_pitch",
-    ]
-    for joint_name in waist_joint_names:
-      waist_indices.append(
-          self._mj_model.joint(f"{joint_name}_joint").qposadr - 7
-      )
-    self._waist_indices = jp.array(waist_indices)
-
-    arm_indices = []
-    arm_joint_names = [
-        "shoulder_roll",
-        "shoulder_yaw",
-        "wrist_roll",
-        "wrist_pitch",
-        "wrist_yaw",
-    ]
-    for side in ["left", "right"]:
-      for joint_name in arm_joint_names:
-        arm_indices.append(
-            self._mj_model.joint(f"{side}_{joint_name}_joint").qposadr - 7
-        )
-    self._arm_indices = jp.array(arm_indices)
-
-    hip_indices = []
-    hip_joint_names = [
-        "hip_roll",
-        "hip_yaw",
-    ]
-    for side in ["left", "right"]:
-      for joint_name in hip_joint_names:
-        hip_indices.append(
-            self._mj_model.joint(f"{side}_{joint_name}_joint").qposadr - 7
-        )
-    self._hip_indices = jp.array(hip_indices)
-
-    knee_indices = []
-    knee_joint_names = ["knee"]
-    for side in ["left", "right"]:
-      for joint_name in knee_joint_names:
-        knee_indices.append(
-            self._mj_model.joint(f"{side}_{joint_name}_joint").qposadr - 7
-        )
-    self._knee_indices = jp.array(knee_indices)
+    f = self._config.soft_joint_pos_limit_factor
+    self._soft_lowers = c - 0.5 * r * f
+    self._soft_uppers = c + 0.5 * r * f
 
     # fmt: off
-    self._weights = jp.array([
-        0.01, 1.0, 1.0, 0.01, 1.0, 1.0,  # left leg.
-        0.01, 1.0, 1.0, 0.01, 1.0, 1.0,  # right leg.
-        1.0, 1.0, 1.0,  # waist.
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,  # left arm.
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,  # right arm.
-    ])
-    # fmt: on
+    self._weights = torch.tensor([
+        0.01, 1.0, 1.0, 0.01, 1.0, 1.0,
+        0.01, 1.0, 1.0, 0.01, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    ], device=self.device, dtype=self.dtype)
 
-    self._torso_body_id = self._mj_model.body(consts.ROOT_BODY).id
-    self._torso_mass = self._mj_model.body_subtreemass[self._torso_body_id]
-    self._torso_imu_site_id = self._mj_model.site("imu_in_torso").id
-    self._pelvis_imu_site_id = self._mj_model.site("imu_in_pelvis").id
+    self._cmd_a = torch.tensor(self._config.command_config["a"], device=self.device, dtype=self.dtype)
+    self._cmd_b = torch.tensor(self._config.command_config["b"], device=self.device, dtype=self.dtype)
 
-    self._feet_site_id = np.array(
-        [self._mj_model.site(name).id for name in consts.FEET_SITES]
-    )
-    self._hands_site_id = np.array(
-        [self._mj_model.site(name).id for name in consts.HAND_SITES]
-    )
-    self._floor_geom_id = self._mj_model.geom("floor").id
-    self._feet_geom_id = np.array(
-        [self._mj_model.geom(name).id for name in consts.FEET_GEOMS]
-    )
+  def reset(self):
+    # ---- basic tensors --------------------------------------------------
+    dev, dt = self.device, self.dtype
+    N       = self.num_envs
+    kb      = KNEE_BENT_STATE["robots"][self.robot.name]
 
-    foot_linvel_sensor_adr = []
-    for site in consts.FEET_SITES:
-      sensor_id = self._mj_model.sensor(f"{site}_global_linvel").id
-      sensor_adr = self._mj_model.sensor_adr[sensor_id]
-      sensor_dim = self._mj_model.sensor_dim[sensor_id]
-      foot_linvel_sensor_adr.append(
-          list(range(sensor_adr, sensor_adr + sensor_dim))
-      )
-    self._foot_linvel_sensor_adr = jp.array(foot_linvel_sensor_adr)
+    # ---- dimensions (no mj_model) --------------------------------------
+    nq      = kb["root_state"].shape[1]          # 13 (pos+quat+vel+ang_vel)
+    nj      = kb["joint_pos"].shape[1]
+    nv      = 6 + nj                             # 6 base dofs + joints
 
-    self._cmd_a = jp.array(self._config.command_config.a)
-    self._cmd_b = jp.array(self._config.command_config.b)
+    qpos    = torch.zeros(N, nq, device=dev, dtype=dt)
+    qvel    = torch.zeros(N, nv, device=dev, dtype=dt)
 
-    self._left_hand_geom_id = self._mj_model.geom("left_hand_collision").id
-    self._right_hand_geom_id = self._mj_model.geom("right_hand_collision").id
-    self._left_foot_geom_id = self._mj_model.geom("left_foot").id
-    self._right_foot_geom_id = self._mj_model.geom("right_foot").id
-    self._left_shin_geom_id = self._mj_model.geom("left_shin").id
-    self._right_shin_geom_id = self._mj_model.geom("right_shin").id
-    self._left_thigh_geom_id = self._mj_model.geom("left_thigh").id
-    self._right_thigh_geom_id = self._mj_model.geom("right_thigh").id
+    # ---- template pose --------------------------------------------------
+    root    = kb["root_state"][0]                # (13,)
+    joints  = kb["joint_pos"][0]                 # (nj,)
 
-  def reset(self, rng: jax.Array) -> mjx_env.State:
-    qpos = self._init_q
-    qvel = jp.zeros(self.mjx_model.nv)
+    qpos[:, :3]   = root[:3]                     # base pos
+    qpos[:, 3:7]  = root[3:7]                    # base quat
+    qpos[:, 7:]   = joints.expand(N, nj)         # joint angles
 
-    # x=+U(-0.5, 0.5), y=+U(-0.5, 0.5), yaw=U(-3.14, 3.14).
-    rng, key = jax.random.split(rng)
-    dxy = jax.random.uniform(key, (2,), minval=-0.5, maxval=0.5)
-    qpos = qpos.at[0:2].set(qpos[0:2] + dxy)
-    rng, key = jax.random.split(rng)
-    yaw = jax.random.uniform(key, (1,), minval=-3.14, maxval=3.14)
-    quat = math.axis_angle_to_quat(jp.array([0, 0, 1]), yaw)
-    new_quat = math.quat_mul(qpos[3:7], quat)
-    qpos = qpos.at[3:7].set(new_quat)
+    # ---- randomisation --------------------------------------------------
+    qpos[:, :2]  += torch.empty(N, 2, device=dev, dtype=dt).uniform_(-0.5, 0.5)
 
-    # qpos[7:]=*U(0.5, 1.5)
-    rng, key = jax.random.split(rng)
-    qpos = qpos.at[7:].set(
-        qpos[7:] * jax.random.uniform(key, (29,), minval=0.5, maxval=1.5)
-    )
+    yaw           = torch.empty(N, 1, device=dev, dtype=dt).uniform_(-3.14, 3.14)
+    quat_yaw      = torch.cat([torch.cos(yaw/2),
+                            torch.zeros_like(yaw).repeat(1, 2),
+                            torch.sin(yaw/2)], 1)
+    qpos[:, 3:7]  = math.quat_mul(qpos[:, 3:7], quat_yaw)
 
-    # d(xyzrpy)=U(-0.5, 0.5)
-    rng, key = jax.random.split(rng)
-    qvel = qvel.at[0:6].set(
-        jax.random.uniform(key, (6,), minval=-0.5, maxval=0.5)
-    )
+    scale         = torch.empty(N, nj, device=dev, dtype=dt).uniform_(0.5, 1.5)
+    qpos[:, 7:]  *= scale
+    qvel[:, :6]   = torch.empty(N, 6, device=dev, dtype=dt).uniform_(-0.5, 0.5)
 
-    data = mjx_env.init(self.mjx_model, qpos=qpos, qvel=qvel, ctrl=qpos[7:])
+    # ---- write to TensorState ------------------------------------------
+    ts = self.handler.get_state()
+    rs = ts.robots[self.robot.name]
 
-    # Phase, freq=U(1.0, 1.5)
-    rng, key = jax.random.split(rng)
-    gait_freq = jax.random.uniform(key, (1,), minval=1.25, maxval=1.5)
-    phase_dt = 2 * jp.pi * self.dt * gait_freq
-    phase = jp.array([0, jp.pi])
+    rs.root_state[:, :3]   = qpos[:, :3]
+    rs.root_state[:, 3:7]  = qpos[:, 3:7]
+    rs.root_state[:, 7:10] = qvel[:, :3]
+    rs.root_state[:,10:13] = qvel[:, 3:6]
 
-    rng, cmd_rng = jax.random.split(rng)
-    cmd = self.sample_command(cmd_rng)
+    rs.joint_pos[:]        = qpos[:, 7:]
+    rs.joint_vel[:]        = qvel[:, 6:6+nj]
+    rs.joint_pos_target[:] = qpos[:, 7:]
+    rs.joint_vel_target[:] = 0.0
 
-    # Sample push interval.
-    rng, push_rng = jax.random.split(rng)
-    push_interval = jax.random.uniform(
-        push_rng,
-        minval=self._config.push_config.interval_range[0],
-        maxval=self._config.push_config.interval_range[1],
-    )
-    push_interval_steps = jp.round(push_interval / self.dt).astype(jp.int32)
+    self.handler.set_state(ts)
 
-    info = {
-        "rng": rng,
-        "step": 0,
-        "command": cmd,
-        "last_act": jp.zeros(self.mjx_model.nu),
-        "last_last_act": jp.zeros(self.mjx_model.nu),
-        "motor_targets": jp.zeros(self.mjx_model.nu),
-        "feet_air_time": jp.zeros(2),
-        "last_contact": jp.zeros(2, dtype=bool),
-        "swing_peak": jp.zeros(2),
-        # Phase related.
-        "phase_dt": phase_dt,
-        "phase": phase,
-        # Push related.
-        "push": jp.array([0.0, 0.0]),
-        "push_step": 0,
-        "push_interval_steps": push_interval_steps,
-    }
-
+    # ---- bookkeeping ----------------------------------------------------
+    info = {"step": torch.zeros(N, dtype=torch.int64, device=dev)}
+    self.info = info
     metrics = {}
-    for k in self._config.reward_config.scales.keys():
-      metrics[f"reward/{k}"] = jp.zeros(())
-    metrics["swing_peak"] = jp.zeros(())
+    contact  = torch.zeros(N, len(self._feet_geom_id), device=dev, dtype=dt)
 
-    contact = jp.array([
-        geoms_colliding(data, geom_id, self._floor_geom_id)
-        for geom_id in self._feet_geom_id
-    ])
-    obs = self._get_obs(data, info, contact)
-    reward, done = jp.zeros(2)
-    return mjx_env.State(data, obs, reward, done, metrics, info)
+    obs   = self._get_obs(ts, info, contact)
+    reward   = torch.zeros(N, device=dev, dtype=dt)
+    done  = torch.zeros(N, device=dev, dtype=dt)
+    return obs, reward, done, info, metrics
 
-  def step(self, state: mjx_env.State, action: jax.Array) -> mjx_env.State:
-    state.info["rng"], push1_rng, push2_rng = jax.random.split(
-        state.info["rng"], 3
-    )
-    push_theta = jax.random.uniform(push1_rng, maxval=2 * jp.pi)
-    push_magnitude = jax.random.uniform(
-        push2_rng,
-        minval=self._config.push_config.magnitude_range[0],
-        maxval=self._config.push_config.magnitude_range[1],
-    )
-    push = jp.array([jp.cos(push_theta), jp.sin(push_theta)])
+  def step(self, env_state, action):
+    # -------------------------------------------------------------- fetch
+    env_state = self.handler.get_state()             # TensorState (ignore arg)
+    rs     = env_state.robots[self.robot_name]
+    dev    = self.device
+    dtype  = self.dtype
+
+    # ------------------------------------------------------ push sampling
+    push_theta     = torch.rand((), device=dev, dtype=dtype) * (2 * math.pi)
+    m_lo, m_hi     = self._config.push_config.magnitude_range
+    push_magnitude = torch.empty((), device=dev, dtype=dtype).uniform_(m_lo, m_hi)
+
+    push = torch.stack([torch.cos(push_theta), torch.sin(push_theta)])
     push *= (
-        jp.mod(state.info["push_step"] + 1, state.info["push_interval_steps"])
-        == 0
+        torch.remainder(self.info["push_step"] + 1,
+                        self.info["push_interval_steps"]) == 0
     )
     push *= self._config.push_config.enable
-    qvel = state.data.qvel
-    qvel = qvel.at[:2].set(push * push_magnitude + qvel[:2])
-    data = state.data.replace(qvel=qvel)
-    state = state.replace(data=data)
 
-    motor_targets = self._default_pose + action * self._config.action_scale
-    data = mjx_env.step(
-        self.mjx_model, state.data, motor_targets, self.n_substeps
-    )
-    state.info["motor_targets"] = motor_targets
+    # apply planar push to base linear velocity (vx, vy)
+    rs.root_state[:, 7:9] = push * push_magnitude + rs.root_state[:, 7:9]
 
-    contact = jp.array([
-        geoms_colliding(data, geom_id, self._floor_geom_id)
-        for geom_id in self._feet_geom_id
+    # -------------------------------------------------------- motor cmd
+    motor_targets            = self._default_pose + action * self._config.action_scale
+    rs.joint_pos_target[:]   = motor_targets
+    self.info["motor_targets"] = motor_targets
+
+    # ----------------------------------------------------- write & step
+    self.handler.set_state(env_state)
+    self.handler.simulate       # advance simulation
+
+    # -------------------------------------------------------- contacts
+    contact = torch.stack([
+        geoms_colliding(data, gid, self._floor_geom_id)
+        for gid in self._feet_geom_id
     ])
-    contact_filt = contact | state.info["last_contact"]
-    first_contact = (state.info["feet_air_time"] > 0.0) * contact_filt
-    state.info["feet_air_time"] += self.dt
+    
+    contact_filt          = contact | self.info["last_contact"]
+    first_contact         = (self.info["feet_air_time"] > 0.0) * contact_filt
+    self.info["feet_air_time"] += self.dt
+    left_feet_pos = env_state.extras["left_foot_pos"]
+    right_feet_pos = env_state.extras["right_foot_pos"]
+    p_f   = torch.concatenate(
+        [left_feet_pos, right_feet_pos], axis=-1
+    )
+    p_fz  = p_f[..., -1]
+    self.info["swing_peak"] = torch.maximum(self.info["swing_peak"], p_fz)
 
-    p_f = data.site_xpos[self._feet_site_id]
-    p_fz = p_f[..., -1]
-    state.info["swing_peak"] = jp.maximum(state.info["swing_peak"], p_fz)
-
-    obs = self._get_obs(data, state.info, contact)
-    done = self._get_termination(data)
+    # ------------------------------------------------ obs / done / rwd
+    obs  = self._get_obs(env_state, self.info, contact)
+    done = self._get_termination(env_state)
 
     rewards = self._get_reward(
-        data, action, state.info, state.metrics, done, first_contact, contact
+        env_state, action, self.info, self.metrics, done, first_contact, contact
     )
     rewards = {
         k: v * self._config.reward_config.scales[k] for k, v in rewards.items()
     }
     reward = sum(rewards.values()) * self.dt
 
-    state.info["push"] = push
-    state.info["step"] += 1
-    state.info["push_step"] += 1
-    phase_tp1 = state.info["phase"] + state.info["phase_dt"]
-    state.info["phase"] = jp.fmod(phase_tp1 + jp.pi, 2 * jp.pi) - jp.pi
+    # --------------------------------------------------- bookkeeping
+    self.info["push"]       = push
+    self.info["step"]      += 1
+    self.info["push_step"] += 1
+
+    phase_tp1              = self.info["phase"] + self.info["phase_dt"]
+    self.info["phase"]     = torch.fmod(phase_tp1 + math.pi, 2 * math.pi) - math.pi
     # NOTE(kevin): Enable this to make the policy stand still at 0 command.
-    # state.info["phase"] = jp.where(
-    #     jp.linalg.norm(state.info["command"]) > 0.01,
-    #     state.info["phase"],
-    #     jp.ones(2) * jp.pi,
+    # self.info["phase"] = torch.where(
+    #     torch.linalg.norm(self.info["command"]) > 0.01,
+    #     self.info["phase"],
+    #     torch.ones(2, device=dev, dtype=dtype) * math.pi,
     # )
-    state.info["last_last_act"] = state.info["last_act"]
-    state.info["last_act"] = action
-    state.info["rng"], cmd_rng = jax.random.split(state.info["rng"])
-    state.info["command"] = jp.where(
-        state.info["step"] > 500,
-        self.sample_command(cmd_rng),
-        state.info["command"],
+
+    self.info["last_last_act"] = self.info["last_act"]
+    self.info["last_act"]      = action
+
+    # ------------------------------- command resample + maintenance
+    if self.info["step"] > 500:
+      self.info["command"] = self.sample_command()
+
+    self.info["step"] = torch.where(
+        done | (self.info["step"] > 500),
+        torch.zeros_like(self.info["step"]),
+        self.info["step"],
     )
-    state.info["step"] = jp.where(
-        done | (state.info["step"] > 500),
-        0,
-        state.info["step"],
-    )
-    state.info["feet_air_time"] *= ~contact
-    state.info["last_contact"] = contact
-    state.info["swing_peak"] *= ~contact
+    self.info["feet_air_time"] *= ~contact
+    self.info["last_contact"]   = contact
+    self.info["swing_peak"]    *= ~contact
+
     for k, v in rewards.items():
-      state.metrics[f"reward/{k}"] = v
-    state.metrics["swing_peak"] = jp.mean(state.info["swing_peak"])
+      self.metrics[f"reward/{k}"] = v
+    self.metrics["swing_peak"] = torch.mean(self.info["swing_peak"])
 
-    done = done.astype(reward.dtype)
-    state = state.replace(data=data, obs=obs, reward=reward, done=done)
-    return state
+    done = done.to(reward.dtype)
 
-  def _get_termination(self, data: mjx.Data) -> jax.Array:
+    # refresh state handle & return
+    return obs, reward, done, self.info, self.metrics
+  
+  def _get_termination(self, data):
     fall_termination = self.get_gravity(data, "torso")[-1] < 0.0
     contact_termination = collision.geoms_colliding(
-        data,
-        self._right_foot_geom_id,
-        self._left_foot_geom_id,
+        data, self._right_foot_geom_id, self._left_foot_geom_id
     )
     contact_termination |= collision.geoms_colliding(
-        data,
-        self._left_foot_geom_id,
-        self._right_shin_geom_id,
+        data, self._left_foot_geom_id, self._right_shin_geom_id
     )
     contact_termination |= collision.geoms_colliding(
-        data,
-        self._right_foot_geom_id,
-        self._left_shin_geom_id,
+        data, self._right_foot_geom_id, self._left_shin_geom_id
     )
     return (
         fall_termination
         | contact_termination
-        | jp.isnan(data.qpos).any()
-        | jp.isnan(data.qvel).any()
+        | torch.isnan(data.qpos).any()
+        | torch.isnan(data.qvel).any()
     )
 
+
   def _get_obs(
-      self, env_state, env_extra, info: dict[str, Any], contact: jax.Array
+      self, env_state, info: dict[str, Any], contact: jax.Array
   ) -> mjx_env.Observation:
     # gyro = self.get_gyro(data, "pelvis")
-    gyro = env_extra[]
+    gyro = env_state.extras["gyro_pelvis"]
     info["rng"], noise_rng = jax.random.split(info["rng"])
     noisy_gyro = (
         gyro
@@ -466,10 +404,10 @@ class Joystick():
     sin = jp.sin(info["phase"])
     phase = jp.concatenate([cos, sin])
 
-    linvel = env_extra[]
+    linvel = env_state.extras["local_linvel_pelvis"]
     # linvel = self.get_local_linvel(data, "pelvis")
     info["rng"], noise_rng = jax.random.split(info["rng"])
-    noisy_linvel = (
+    noisy_linvel = (SensorData
         linvel
         + (2 * jax.random.uniform(noise_rng, shape=linvel.shape) - 1)
         * self._config.noise_config.level
@@ -492,13 +430,13 @@ class Joystick():
     # global_angvel = self.get_global_angvel(data, "pelvis")
     left_feet_vel = env_state.extras["left_foot_global_linvel"]
     right_feet_vel = env_state.extras["right_foot_global_linvel"]
-    feet_vel= jp.concatenate(
+    feet_vel= torch.concatenate(
         [left_feet_vel, right_feet_vel], axis=-1
     )
     # feet_vel = data.sensordata[self._foot_linvel_sensor_adr].ravel()
-    root_height = env_state[]
+    root_height = env_state["robots"][self.robot_name]["pos"][2]
 
-    privileged_state = jp.hstack([
+    privileged_state = torch.hstack([
         state,
         gyro,  # 3
         accelerometer,  # 3
@@ -508,7 +446,7 @@ class Joystick():
         joint_angles - self._default_pose,
         joint_vel,
         root_height,  # 1
-        env_state[],  # 29
+        env_state["robots"][self.robot_name][""],  # 29
         # data.actuator_force,  # 29
         contact,  # 2
         feet_vel,  # 4*3
@@ -732,7 +670,14 @@ class Joystick():
     feet_vel = data.sensordata[self._foot_linvel_sensor_adr]
     vel_xy = feet_vel[..., :2]
     vel_norm = jp.sqrt(jp.linalg.norm(vel_xy, axis=-1))
-    foot_pos = data.site_xpos[self._feet_site_id]
+
+    left_feet_pos = env_state.extras["left_foot_pos"]
+    right_feet_pos = env_state.extras["right_foot_pos"]
+    foot_pos= jp.concatenate(
+        [left_feet_pos, right_feet_pos], axis=-1
+    )
+    # foot_pos = data.site_xpos[self._feet_site_id]
+
     foot_z = foot_pos[..., -1]
     delta = jp.abs(foot_z - self._config.reward_config.max_foot_height)
     return jp.sum(delta * vel_norm)
@@ -808,3 +753,4 @@ class Joystick():
         jp.zeros(3),
         jp.hstack([lin_vel_x, lin_vel_y, ang_vel_yaw]),
     )
+

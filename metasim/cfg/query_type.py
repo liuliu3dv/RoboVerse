@@ -27,3 +27,8 @@ class SiteXMat:
     """World frame 3*3 rotation matrix of one site (flattened to 9)."""
 
     name: str
+
+@dataclass
+class BodyMass:
+    """Scalar subtree mass of a body."""
+    name: str 
