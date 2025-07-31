@@ -239,10 +239,10 @@ class Joystick():
     done  = torch.zeros(N, device=dev, dtype=dt)
     return obs, reward, done, info, metrics
 
-  def step(self, env_state, action):
+  def step(self, rv_state, action):
     # -------------------------------------------------------------- fetch
-    env_state = self.handler.get_state()             # TensorState (ignore arg)
-    rs     = env_state.robots[self.robot_name]
+    rv_state = self.handler.get_state()             # TensorState (ignore arg)
+    rs     = rv_state.robots[self.robot_name]
     dev    = self.device
     dtype  = self.dtype
 
@@ -267,7 +267,7 @@ class Joystick():
     self.info["motor_targets"] = motor_targets
 
     # ----------------------------------------------------- write & step
-    self.handler.set_state(env_state)
+    self.handler.set_state(rv_state)
     self.handler.simulate       # advance simulation
 
     # -------------------------------------------------------- contacts
@@ -279,8 +279,8 @@ class Joystick():
     contact_filt          = contact | self.info["last_contact"]
     first_contact         = (self.info["feet_air_time"] > 0.0) * contact_filt
     self.info["feet_air_time"] += self.dt
-    left_feet_pos = env_state.extras["left_foot_pos"]
-    right_feet_pos = env_state.extras["right_foot_pos"]
+    left_feet_pos = rv_state.extras["left_foot_pos"]
+    right_feet_pos = rv_state.extras["right_foot_pos"]
     p_f   = torch.concatenate(
         [left_feet_pos, right_feet_pos], axis=-1
     )
@@ -288,11 +288,11 @@ class Joystick():
     self.info["swing_peak"] = torch.maximum(self.info["swing_peak"], p_fz)
 
     # ------------------------------------------------ obs / done / rwd
-    obs  = self._get_obs(env_state, self.info, contact)
-    done = self._get_termination(env_state)
+    obs  = self._get_obs(rv_state, self.info, contact)
+    done = self._get_termination(rv_state)
 
     rewards = self._get_reward(
-        env_state, action, self.info, self.metrics, done, first_contact, contact
+        rv_state, action, self.info, self.metrics, done, first_contact, contact
     )
     rewards = {
         k: v * self._config.reward_config.scales[k] for k, v in rewards.items()
@@ -357,11 +357,9 @@ class Joystick():
     )
 
 
-  def _get_obs(
-      self, env_state, info: dict[str, Any], contact: jax.Array
-  ) -> mjx_env.Observation:
+  def _get_obs(self, rv_state, info: dict[str, Any], contact: jax.Array) 
     # gyro = self.get_gyro(data, "pelvis")
-    gyro = env_state.extras["gyro_pelvis"]
+    gyro = rv_state.extras["gyro_pelvis"]
     info["rng"], noise_rng = jax.random.split(info["rng"])
     noisy_gyro = (
         gyro
@@ -369,7 +367,7 @@ class Joystick():
         * self._config.noise_config.level
         * self._config.noise_config.scales.gyro
     )
-    gravity = env_state.extras["pelvis_rot"] @ torch.tensor([0, 0, -1])
+    gravity = rv_state.extras["pelvis_rot"] @ torch.tensor([0, 0, -1])
     # gravity = data.site_xmat[self._pelvis_imu_site_id].T @ jp.array([0, 0, -1])
     info["rng"], noise_rng = jax.random.split(info["rng"])
     noisy_gravity = (
@@ -379,7 +377,7 @@ class Joystick():
         * self._config.noise_config.scales.gravity
     )
 
-    joint_angles = env_state[7:]
+    joint_angles = rv_state[7:]
         # joint_angles = data.qpos[7:]
     info["rng"], noise_rng = jax.random.split(info["rng"])
     noisy_joint_angles = (
@@ -389,7 +387,7 @@ class Joystick():
         * self._config.noise_config.scales.joint_pos
     )
 
-    joint_vel = env_state[]
+    joint_vel = rv_state[]
 
     # joint_vel = data.qvel[6:]
     info["rng"], noise_rng = jax.random.split(info["rng"])
@@ -404,10 +402,10 @@ class Joystick():
     sin = jp.sin(info["phase"])
     phase = jp.concatenate([cos, sin])
 
-    linvel = env_state.extras["local_linvel_pelvis"]
+    linvel = rv_state.extras["local_linvel_pelvis"]
     # linvel = self.get_local_linvel(data, "pelvis")
     info["rng"], noise_rng = jax.random.split(info["rng"])
-    noisy_linvel = (SensorData
+    noisy_linvel = (
         linvel
         + (2 * jax.random.uniform(noise_rng, shape=linvel.shape) - 1)
         * self._config.noise_config.level
@@ -424,17 +422,17 @@ class Joystick():
         info["last_act"],  # 29
         phase,
     ])
-    accelerometer = env_state.extras["accelerometer_pelvis"]
-    global_angvel = env_state.extras["global_angvel_pelvis"]
+    accelerometer = rv_state.extras["accelerometer_pelvis"]
+    global_angvel = rv_state.extras["global_angvel_pelvis"]
     # accelerometer = self.get_accelerometer(data, "pelvis")
     # global_angvel = self.get_global_angvel(data, "pelvis")
-    left_feet_vel = env_state.extras["left_foot_global_linvel"]
-    right_feet_vel = env_state.extras["right_foot_global_linvel"]
+    left_feet_vel = rv_state.extras["left_foot_global_linvel"]
+    right_feet_vel = rv_state.extras["right_foot_global_linvel"]
     feet_vel= torch.concatenate(
         [left_feet_vel, right_feet_vel], axis=-1
     )
     # feet_vel = data.sensordata[self._foot_linvel_sensor_adr].ravel()
-    root_height = env_state["robots"][self.robot_name]["pos"][2]
+    root_height = rv_state["robots"][self.robot_name]["pos"][2]
 
     privileged_state = torch.hstack([
         state,
@@ -446,7 +444,7 @@ class Joystick():
         joint_angles - self._default_pose,
         joint_vel,
         root_height,  # 1
-        env_state["robots"][self.robot_name][""],  # 29
+        rv_state["robots"][self.robot_name]["joint_effort_target"],  # 29
         # data.actuator_force,  # 29
         contact,  # 2
         feet_vel,  # 4*3
@@ -460,7 +458,7 @@ class Joystick():
 
   def _get_reward(
       self,
-      env_state,
+      rv_state,
       action: jax.Array,
       info: dict[str, Any],
       metrics: dict[str, Any],
@@ -479,13 +477,13 @@ class Joystick():
         ),
         # Base-related rewards.
         "lin_vel_z": self._cost_lin_vel_z(
-            env_state.extras["global_linvel_pelvis"],
-            env_state.extras["global_linvel_torso"],
+            rv_state.extras["global_linvel_pelvis"],
+            rv_state.extras["global_linvel_torso"],
         ),
         "ang_vel_xy": self._cost_ang_vel_xy(
-            env_state.extras["global_angvel_torso"],
+            rv_state.extras["global_angvel_torso"],
         ),
-        "orientation": self._cost_orientation(env_state.extras["upvector_torso"]),
+        "orientation": self._cost_orientation(rv_state.extras["upvector_torso"]),
         "base_height": self._cost_base_height(data.qpos[2]),
         # Energy related rewards.
         "torques": self._cost_torques(data.actuator_force),
@@ -658,7 +656,7 @@ class Joystick():
       self, data: mjx.Data, contact: jax.Array, info: dict[str, Any]
   ) -> jax.Array:
     del info  # Unused.
-    body_vel = env_state.extras["global_linvel_pelvis"]
+    body_vel = rv_state.extras["global_linvel_pelvis"]
     # body_vel = self.get_global_linvel(data, "pelvis")[:2]
     reward = jp.sum(jp.linalg.norm(body_vel, axis=-1) * contact)
     return reward
@@ -671,8 +669,8 @@ class Joystick():
     vel_xy = feet_vel[..., :2]
     vel_norm = jp.sqrt(jp.linalg.norm(vel_xy, axis=-1))
 
-    left_feet_pos = env_state.extras["left_foot_pos"]
-    right_feet_pos = env_state.extras["right_foot_pos"]
+    left_feet_pos = rv_state.extras["left_foot_pos"]
+    right_feet_pos = rv_state.extras["right_foot_pos"]
     foot_pos= jp.concatenate(
         [left_feet_pos, right_feet_pos], axis=-1
     )
@@ -708,7 +706,7 @@ class Joystick():
 
   def _reward_feet_phase(
       self,
-      env_state,
+      rv_state,
       env_extra,
       phase: jax.Array,
       foot_height: jax.Array,

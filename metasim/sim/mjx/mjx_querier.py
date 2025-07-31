@@ -5,12 +5,7 @@ import jax.numpy as jnp
 import mujoco
 import torch
 
-<<<<<<< HEAD
-from metasim.cfg.query_type import ContactForce, SensorData, SitePos, SiteXMat
-=======
-from metasim.cfg.query_type import ContactForce, SitePos, SiteXMat, SensorData, BodyMass
-
->>>>>>> 1264300 (step&reset)
+from metasim.cfg.query_type import ContactForce, SensorData, SitePos, SiteXMat, BodyMass
 
 FEET_SITES = [
     "left_foot",
@@ -105,11 +100,7 @@ class MJXQuerier:
         cache = cls._site_cache.setdefault(key, {})
 
         if q.name not in cache:
-<<<<<<< HEAD
-            cache[q.name] = mdl.site(q.name).id  # cache site id
-=======
-            cache[q.name] = model.site(q.name).id           # cache site id
->>>>>>> 1264300 (step&reset)
+            cache[q.name] = model.site(q.name).id  # cache site id
         sid = cache[q.name]
 
         # dat.site_xmat shape: (N_env, N_site, 9)
@@ -123,46 +114,13 @@ class MJXQuerier:
         cache = cls._sensor_cache.setdefault(key, {})
 
         if q.name not in cache:
-<<<<<<< HEAD
-            sid = mdl.sensor(q.name).id
-            cache[q.name] = (mdl.sensor_adr[sid], mdl.sensor_dim[sid])
-
-        adr, dim = cache[q.name]
-        return dat.sensordata[:, jnp.arange(adr, adr + dim)]  # (N_env, dim)
-
-
-=======
-            sid  = model.sensor(q.name).id
+            sid = model.sensor(q.name).id
             cache[q.name] = (model.sensor_adr[sid], model.sensor_dim[sid])
 
         adr, dim = cache[q.name]
         return dat.sensordata[:, jnp.arange(adr, adr + dim)]  # (N_env, dim)
-    
 
-    @classmethod
-    def body_mass(cls, q: BodyMass, handler):
-        """Return (N_env,) subtree mass of the body (same for all envs)."""
-        model = handler._mj_model
-        key = id(model)
 
-        # cache body name → id
-        name2id = cls._body_cache.setdefault(key, {})
-        if q.name not in name2id:
-            name2id[q.name] = model.body(q.name).id
-        bid = name2id[q.name]
-
-        # cache id → mass
-        mass_cache = cls._mass_cache.setdefault(key, {})
-        if bid not in mass_cache:
-            mass_cache[bid] = model.body_subtreemass[bid]
-
-        # replicate to all envs
-        num_env = handler._data.qpos.shape[0]
-        return jnp.full((num_env,), mass_cache[bid])   # (N_env,)
-    
-    
-    
->>>>>>> 1264300 (step&reset)
 def j2t(a: jax.Array, device="cuda") -> torch.Tensor:
     """Convert a JAX array to a PyTorch tensor, keeping it on the requested device."""
     if device:
