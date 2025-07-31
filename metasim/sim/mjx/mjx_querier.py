@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import mujoco
 import torch
 
-from metasim.cfg.query_type import ContactForce, SensorData, SitePos, SiteXMat, BodyMass
+from metasim.cfg.query_type import BodyMass, ContactForce, SensorData, SitePos, SiteXMat
 
 FEET_SITES = [
     "left_foot",
@@ -38,13 +38,13 @@ class MJXQuerier:
 
     _site_cache = {}
     _body_cache = {}
-    _mass_cache = {}              
+    _mass_cache = {}
 
     QUERY_MAP = {
         SitePos: "site_pos",
         ContactForce: "contact_force",
-        SensorData:   "sensor",
-        BodyMass:     "body_mass",    
+        SensorData: "sensor",
+        BodyMass: "body_mass",
         # add here
     }
 

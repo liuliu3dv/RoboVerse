@@ -28,7 +28,9 @@ class SiteXMat:
 
     name: str
 
+
 @dataclass
 class BodyMass:
     """Scalar subtree mass of a body."""
-    name: str 
+
+    name: str

@@ -144,12 +144,12 @@ class Joystick():
     self._post_init()
 
   def _post_init(self) -> None:
-    self.initial_state = KNEE_BENT_STATE     
+    self.initial_state = KNEE_BENT_STATE
 
     kb_joint_pos = KNEE_BENT_STATE["robots"][self.robot.name]["joint_pos"][0]
     self._default_pose = kb_joint_pos.to(device=self.device, dtype=self.dtype).clone()
 
-    limits       = self.robot.joint_limits   
+    limits       = self.robot.joint_limits
     self.joiners = torch.tensor(
         [limits[j][0] for j in self.joint_names],
         device=self.device, dtype=self.dtype,
@@ -275,7 +275,7 @@ class Joystick():
         geoms_colliding(data, gid, self._floor_geom_id)
         for gid in self._feet_geom_id
     ])
-    
+
     contact_filt          = contact | self.info["last_contact"]
     first_contact         = (self.info["feet_air_time"] > 0.0) * contact_filt
     self.info["feet_air_time"] += self.dt
@@ -337,7 +337,7 @@ class Joystick():
 
     # refresh state handle & return
     return obs, reward, done, self.info, self.metrics
-  
+
   def _get_termination(self, data):
     fall_termination = self.get_gravity(data, "torso")[-1] < 0.0
     contact_termination = collision.geoms_colliding(
@@ -357,7 +357,7 @@ class Joystick():
     )
 
 
-  def _get_obs(self, rv_state, info: dict[str, Any], contact: jax.Array) 
+  def _get_obs(self, rv_state, info: dict[str, Any], contact: jax.Array)
     # gyro = self.get_gyro(data, "pelvis")
     gyro = rv_state.extras["gyro_pelvis"]
     info["rng"], noise_rng = jax.random.split(info["rng"])
@@ -751,4 +751,3 @@ class Joystick():
         jp.zeros(3),
         jp.hstack([lin_vel_x, lin_vel_y, ang_vel_yaw]),
     )
-

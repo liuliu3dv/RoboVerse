@@ -14,8 +14,6 @@
 # ==============================================================================
 """Base classes for G1."""
 
-import torch
-
 from metasim.cfg.query_type import SensorData, SitePos, SiteXMat
 
 
@@ -52,5 +50,3 @@ def extra_spec(self):
         "right_palm_pos": SitePos(["right_palm"]),
         "pelvis_rot": SiteXMat("imu_in_pelvis"),
     }
-
-
