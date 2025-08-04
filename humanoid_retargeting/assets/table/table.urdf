@@ -1,0 +1,179 @@
+<?xml version="1.0"?>
+<robot name="simple_table">
+
+  <!-- Material for visualization -->
+  <material name="brown">
+    <color rgba="0.545 0.271 0.075 1.0"/>
+  </material>
+
+  <!-- Table Top -->
+  <link name="table_top">
+    <visual>
+      <geometry>
+        <box size="1.0 0.6 0.05"/> <!-- Length, Width, Height -->
+      </geometry>
+      <material name="brown"/>
+      <origin xyz="0 0 0.425"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="1.0 0.6 0.05"/>
+      </geometry>
+      <origin xyz="0 0 0.425"/>
+      <surface>
+          <friction>
+              <ode>
+                  <mu>1.0</mu>
+                  <mu2>1.0</mu2>
+              </ode>
+          </friction>
+      </surface>
+    </collision>
+    <inertial>
+        <mass value="5.0"/>
+        <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <!-- One leg (reuse 4 times with different positions) -->
+  <!-- Leg 1 -->
+  <link name="leg_1">
+    <visual>
+      <geometry>
+        <box size="0.05 0.05 0.4"/>
+      </geometry>
+      <material name="brown"/>
+      <origin xyz="0 0 0.2"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.05 0.05 0.4"/>
+      </geometry>
+      <origin xyz="0 0 0.2"/>
+      <surface>
+        <friction>
+            <ode>
+                <mu>1.0</mu>
+                <mu2>1.0</mu2>
+            </ode>
+        </friction>
+      </surface>
+    </collision>
+    <inertial>
+        <mass value="5.0"/>
+        <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <joint name="leg_1_joint" type="fixed">
+    <parent link="table_top"/>
+    <child link="leg_1"/>
+    <origin xyz="0.45 0.25 0.025"/>
+  </joint>
+
+  <!-- Leg 2 -->
+  <link name="leg_2">
+    <visual>
+      <geometry>
+        <box size="0.05 0.05 0.4"/>
+      </geometry>
+      <material name="brown"/>
+      <origin xyz="0 0 0.2"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.05 0.05 0.4"/>
+      </geometry>
+      <origin xyz="0 0 0.2"/>
+      <surface>
+          <friction>
+              <ode>
+                  <mu>1.0</mu>
+                  <mu2>1.0</mu2>
+              </ode>
+          </friction>
+      </surface>
+    </collision>
+    <inertial>
+        <mass value="5.0"/>
+        <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <joint name="leg_2_joint" type="fixed">
+    <parent link="table_top"/>
+    <child link="leg_2"/>
+    <origin xyz="-0.45 0.25 0.025"/>
+  </joint>
+
+  <!-- Leg 3 -->
+  <link name="leg_3">
+    <visual>
+      <geometry>
+        <box size="0.05 0.05 0.4"/>
+      </geometry>
+      <material name="brown"/>
+      <origin xyz="0 0 0.2"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.05 0.05 0.4"/>
+      </geometry>
+      <origin xyz="0 0 0.2"/>
+      <surface>
+          <friction>
+              <ode>
+                  <mu>1.0</mu>
+                  <mu2>1.0</mu2>
+              </ode>
+          </friction>
+      </surface>
+    </collision>
+    <inertial>
+        <mass value="5.0"/>
+        <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <joint name="leg_3_joint" type="fixed">
+    <parent link="table_top"/>
+    <child link="leg_3"/>
+    <origin xyz="-0.45 -0.25 0.025"/>
+  </joint>
+
+  <!-- Leg 4 -->
+  <link name="leg_4">
+    <visual>
+      <geometry>
+        <box size="0.05 0.05 0.4"/>
+      </geometry>
+      <material name="brown"/>
+      <origin xyz="0 0 0.2"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.05 0.05 0.4"/>
+      </geometry>
+      <origin xyz="0 0 0.2"/>
+      <surface>
+          <friction>
+              <ode>
+                  <mu>1.0</mu>
+                  <mu2>1.0</mu2>
+              </ode>
+          </friction>
+      </surface>
+    </collision>
+    <inertial>
+        <mass value="5.0"/>
+        <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <joint name="leg_4_joint" type="prismatic">
+    <parent link="table_top"/>
+    <child link="leg_4"/>
+    <origin xyz="0.45 -0.25 0.025"/>
+  </joint>
+
+</robot>
