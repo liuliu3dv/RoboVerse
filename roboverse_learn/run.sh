@@ -12,6 +12,29 @@ eval_num_envs=1
 eval_max_step=500
 expert_data_num=100
 
+## Choose training or inference algorithm
+algo_choose=0  # 0: DDPM, 1: DDIM, 2: FM
+
+algo_model=""
+case $algo_choose in
+    0)
+        # DDPM settings
+        export algo_model="diffusion_policy_model"
+        ;;
+    1)
+        # DDIM settings
+        export algo_model="DDIM_model"
+        ;;
+    2)
+        # FM settings
+        export algo_model="fm_model"
+        ;;
+    *)
+        echo "Invalid algorithm choice: $algo_choose"
+        echo "Available options: 0 (DDPM), 1 (DDIM), 2 (FM)"
+        exit 1
+        ;;
+esac
 
 extra="obs:${obs_space}_act:${act_space}"
 if [ "${delta_ee}" = 1 ]; then
