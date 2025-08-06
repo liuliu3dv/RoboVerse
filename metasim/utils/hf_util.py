@@ -75,7 +75,6 @@ def check_and_download_recursive(filepaths: list[str], n_processes: int = 16):
     """
     if len(filepaths) == 0:
         return
-
     with Pool(processes=n_processes) as p:
         p.map(_check_and_download_single, filepaths)
 

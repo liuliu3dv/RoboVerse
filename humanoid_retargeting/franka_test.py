@@ -9,7 +9,6 @@ except ImportError:
 
 import math
 import os
-os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.3'
 from typing import Literal
 
 import rootutils
@@ -23,11 +22,11 @@ from rich.logging import RichHandler
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
+
 from get_started.utils import ObsSaver
 from metasim.cfg.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
-from metasim.cfg.robots import G1Cfg
 from metasim.constants import PhysicStateType, SimType
 from metasim.utils import configclass
 # from metasim.utils.kinematics_utils import get_curobo_models
@@ -41,10 +40,10 @@ from viser.extras import ViserUrdf
 from yourdfpy import URDF
 import third_party.pyroki.examples.pyroki_snippets as pks
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 # 末端执行器名称，PyRoki需要明确
 END_EFFECTOR_LINK_NAME = "panda_hand"  # 确认对应你的URDF
-G1_CFG = G1Cfg()
+
 # New args parser
 @configclass
 class Args:
@@ -68,8 +67,7 @@ args = tyro.cli(Args)
 
 # initialize scenario
 scenario = ScenarioCfg(
-    robots=[args.robot,
-            G1_CFG.replace(name="g1")],
+    robots=[args.robot],
     try_add_table=False,
     sim=args.sim,
     headless=args.headless,
@@ -89,35 +87,65 @@ scenario.objects = [
         color=[1.0, 0.0, 0.0],
         physics=PhysicStateType.RIGIDBODY,
     ),
-    PrimitiveCubeCfg(
-        name="cube_2",
-        size=(0.1, 0.1, 0.1),
-        color=[1.0, 0.0, 0.0],
-        physics=PhysicStateType.RIGIDBODY,
-    ),
+    # PrimitiveCubeCfg(
+    #     name="cube_2",
+    #     size=(0.1, 0.1, 0.1),
+    #     color=[1.0, 0.0, 0.0],
+    #     physics=PhysicStateType.RIGIDBODY,
+    # ),
+    # PrimitiveSphereCfg(
+    #     name="sphere",
+    #     radius=0.1,
+    #     color=[0.0, 0.0, 1.0],
+    #     physics=PhysicStateType.RIGIDBODY,
+    # ),
+    # RigidObjCfg(
+    #     name="bbq_sauce",
+    #     scale=(2, 2, 2),
+    #     physics=PhysicStateType.RIGIDBODY,
+    #     usd_path="/home/RoboVerse/get_started/example_assets/bbq_sauce/usd/bbq_sauce.usd",
+    #     urdf_path="/home/RoboVerse/get_started/example_assets/bbq_sauce/urdf/bbq_sauce.urdf",
+    #     # mjcf_path="get_started/example_assets/bbq_sauce/mjcf/bbq_sauce.xml",
+    # ),
+
+
+    # ArticulationObjCfg(
+    #     name="box_mars",
+    #     fix_base_link=True,
+    #     usd_path="/home/RoboVerse/get_started/example_assets/box_base/usd/box_base.usd",
+    #     urdf_path="/home/RoboVerse/get_started/example_assets/box_base/urdf/box_base_unique.urdf",
+    #     # mjcf_path="get_started/example_assets/box_base/mjcf/box_base_unique.mjcf",
+    # ),
+
 
     ArticulationObjCfg(
         name="mars_table",
         fix_base_link=True,
         scale=(2.0, 2.0, 2.0),
-        usd_path="./humanoid_retargeting/assets/table/table.usd",
-        urdf_path="./humanoid_retargeting/assets/table/table.urdf",
+        usd_path="/home/RoboVerse/humanoid_retargeting/assets/table/table.usd",
+        urdf_path="/home/RoboVerse/humanoid_retargeting/assets/table/table.urdf",
         # usd_path="/home/RoboVerse/humanoid_retargeting/assets/box_table/usd/box_table.usd",
         # urdf_path="/home/RoboVerse/humanoid_retargeting/assets/box_table/urdf/box_table.urdf",
         # mjcf_path="get_started/example_assets/box_base/mjcf/box_base_unique.mjcf",
     ),
 
-    ArticulationObjCfg(
-        name="mars_table_2",
-        fix_base_link=True,
-        scale=(2.0, 2.0, 2.0),
-        usd_path="./humanoid_retargeting/assets/table/table.usd",
-        urdf_path="./humanoid_retargeting/assets/table/table.urdf",
-        # usd_path="/home/RoboVerse/humanoid_retargeting/assets/box_table/usd/box_table.usd",
-        # urdf_path="/home/RoboVerse/humanoid_retargeting/assets/box_table/urdf/box_table.urdf",
-        # mjcf_path="get_started/example_assets/box_base/mjcf/box_base_unique.mjcf",
-    )
-
+    # ArticulationObjCfg(
+    #     name="mars_table_2",
+    #     fix_base_link=True,
+    #     scale=(2.0, 2.0, 2.0),
+    #     usd_path="/home/RoboVerse/humanoid_retargeting/assets/table/table.usd",
+    #     urdf_path="/home/RoboVerse/humanoid_retargeting/assets/table/table.urdf",
+    #     # usd_path="/home/RoboVerse/humanoid_retargeting/assets/box_table/usd/box_table.usd",
+    #     # urdf_path="/home/RoboVerse/humanoid_retargeting/assets/box_table/urdf/box_table.urdf",
+    #     # mjcf_path="get_started/example_assets/box_base/mjcf/box_base_unique.mjcf",
+    # )
+    # ArticulationObjCfg(
+    #     name="table",
+    #     fix_base_link=True,
+    #     usd_path="/home/RoboVerse/humanoid_retargeting/assets/table/table.usd",
+    #     urdf_path="/home/RoboVerse/humanoid_retargeting/assets/table/table.urdf",
+    #     # mjcf_path="get_started/example_assets/box_base/mjcf/box_base_unique.mjcf",
+    # )
 
 ]
 
@@ -133,23 +161,40 @@ init_states = [
                 "pos": torch.tensor([-1.5, 0.0, 1.0]),
                 "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
             },
-            "cube_2": {
-                "pos": torch.tensor([1.5, 0.0, 1.0]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-
+            # "cube_2": {
+            #     "pos": torch.tensor([1.5, 0.0, 1.0]),
+            #     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+            # },
+            # "sphere": {
+            #     "pos": torch.tensor([0.4, -0.6, 0.05]),
+            #     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+            # },
+            # "bbq_sauce": {
+            #     "pos": torch.tensor([0.7, -0.3, 0.14]),
+            #     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+            # },
+            # "box_mars": {
+            #     "pos": torch.tensor([0.5, 0.2, 0.1]),
+            #     "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
+            #     "dof_pos": {"box_joint": 0.0},
+            # },
+            # "table": {
+            #     "pos": torch.tensor([0.7, 0.3, 0.2]),
+            #     "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
+            #     "dof_pos": {"table_joint": 0.0},
+            # },
             "mars_table": {
                 # "pos": torch.tensor([0.7, 0.3, 0.2]),
                 "pos": torch.tensor([-1.5, 0.0, 0.0]),
                 "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                 "dof_pos": {"table_joint": 0.0},
             },
-            "mars_table_2": {
-                # "pos": torch.tensor([0.7, 0.3, 0.2]),
-                "pos": torch.tensor([1.5, 0.0, 0.0]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-                "dof_pos": {"table_joint": 0.0},
-            },
+            # "mars_table_2": {
+            #     # "pos": torch.tensor([0.7, 0.3, 0.2]),
+            #     "pos": torch.tensor([1.5, 0.0, 0.0]),
+            #     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+            #     "dof_pos": {"table_joint": 0.0},
+            # },
         },
         "robots": {
             "franka": {
@@ -168,59 +213,29 @@ init_states = [
                     "panda_finger_joint2": 0.04,
                 },
             },
-            "g1": {
-                "pos": torch.tensor([1.5, 0.8, 0.9]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, -0.7071]),
-                # "dof_pos": {
-                #     "left_hip_pitch":0.0,
-                #     "left_shoulder_pitch": 0.0,
-                #     "left_shoulder_roll": 0.0,
-                #     "left_shoulder_yaw": 0.0,
-                #     "left_elbow": 0.0,
-                #     "right_shoulder_pitch": 0.0,
-                #     "right_shoulder_roll": 0.0,
-                #     "right_shoulder_yaw": 0.0,
-                #     "right_elbow": 0.0,
-                # },
+            "kinova_gen3_robotiq_2f85": {
+                "pos": torch.tensor([0.0, 0.0, 0.0]),
+                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+                "dof_pos": {
+                    "joint_1": 0.0,
+                    "joint_2": math.pi / 6,
+                    "joint_3": 0.0,
+                    "joint_4": math.pi / 2,
+                    "joint_5": 0.0,
+                    "joint_6": 0.0,
+                    "joint_7": 0.0,
+                    "finger_joint": 0.0,
+                },
             },
         },
     }
     for _ in range(args.num_envs)
 ]
 
-# urdf_path = "roboverse_data/robots/franka/urdf/franka_panda.urdf"
-# urdf = URDF.load(urdf_path)
+urdf_path = "roboverse_data/robots/franka/urdf/franka_panda.urdf"
 
-urdf = load_robot_description("panda_description")
-target_link_name = "panda_hand"
+urdf = URDF.load(urdf_path)
 robot = pk.Robot.from_urdf(urdf)
-
-# Set up visualizer.
-server = viser.ViserServer()
-# base_frame = server.scene.add_frame("/base", show_axes=False)
-# base_frame.position = np.array([0.0, 0.0, 0.7])
-# urdf_vis = ViserUrdf(server, urdf, root_node_name="/base")
-server.scene.add_grid("/ground", width=2, height=2)
-# waist_yaw_frame = server.scene.add_frame("/waist_yaw_link", show_axes=False)
-urdf_vis = ViserUrdf(server, urdf, root_node_name="/waist_yaw_link")
-# waist_yaw_frame.position = np.array([0.0, 0.0, 0.7])
-
-# Create interactive controller with initial position.
-ik_target_0 = server.scene.add_transform_controls(
-    "/ik_target_right_hand", scale=0.2, position=(0.26, -0.3, 0.20), wxyz=(1, 0, 0, 0)
-)
-ik_target_1 = server.scene.add_transform_controls(
-    "/ik_target_left_hand", scale=0.2, position=(0.30, 0.3, 0.15), wxyz=(1, 0, 0, 0)
-)
-ik_target_waist = server.scene.add_transform_controls(
-    "/ik_target_waist", scale=0.2, position=(0., 0., 0.), wxyz=(1, 0, 0, 0)
-)
-ik_right_foot = server.scene.add_transform_controls(
-    "/ik_target_right_foot", scale=0.2, position=(0.0, -0.16, -0.68), wxyz=(1, 0, 0, 0)
-)
-ik_left_foot = server.scene.add_transform_controls(
-    "/ik_target_left_foot", scale=0.2, position=(0.0, 0.16, -0.68), wxyz=(1, 0, 0, 0)
-)
 
 # 环境复位
 obs, extras = env.reset(states=init_states)
@@ -232,16 +247,7 @@ obs_saver = ObsSaver(video_path=f"humanoid_retargeting/output/test_{args.sim}.mp
 obs_saver.add(obs)
 
 # input("Scene loaded. Press Enter to exit...")
-urdf_file = "./roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf"
 
-urdf = URDF.load(urdf_file)
-
-target_link_names = ["right_rubber_hand",
-                        "left_rubber_hand",
-                        "waist_yaw_link",
-                        "right_ankle_pitch_link",
-                        "left_ankle_pitch_link"]
-robot_g1 = pk.Robot.from_urdf(urdf)
 step = 0
 robot_joint_limits = scenario.robots[0].joint_limits
 for step in range(200):
@@ -253,23 +259,33 @@ for step in range(200):
     curr_robot_q_np = curr_robot_q.cpu().numpy()  # shape: (num_envs, dof)
     # -1.5, 0.4, 0.9
     if scenario.robots[0].name == "franka":
-        x_target = 0.1 + 0.3 * (step / 100)
-        y_target = 0.4 - 0.3 * (step / 100)
-        z_target = 0.7 - 0.2 * (step / 100)
+        # x_target = 0.1 + 0.3 * (step / 100)
+        # y_target = 0.4 - 0.3 * (step / 100)
+        # z_target = 0.7 - 0.2 * (step / 100)
+        x_target = 0.1 + 0.1 * (step / 100)
+        y_target = 0.4 - 0.1 * (step / 100)
+        z_target = 0.7 - 0.1 * (step / 100)
         # Randomly assign x/y/z target for each env
-        ee_pos_target = torch.zeros((args.num_envs, 3), device=DEVICE)
+        ee_pos_target = torch.zeros((args.num_envs, 3), device="cuda:0")
         for i in range(args.num_envs):
             if i % 3 == 0:
-                ee_pos_target[i] = torch.tensor([x_target, 0.0, 0.6], device=DEVICE)
+                ee_pos_target[i] = torch.tensor([x_target, 0.0, 0.6], device="cuda:0")
             elif i % 3 == 1:
-                ee_pos_target[i] = torch.tensor([0.3, y_target, 0.6], device=DEVICE)
+                ee_pos_target[i] = torch.tensor([0.3, y_target, 0.6], device="cuda:0")
             else:
-                ee_pos_target[i] = torch.tensor([0.3, 0.0, z_target], device=DEVICE)
+                ee_pos_target[i] = torch.tensor([0.3, 0.0, z_target], device="cuda:0")
         ee_quat_target = torch.tensor(
             [[0.0, 1.0, 0.0, 0.0]] * args.num_envs,
-            device=DEVICE,
+            device="cuda:0",
         )
+    # elif scenario.robots[0].name == "kinova_gen3_robotiq_2f85":
+    #     ee_pos_target = torch.tensor([[0.2 + 0.2 * (step / 100), 0.0, 0.4]], device="cuda:0").repeat(args.num_envs, 1)
+    #     ee_quat_target = torch.tensor(
+    #         [[0.0, 0.0, 1.0, 0.0]] * args.num_envs,
+    #         device="cuda:0",
+    #     )
 
+    # 用PyRoki循环调用 IK 解算（不支持批量，需要循环）
     q_list = []
     for i_env in range(args.num_envs):
         pos = ee_pos_target[i_env].detach().cpu().numpy().reshape(3)
@@ -280,35 +296,20 @@ for step in range(200):
             target_wxyz=quat,
             target_position=pos,
         )
-        solution_g1 = pks.solve_ik_with_multiple_targets(
-            robot=robot_g1,
-            target_link_names=target_link_names,
-            target_positions=np.array([pos,
-                                       ik_target_1.position,
-                                       ik_target_waist.position,
-                                       ik_right_foot.position,
-                                       ik_left_foot.position]),
-            target_wxyzs=np.array([quat,
-                                   ik_target_1.wxyz,
-                                   ik_target_waist.wxyz,
-                                   ik_right_foot.wxyz,
-                                   ik_left_foot.wxyz]),
-        )
         # q_list.append(solution)  # solution 是 np.ndarray，不要再 `.q`
         q_list = np.concatenate([solution, [0.04, 0.04]])  # 手动加上两个夹爪关节值
 
     # 转为 tensor 并移动到 CUDA (如果有)
+    q_tensor = torch.tensor(q_list, dtype=torch.float32)
+    if torch.cuda.is_available():
+        q_tensor = q_tensor.cuda()
 
     # 准备动作字典
     robot_obj = scenario.robots[0]
-    robot_obj_g1 = scenario.robots[1]
     actions = [
         {
             args.robot: {
-                "dof_pos_target": dict(zip(robot_obj.actuators.keys(), q_list)),
-            },
-            "g1":{
-                "dof_pos_target": dict(zip(robot_obj_g1.actuators.keys(), solution_g1.tolist()))
+                "dof_pos_target": dict(zip(robot_obj.actuators.keys(), q_tensor.tolist()))
             }
         }
         for i_env in range(args.num_envs)

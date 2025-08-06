@@ -68,8 +68,7 @@ args = tyro.cli(Args)
 
 # initialize scenario
 scenario = ScenarioCfg(
-    robots=[args.robot,
-            G1_CFG.replace(name="g1")],
+    robots=[args.robot],
     try_add_table=False,
     sim=args.sim,
     headless=args.headless,
@@ -168,21 +167,6 @@ init_states = [
                     "panda_finger_joint2": 0.04,
                 },
             },
-            "g1": {
-                "pos": torch.tensor([1.5, 0.8, 0.9]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, -0.7071]),
-                # "dof_pos": {
-                #     "left_hip_pitch":0.0,
-                #     "left_shoulder_pitch": 0.0,
-                #     "left_shoulder_roll": 0.0,
-                #     "left_shoulder_yaw": 0.0,
-                #     "left_elbow": 0.0,
-                #     "right_shoulder_pitch": 0.0,
-                #     "right_shoulder_roll": 0.0,
-                #     "right_shoulder_yaw": 0.0,
-                #     "right_elbow": 0.0,
-                # },
-            },
         },
     }
     for _ in range(args.num_envs)
@@ -205,23 +189,6 @@ server.scene.add_grid("/ground", width=2, height=2)
 urdf_vis = ViserUrdf(server, urdf, root_node_name="/waist_yaw_link")
 # waist_yaw_frame.position = np.array([0.0, 0.0, 0.7])
 
-# Create interactive controller with initial position.
-ik_target_0 = server.scene.add_transform_controls(
-    "/ik_target_right_hand", scale=0.2, position=(0.26, -0.3, 0.20), wxyz=(1, 0, 0, 0)
-)
-ik_target_1 = server.scene.add_transform_controls(
-    "/ik_target_left_hand", scale=0.2, position=(0.30, 0.3, 0.15), wxyz=(1, 0, 0, 0)
-)
-ik_target_waist = server.scene.add_transform_controls(
-    "/ik_target_waist", scale=0.2, position=(0., 0., 0.), wxyz=(1, 0, 0, 0)
-)
-ik_right_foot = server.scene.add_transform_controls(
-    "/ik_target_right_foot", scale=0.2, position=(0.0, -0.16, -0.68), wxyz=(1, 0, 0, 0)
-)
-ik_left_foot = server.scene.add_transform_controls(
-    "/ik_target_left_foot", scale=0.2, position=(0.0, 0.16, -0.68), wxyz=(1, 0, 0, 0)
-)
-
 # 环境复位
 obs, extras = env.reset(states=init_states)
 os.makedirs("get_started/output", exist_ok=True)
@@ -231,17 +198,7 @@ os.makedirs("get_started/output", exist_ok=True)
 obs_saver = ObsSaver(video_path=f"humanoid_retargeting/output/test_{args.sim}.mp4")
 obs_saver.add(obs)
 
-# input("Scene loaded. Press Enter to exit...")
-urdf_file = "./roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf"
 
-urdf = URDF.load(urdf_file)
-
-target_link_names = ["right_rubber_hand",
-                        "left_rubber_hand",
-                        "waist_yaw_link",
-                        "right_ankle_pitch_link",
-                        "left_ankle_pitch_link"]
-robot_g1 = pk.Robot.from_urdf(urdf)
 step = 0
 robot_joint_limits = scenario.robots[0].joint_limits
 for step in range(200):
@@ -280,20 +237,7 @@ for step in range(200):
             target_wxyz=quat,
             target_position=pos,
         )
-        solution_g1 = pks.solve_ik_with_multiple_targets(
-            robot=robot_g1,
-            target_link_names=target_link_names,
-            target_positions=np.array([pos,
-                                       ik_target_1.position,
-                                       ik_target_waist.position,
-                                       ik_right_foot.position,
-                                       ik_left_foot.position]),
-            target_wxyzs=np.array([quat,
-                                   ik_target_1.wxyz,
-                                   ik_target_waist.wxyz,
-                                   ik_right_foot.wxyz,
-                                   ik_left_foot.wxyz]),
-        )
+
         # q_list.append(solution)  # solution 是 np.ndarray，不要再 `.q`
         q_list = np.concatenate([solution, [0.04, 0.04]])  # 手动加上两个夹爪关节值
 
@@ -301,15 +245,12 @@ for step in range(200):
 
     # 准备动作字典
     robot_obj = scenario.robots[0]
-    robot_obj_g1 = scenario.robots[1]
+
     actions = [
         {
             args.robot: {
                 "dof_pos_target": dict(zip(robot_obj.actuators.keys(), q_list)),
             },
-            "g1":{
-                "dof_pos_target": dict(zip(robot_obj_g1.actuators.keys(), solution_g1.tolist()))
-            }
         }
         for i_env in range(args.num_envs)
     ]
