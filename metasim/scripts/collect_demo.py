@@ -12,6 +12,9 @@ from __future__ import annotations
 from loguru import logger as log
 from rich.logging import RichHandler
 
+import rootutils
+rootutils.setup_root(__file__, pythonpath=True)
+
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 
@@ -277,7 +280,8 @@ class DemoIndexer:
 def main():
     global global_step, tot_success, tot_give_up
     handler_class = get_sim_env_class(SimType(args.sim))
-    task = get_task(args.task)
+    # task = get_task(args.task)
+    task = get_task(args.task)()
     robot = get_robot(args.robot)
     camera = PinholeCameraCfg(data_types=["rgb", "depth"], pos=(1.5, 0.0, 1.5), look_at=(0.0, 0.0, 0.0))
     scenario = ScenarioCfg(
@@ -296,9 +300,11 @@ def main():
     env = handler_class(scenario)
 
     ## Data
+    # 'metasim/data/quick_start/trajs/rlbench/close_box/v2'
     assert os.path.exists(task.traj_filepath), f"Trajectory file does not exist: {task.traj_filepath}"
     init_states, all_actions, all_states = get_traj(task, robot, env.handler)
-
+    # all_actions different, same human demonstrate different at different times.
+    # run in simulators to obtain succesful traj for training (different renders, physics?)
     tot_demo = len(all_actions)
     if args.split == "train":
         init_states = init_states[: int(tot_demo * 0.9)]

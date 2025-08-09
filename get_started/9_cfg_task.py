@@ -16,8 +16,12 @@ import tyro
 from loguru import logger as log
 from packaging.version import Version
 
+import rootutils
+rootutils.setup_root(__file__, pythonpath=True)
+
 from metasim.utils import configclass
 from metasim.utils.setup_util import register_task
+
 
 
 @configclass

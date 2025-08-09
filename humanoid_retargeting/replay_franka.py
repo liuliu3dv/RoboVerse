@@ -175,7 +175,7 @@ def main():
     global global_step, tot_success, tot_give_up
     handler_class = get_sim_env_class(SimType("isaaclab"))
     task = get_task("CloseBox")()
-    robot = get_robot("g1")
+    # robot = get_robot("g1")
     robot_franka = get_robot("franka")
     camera = PinholeCameraCfg(data_types=["rgb", "depth"],pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
     objects = [
@@ -210,7 +210,7 @@ def main():
     ]
     scenario = ScenarioCfg(
         task=task,
-        robots=[robot],
+        robots=[robot_franka],
         scene=args.scene,
         # objects=objects,
         cameras=[camera],
@@ -222,121 +222,133 @@ def main():
         headless=args.headless,
         num_envs=args.num_envs,
     )
-
+    # 这里的traj是什么?
     env = handler_class(scenario)
     init_states, all_actions, all_states = get_traj(task, robot_franka, env.handler)
-    init_states[0]["robots"]["g1"] = {
-                "pos": torch.tensor([0, 0., 0.2]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0]),
 
-            }
-    init_states[0]["objects"] = {
-            "cube": {
-                "pos": torch.tensor([0, -0.16, -0.68]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "sphere": {
-                "pos": torch.tensor([0.4, -0.6, 0.05]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "bbq_sauce": {
-                "pos": torch.tensor([0.7, -0.3, 0.14]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "box_base": {
-                "pos": torch.tensor([0.5, 0.2, 0.1]),
-                "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
-                "dof_pos": {"box_joint": 0.0},
-            },
-        }
+    # all_actions: 100条trajs, 每一个traj 247 frames, every frame is dof_pos_target of franka robotic arm
+    # no need forward kinematics for robotic arms?
+    # init_states[0]["robots"]["g1"] = {
+    #             "pos": torch.tensor([0, 0., 0.2]),
+    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0]),
+
+    #         }
+    # init_states[0]["objects"] = {
+    #         "cube": {
+    #             "pos": torch.tensor([0, -0.16, -0.68]),
+    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+    #         },
+    #         "sphere": {
+    #             "pos": torch.tensor([0.4, -0.6, 0.05]),
+    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+    #         },
+    #         "bbq_sauce": {
+    #             "pos": torch.tensor([0.7, -0.3, 0.14]),
+    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+    #         },
+    #         "box_base": {
+    #             "pos": torch.tensor([0.5, 0.2, 0.1]),
+    #             "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
+    #             "dof_pos": {"box_joint": 0.0},
+    #         },
+    #     }
+
     # 环境复位
     # obs, extras = env.reset()
     # 准备录像保存器
     obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"/home/xyc/RoboVerse/metasim/scripts/replay_g1/replay_{args.sim}.mp4")
-    # obs_saver.add(obs)
+    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting/replay_franka/replay_{args.sim}.mp4")
 
-    src_robot_urdf = URDF.load("/home/xyc/RoboVerse/roboverse_data/robots/franka_with_gripper_extension/urdf/franka_with_gripper_extensions.urdf")
+    src_robot_urdf = URDF.load("./roboverse_data/robots/franka_with_gripper_extension/urdf/franka_with_gripper_extensions.urdf")
     src_robot = get_pk_robot(src_robot_urdf)
-    tgt_robot_urdf = URDF.load("/home/xyc/RoboVerse/roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf")
-
-    tgt_robot = get_pk_robot(tgt_robot_urdf)
+    # tgt_robot_urdf = URDF.load("./roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf")
+    # tgt_robot = get_pk_robot(tgt_robot_urdf)
     src_robot.joints.actuated_names
     # load jason file
+    # meta_file = "/home/xyc/RoboVerse/roboverse_demo/demo_isaaclab/CloseBox-Level0/robot-franka/demo_0000/metadata.json"
+    # meta_file = "/home/RoboVerse_Humanoid/roboverse_demo/demo_isaaclab/CloseBox-Level2/robot-franka/demo_0000/metadata.json"
+    # with open(meta_file, 'r') as f:
+    #     metadata = json.load(f)
+    #robot_joint = np.array(metadata["joint_qpos"])
+    # robot_joint = [156, 9], 156 frames + 9 joint angle?
+    # robot_joint_names = src_robot.joints.names
+    # robot_links_names = src_robot.links.names
+    # robot_pose = src_robot.forward_kinematics(robot_joint)
+    # robot_pose = [156, 26, 7] ?
+    # robot_pose = robot_pose - robot_pose[:,[0],:]
+    # robot_se3 = pp.SE3(np.array(robot_pose, copy=False))
 
-    meta_file = "/home/xyc/RoboVerse/roboverse_demo/demo_isaaclab/CloseBox-Level0/robot-franka/demo_0000/metadata.json"
-    with open(meta_file, 'r') as f:
-        metadata = json.load(f)
-    robot_joint = np.array(metadata["joint_qpos"])
-    robot_joint_names = src_robot.joints.names
-    robot_links_names = src_robot.links.names
-    robot_pose = src_robot.forward_kinematics(robot_joint)
-    robot_pose = robot_pose - robot_pose[:,[0],:]
-    robot_se3 = pp.SE3(np.array(robot_pose, copy=False))
+    # franka_g1 = {
+    # 'right_rubber_hand': 'panda_hand',
+    # 'waist_yaw_link': 'panda_link0'
+    # }
+    # humanoid_hand_names = ['right_rubber_hand',
+    #                         'right_ankle_pitch_link',
+    #                         'left_ankle_pitch_link']
+    # humanoid_hand_names = ['right_rubber_hand',
+    #                        'waist_yaw_link',
+    #                        'right_ankle_pitch_link',
+    #                        'left_ankle_pitch_link']
+    # target_link_names = ["right_rubber_hand",
+    #                     "left_rubber_hand",
+    #                     "waist_yaw_link",
+    #                     "right_ankle_pitch_link",
+    #                     "left_ankle_pitch_link"]
+    # right_ankle_pose = np.array([0, -0.16, -0.75, 1, 0, 0, 0])
+    # left_ankle_pose = np.array([0, 0.16, -0.75, 1, 0, 0, 0])
+    # right_hand_pose = np.array([0.26, -0.3, 0.20, 1, 0, 0, 0])
+    # left_hand_pose = np.array([0.30, 0.3, 0.15, 1, 0, 0, 0])
+    # waist_pose = np.array([0, 0, 0, 1, 0, 0, 0])
 
-    franka_g1 = {
-    'right_rubber_hand': 'panda_hand',
-    'waist_yaw_link': 'panda_link0'
-    }
-    humanoid_hand_names = ['right_rubber_hand',
-                            'right_ankle_pitch_link',
-                            'left_ankle_pitch_link']
-    humanoid_hand_names = ['right_rubber_hand',
-                           'waist_yaw_link',
-                           'right_ankle_pitch_link',
-                           'left_ankle_pitch_link']
-    target_link_names = ["right_rubber_hand",
-                        "left_rubber_hand",
-                        "waist_yaw_link",
-                        "right_ankle_pitch_link",
-                        "left_ankle_pitch_link"]
-    right_ankle_pose = np.array([0, -0.16, -0.75, 1, 0, 0, 0])
-    left_ankle_pose = np.array([0, 0.16, -0.75, 1, 0, 0, 0])
-    right_hand_pose = np.array([0.26, -0.3, 0.20, 1, 0, 0, 0])
-    left_hand_pose = np.array([0.30, 0.3, 0.15, 1, 0, 0, 0])
-    waist_pose = np.array([0, 0, 0, 1, 0, 0, 0])
+    #inds = [robot_links_names.index(franka_g1[name]) for name in humanoid_hand_names[:2]]
+    # solutions = []
+    # for i in range(robot_pose.shape[0]):  # iterate on 156 frames
+        # solution = pks.solve_ik_with_multiple_targets(
+        #     robot=tgt_robot,
+        #     target_link_names=target_link_names,
+        #     # target_positions=np.array([robot_pose[i, inds[0], :3],
+        #     #                         robot_pose[i, inds[1], :3]]),
+        #     # target_wxyzs=np.array([robot_pose[i, inds[0], 3:],
+        #     #                     robot_pose[i, inds[1], 3:]]),
+        #     target_positions=np.array([right_hand_pose[:3],
+        #                                 left_hand_pose[:3],
+        #                                 waist_pose[:3],
+        #                                right_ankle_pose[:3],
+        #                                left_ankle_pose[:3]]),
+        #     target_wxyzs=np.array([right_hand_pose[3:],
+        #                            left_hand_pose[3:],
+        #                            waist_pose[3:],
+        #                            right_ankle_pose[3:],
+        #                            left_ankle_pose[3:]]),
+        # )
 
-    inds = [robot_links_names.index(franka_g1[name]) for name in humanoid_hand_names[:2]]
-    solutions = []
-    for i in range(robot_pose.shape[0]):
-        solution = pks.solve_ik_with_multiple_targets(
-            robot=tgt_robot,
-            target_link_names=target_link_names,
-            # target_positions=np.array([robot_pose[i, inds[0], :3],
-            #                         robot_pose[i, inds[1], :3]]),
-            # target_wxyzs=np.array([robot_pose[i, inds[0], 3:],
-            #                     robot_pose[i, inds[1], 3:]]),
-            target_positions=np.array([right_hand_pose[:3],
-                                        left_hand_pose[:3],
-                                        waist_pose[:3],
-                                       right_ankle_pose[:3],
-                                       left_ankle_pose[:3]]),
-            target_wxyzs=np.array([right_hand_pose[3:],
-                                   left_hand_pose[3:],
-                                   waist_pose[3:],
-                                   right_ankle_pose[3:],
-                                   left_ankle_pose[3:]]),
-        )
-        solutions.append(solution)
 
-    for step, solution in enumerate(solutions):
+        # 21 dim?
+        # solutions.append(solution)
+
+    # directly use all_actions
+    # solutions = []
+    # gt_traj = all_actions[0]
+    # for i in range(len(gt_traj)):  # 247 frames
+    #     solutions.append(gt_traj[i][scenario.robots[0].name]['dof_pos_target'])
+
+    gt_traj = all_actions[0]
+    for step, solution in enumerate(gt_traj):
         robot_obj = scenario.robots[0]
         actions = [
             {
-                "g1": {
-                    "dof_pos_target": dict(zip(robot_obj.actuators.keys(), solution))
-                }
+                # robot_obj.name: {
+                #     "dof_pos_target": dict(zip(robot_obj.actuators.keys(), solution))
+                # }
+                robot_obj.name: solution[robot_obj.name]
+
+
             }
             for i_env in range(args.num_envs)
         ]
 
         # 执行动作
         obs, reward, success, time_out, extras = env.step(actions)
-
-        # 第一步额外执行多步以稳定环境
-        # if step == 0:
-        #     for _ in range(50):
-        #         obs, _, _, _, _ = env.step(actions)
         obs_saver.add(obs)
 
     obs_saver.save()
