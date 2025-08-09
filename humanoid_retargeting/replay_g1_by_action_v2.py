@@ -140,36 +140,7 @@ def get_urdf(robot_name: str) -> str:
 def get_pk_robot(urdf) -> Robot:
     return pk.Robot.from_urdf(urdf)
 
-init_states = [
-    {
-        "objects": {
-            "cube": {
-                "pos": torch.tensor([0, -0.16, 0]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "sphere": {
-                "pos": torch.tensor([0.4, -0.6, 0.05]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "bbq_sauce": {
-                "pos": torch.tensor([0.7, -0.3, 0.14]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "box_base": {
-                "pos": torch.tensor([0.5, 0.2, 0.1]),
-                "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
-                "dof_pos": {"box_joint": 0.0},
-            },
-        },
-        "robots": {
-            "g1": {
-                "pos": torch.tensor([0, 0, 0.]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0]),
 
-            },
-        },
-    }
-]
 def main():
 
     global global_step, tot_success, tot_give_up
@@ -230,28 +201,9 @@ def main():
     # no need forward kinematics for robotic arms?
     init_states[0]["robots"]["g1"] = {
                 "pos": torch.tensor([0, 0., 0.2]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0]),
+                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
 
             }
-    # init_states[0]["objects"] = {
-    #         "cube": {
-    #             "pos": torch.tensor([0, -0.16, -0.68]),
-    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-    #         },
-    #         "sphere": {
-    #             "pos": torch.tensor([0.4, -0.6, 0.05]),
-    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-    #         },
-    #         "bbq_sauce": {
-    #             "pos": torch.tensor([0.7, -0.3, 0.14]),
-    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-    #         },
-    #         "box_base": {
-    #             "pos": torch.tensor([0.5, 0.2, 0.1]),
-    #             "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
-    #             "dof_pos": {"box_joint": 0.0},
-    #         },
-    #     }
 
     # 环境复位
     # obs, extras = env.reset()
@@ -272,72 +224,179 @@ def main():
         joint_angle = action['franka']['dof_pos_target']
         robot_joint_list.append(list(joint_angle.values()))
     robot_joint_array = np.array(robot_joint_list)
-    robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7]
-
-    # load jason file
-    # meta_file = "/home/xyc/RoboVerse/roboverse_demo/demo_isaaclab/CloseBox-Level0/robot-franka/demo_0000/metadata.json"
-    # meta_file = "/home/RoboVerse_Humanoid/roboverse_demo/demo_isaaclab/CloseBox-Level2/robot-franka/demo_0000/metadata.json"
-    # with open(meta_file, 'r') as f:
-    #     metadata = json.load(f)
-    # robot_joint = np.array(metadata["joint_qpos"])
-    # robot_joint = [156, 9], 156 frames + 9 joint angle?
-    # robot_joint_names = src_robot.joints.names
+    robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7] # robotic arm has 26 links
     robot_links_names = src_robot.links.names
-    # robot_pose = src_robot.forward_kinematics(robot_joint)
-    # robot_pose = [156, 26, 7] ?
-    # robot_pose = robot_pose - robot_pose[:,[0],:]
-    # robot_se3 = pp.SE3(np.array(robot_pose, copy=False))
 
     franka_g1 = {
     'right_rubber_hand': 'panda_hand',
     'waist_yaw_link': 'panda_link0'
     }
-    # humanoid_hand_names = ['right_rubber_hand',
-    #                         'right_ankle_pitch_link',
-    #                         'left_ankle_pitch_link']
+
     humanoid_hand_names = ['right_rubber_hand',
-                           'waist_yaw_link',
-                           'right_ankle_pitch_link',
-                           'left_ankle_pitch_link']
+                           'waist_yaw_link']
+
     target_link_names = ["right_rubber_hand",
                         "left_rubber_hand",
                         "waist_yaw_link",
                         "right_ankle_pitch_link",
                         "left_ankle_pitch_link"]
-    target_link_names =["right_rubber_hand"]
+    # target_link_names ="right_rubber_hand"
+    # Keep position
     right_ankle_pose = np.array([0, -0.16, -0.75, 1, 0, 0, 0])
     left_ankle_pose = np.array([0, 0.16, -0.75, 1, 0, 0, 0])
     right_hand_pose = np.array([0.26, -0.3, 0.20, 1, 0, 0, 0])
     left_hand_pose = np.array([0.30, 0.3, 0.15, 1, 0, 0, 0])
     waist_pose = np.array([0, 0, 0, 1, 0, 0, 0])
-
     inds = [robot_links_names.index(franka_g1[name]) for name in humanoid_hand_names[:2]]
+
+
+
+    # # 先取出 link 索引
+    # franka_hand_idx = robot_links_names.index("panda_hand")
+    # humanoid_hand_idx = tgt_robot.links.names.index("right_rubber_hand")
+
+    # # 第 0 帧的 Franka EE 位姿（世界系）
+    # franka_hand_world_0 = robot_pose[0, franka_hand_idx, 4:]
+    # franka_hand_quat_0   = robot_pose[0, franka_hand_idx, :4]
+
+    # # 第 0 帧的 humanoid 右手位姿（世界系）
+    # qpos0 = np.zeros(len(tgt_robot.joints.actuated_names))
+    # humanoid_pose0 = tgt_robot.forward_kinematics(qpos0)
+    # humanoid_hand_world_0 = humanoid_pose0[humanoid_hand_idx, :3]
+    # humanoid_hand_quat_0   = humanoid_pose0[humanoid_hand_idx, 3:]
+
+    # # 计算平移差和旋转差
+    # pos_offset = humanoid_hand_world_0 - franka_hand_world_0
+    # quat_offset = pp.SE3([0, 0, 0, 1, 0, 0, 0])  # 如果需要旋转对齐，这里可以计算实际 R_diff
+
+    # solutions = []
+    # for i in range(robot_pose.shape[0]):
+    #     # Franka EE 在当前帧的世界系位姿
+    #     franka_hand_pos = robot_pose[i, franka_hand_idx, 4:]
+    #     franka_hand_quat = robot_pose[i, franka_hand_idx, :4]
+
+    #     # 对齐到 humanoid 世界系
+    #     target_hand_pos = franka_hand_pos + pos_offset
+    #     target_hand_quat = franka_hand_quat  # 如果旋转系不同，这里乘上 quat_offset
+
+    #     # 其它 link 保持当前位置
+    #     current_qpos = solutions[-1] if i > 0 else qpos0
+    #     current_poses = tgt_robot.forward_kinematics(current_qpos)
+    #     left_hand_pos = current_poses[tgt_robot.links.names.index("left_rubber_hand"), 4:]
+    #     left_hand_quat = current_poses[tgt_robot.links.names.index("left_rubber_hand"), :4]
+    #     waist_pos = current_poses[tgt_robot.links.names.index("waist_yaw_link"), 4:]
+    #     waist_quat = current_poses[tgt_robot.links.names.index("waist_yaw_link"), :4]
+    #     right_ankle_pos = current_poses[tgt_robot.links.names.index("right_ankle_pitch_link"), 4:]
+    #     right_ankle_quat = current_poses[tgt_robot.links.names.index("right_ankle_pitch_link"), :4]
+    #     left_ankle_pos = current_poses[tgt_robot.links.names.index("left_ankle_pitch_link"), 4:]
+    #     left_ankle_quat = current_poses[tgt_robot.links.names.index("left_ankle_pitch_link"), :4]
+
+    #     solution = pks.solve_ik_with_multiple_targets(
+    #         robot=tgt_robot,
+    #         target_link_names=target_link_names,
+    #         target_positions=np.array([
+    #             target_hand_pos, left_hand_pos, waist_pos, right_ankle_pos, left_ankle_pos
+    #         ]),
+    #         target_wxyzs=np.array([
+    #             target_hand_quat, left_hand_quat, waist_quat, right_ankle_quat, left_ankle_quat
+    #         ])
+    #     )
+
+    #     solutions.append(solution)
+
+    # print(inds)
+    # print(bk)
+    # solutions = []
+    # for i in range(robot_pose.shape[0]):  # iterate on 156 frames
+    #     solution = pks.solve_ik(
+    #         robot=tgt_robot,
+    #         target_link_name=target_link_names,
+    #         # target_positions=np.array([robot_pose[i, inds[0], :3],
+    #         #                         robot_pose[i, inds[1], :3]]),
+    #         # target_wxyzs=np.array([robot_pose[i, inds[0], 3:],
+    #         #                     robot_pose[i, inds[1], 3:]]),
+    #         # target_positions=np.array([robot_pose[i, inds[0], :3],
+    #         #                             left_hand_pose[:3],
+    #         #                             waist_pose[:3],
+    #         #                            right_ankle_pose[:3],
+    #         #                            left_ankle_pose[:3]]),
+
+    #         target_position=np.array(robot_pose[i, inds[0], 4:]),
+
+    #         target_wxyz=np.array(robot_pose[i, inds[0], :4]),
+    #         # target_positions=np.array([robot_pose[i, inds[0], :3]]),
+    #         # target_wxyzs=np.array([robot_pose[i, inds[0], 3:]]),
+    #     )
+
+
+    #     # 21 dim? There are 29 links in g1, but only 21 can articulate
+    #     solutions.append(solution)
+
+
+
     solutions = []
-    for i in range(robot_pose.shape[0]):  # iterate on 156 frames
+    right_hand_link_idx = inds[0]  # panda_hand 对应的索引
+
+    for i in range(robot_pose.shape[0]):  # 遍历每一帧
+        # -----------------------
+        # 1. 对齐到 humanoid 腰部坐标系
+        # -----------------------
+        # humanoid 当前关节角（初始值用零向量）
+        if i == 0:
+            current_qpos = np.zeros(len(tgt_robot.joints.actuated_names))
+        else:
+            current_qpos = solutions[-1]
+
+        # FK 计算 humanoid 当前所有 link pose
+        current_poses = tgt_robot.forward_kinematics(current_qpos)
+
+        # humanoid 腰部位置（root link）
+        waist_idx = tgt_robot.links.names.index("waist_yaw_link")
+        waist_pos = current_poses[waist_idx, 4:]
+
+        # Franka 右手相对腰部的位姿
+        franka_right_hand_pos = robot_pose[i, right_hand_link_idx, 4:]
+        franka_base_pos = robot_pose[0, robot_links_names.index("panda_link0"), 4:]
+        relative_hand_pos = franka_right_hand_pos - franka_base_pos
+
+        # 映射到 humanoid 腰部坐标系
+        target_right_hand_pos = waist_pos + relative_hand_pos
+        target_right_hand_quat = robot_pose[i, right_hand_link_idx, :4]
+
+        # -----------------------
+        # 2. 其它部位保持当前位置
+        # -----------------------
+        left_hand_idx = tgt_robot.links.names.index("left_rubber_hand")
+        right_ankle_idx = tgt_robot.links.names.index("right_ankle_pitch_link")
+        left_ankle_idx = tgt_robot.links.names.index("left_ankle_pitch_link")
+
+        target_positions = np.array([
+            target_right_hand_pos,                     # 右手 → 来自机械臂
+            current_poses[left_hand_idx, 4:],           # 左手 → 保持原地
+            current_poses[waist_idx, 4:],               # 腰 → 保持原地
+            current_poses[right_ankle_idx, 4:],         # 右脚 → 保持原地
+            current_poses[left_ankle_idx, 4:],          # 左脚 → 保持原地
+        ])
+        target_wxyzs = np.array([
+            target_right_hand_quat,                     # 右手姿态
+            current_poses[left_hand_idx, :4],           # 左手姿态
+            current_poses[waist_idx, :4],               # 腰姿态
+            current_poses[right_ankle_idx, :4],         # 右脚姿态
+            current_poses[left_ankle_idx, :4],          # 左脚姿态
+        ])
+
+        # -----------------------
+        # 3. 求 IK 解
+        # -----------------------
         solution = pks.solve_ik_with_multiple_targets(
             robot=tgt_robot,
             target_link_names=target_link_names,
-            # target_positions=np.array([robot_pose[i, inds[0], :3],
-            #                         robot_pose[i, inds[1], :3]]),
-            # target_wxyzs=np.array([robot_pose[i, inds[0], 3:],
-            #                     robot_pose[i, inds[1], 3:]]),
-            # target_positions=np.array([robot_pose[i, inds[0], :3],
-            #                             left_hand_pose[:3],
-            #                             waist_pose[:3],
-            #                            right_ankle_pose[:3],
-            #                            left_ankle_pose[:3]]),
-            # target_wxyzs=np.array([robot_pose[i, inds[0], 3:],
-            #                        left_hand_pose[3:],
-            #                        waist_pose[3:],
-            #                        right_ankle_pose[3:],
-            #                        left_ankle_pose[3:]]),
-            target_positions=np.array([robot_pose[i, inds[0], 4:]]),
-            target_wxyzs=np.array([robot_pose[i, inds[0], :4]]),
+            target_positions=target_positions,
+            target_wxyzs=target_wxyzs,
         )
 
-
-        # 21 dim?
         solutions.append(solution)
+
 
     for step, solution in enumerate(solutions):
         robot_obj = scenario.robots[0]
