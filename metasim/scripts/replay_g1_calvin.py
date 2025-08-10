@@ -289,16 +289,22 @@ def main():
     for i in range(len(tgt_robot.joints.actuated_names)):
         init_dof_pos[tgt_robot.joints.actuated_names[i]] = solutions[0][i]
 
+    # init_states[0]["robots"]["g1"] = {
+    #             "pos": torch.tensor([-0.263, -0.0053, -0.]),
+    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0]),
+    #             "dof_pos": init_dof_pos
+    #         }
+
     init_states[0]["robots"]["g1"] = {
-                "pos": torch.tensor([-0.263, -0.0053, -0.]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0]),
-                "dof_pos": init_dof_pos
-            }
+                "pos": torch.tensor([0.0, -0.5, 0.2]),
+                "rot": torch.tensor([1.0, 0.0, 0.0, 0.7071]),
+    }
+
     # 环境复位
     # obs, extras = env.reset()
     # 准备录像保存器
     obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"./metasim/scripts/replay_g1_rlbench_actions/{cur_task}/replay_{args.sim}.mp4")
+    obs_saver = ObsSaver(video_path=f"./metasim/scripts/replay_g1_calvin_actions/{cur_task}/replay_{args.sim}.mp4")
 
     for step, solution in enumerate(solutions):
         robot_obj = scenario.robots[0]
@@ -323,11 +329,9 @@ def main():
 
 if __name__ == "__main__":
 
-    base_path = "./roboverse_data/trajs/rlbench/"
+    base_path = "/home/RoboVerse_Humanoid/roboverse_data/trajs/calvin/"
     task_list = os.listdir(base_path)
     task_list.sort()
-    task_list = task_list[1:] # remove readme.md
-
     mp.set_start_method("spawn", force=True)
 
     bug_tasks_list = []
@@ -340,5 +344,5 @@ if __name__ == "__main__":
         except Exception as e:
             bug_tasks_list.append(task)
             log.error(f"Task {task} failed with error: {e}")
-    print(bug_tasks_list, file=open("error.txt", "w"))
+    print(bug_tasks_list, file=open("calvin_error.txt", "w"))
     # main()

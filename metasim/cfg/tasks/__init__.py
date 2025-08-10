@@ -14,7 +14,38 @@ import importlib
 def __get_quick_ref():
     tic = time.time()
 
+    # from .calvin.calvin import MoveSliderLeftACfg
+    from .calvin.calvin import CloseDrawerACfg
+    from .calvin.calvin import LiftBlueBlockDrawerACfg
+    from .calvin.calvin import LiftBlueBlockSliderACfg
+    from .calvin.calvin import LiftBlueBlockTableACfg
+    from .calvin.calvin import LiftPinkBlockDrawerACfg
+    from .calvin.calvin import LiftPinkBlockSliderACfg
+    from .calvin.calvin import LiftPinkBlockTableACfg
+    from .calvin.calvin import LiftRedBlockDrawerACfg
+    from .calvin.calvin import LiftRedBlockSliderACfg
+    from .calvin.calvin import LiftRedBlockTableACfg
     from .calvin.calvin import MoveSliderLeftACfg
+    from .calvin.calvin import MoveSliderRightACfg
+    from .calvin.calvin import OpenDrawerACfg
+    from .calvin.calvin import PlaceInDrawerACfg
+    from .calvin.calvin import PlaceInSliderACfg
+    from .calvin.calvin import PushBlueBlockLeftACfg
+    from .calvin.calvin import PushBlueBlockRightACfg
+    from .calvin.calvin import PushIntoDrawerACfg
+    from .calvin.calvin import PushPinkBlockLeftACfg
+    from .calvin.calvin import PushPinkBlockRightACfg
+    from .calvin.calvin import PushRedBlockLeftACfg
+    from .calvin.calvin import PushRedBlockRightACfg
+    from .calvin.calvin import RotateBlueBlockLeftACfg
+    from .calvin.calvin import RotateBlueBlockRightACfg
+    from .calvin.calvin import RotatePinkBlockLeftACfg
+    from .calvin.calvin import RotatePinkBlockRightACfg
+    from .calvin.calvin import RotateRedBlockLeftACfg
+    from .calvin.calvin import RotateRedBlockRightACfg
+    from .calvin.calvin import StackBlockACfg
+    from .calvin.calvin import UnstackBlockACfg
+
     from .debug.reach_cfg import ReachOriginCfg
     from .dmcontrol.walker_walk_cfg import WalkerWalkCfg
     from .fetch import FetchCloseBoxCfg

@@ -124,6 +124,12 @@ class JointPosShiftChecker(BaseChecker):
 
     def check(self, handler: BaseSimHandler) -> torch.BoolTensor:
         cur_joint_pos = handler.get_dof_pos(self.obj_name, self.joint_name)
+        # different device bug
+        # joint_pos_diff = cur_joint_pos - self.init_joint_pos
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        cur_joint_pos = cur_joint_pos.to(device)
+        self.init_joint_pos = self.init_joint_pos.to(device)
+
         joint_pos_diff = cur_joint_pos - self.init_joint_pos
 
         log.debug(f"Joint {self.joint_name} of object {self.obj_name} moved {tensor_to_str(joint_pos_diff)} units")

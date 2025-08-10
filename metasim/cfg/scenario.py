@@ -52,6 +52,7 @@ class ScenarioCfg:
     episode_length: int = 10000000  # never timeout
     try_add_table: bool = True
     object_states: bool = False
+    humanoid: bool = True
     split: Literal["train", "val", "test", "all"] = "all"
     headless: bool = False
     """environment spacing for parallel environments"""
