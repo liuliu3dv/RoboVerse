@@ -152,7 +152,8 @@ def main():
 
     handler_class = get_sim_env_class(SimType("isaaclab"))
 
-    cur_task = args.task
+    # cur_task = args.task
+    cur_task = "close_fridge"
 
     task = get_task(cur_task)()
     robot_g1 = get_robot("g1")
@@ -179,14 +180,6 @@ def main():
     env = handler_class(scenario)
     init_states, all_actions, all_states = get_traj(task, robot_franka, env.handler)
 
-    init_states[0]["robots"]["g1"] = {
-                "pos": torch.tensor([0, 0., 0.2]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-    }
-
-    # 准备录像保存器
-    obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting/replay_g1_10_actions/{cur_task}/replay_{args.sim}.mp4")
     src_robot_urdf = URDF.load("./roboverse_data/robots/franka_with_gripper_extension/urdf/franka_with_gripper_extensions.urdf")
     src_robot = get_pk_robot(src_robot_urdf)
     tgt_robot_urdf = URDF.load("./roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf")
@@ -202,6 +195,15 @@ def main():
     robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7] # robotic arm has 26 links
     robot_links_names = src_robot.links.names
 
+    init_states[0]["robots"]["g1"] = {
+                "pos": torch.tensor([0, 0., 0.2]),
+                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+    }
+
+    # 准备录像保存器
+    obs, extras = env.reset(states=init_states)
+    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting/replay_g1_10_actions_modified_ik/{cur_task}/replay_{args.sim}.mp4")
+
     franka_g1 = {
     'right_rubber_hand': 'panda_hand',
     'waist_yaw_link': 'panda_link0'
@@ -209,20 +211,86 @@ def main():
 
     humanoid_hand_names = ['right_rubber_hand',
                            'waist_yaw_link']
-    target_link_names ="right_rubber_hand"
+    target_link_names = ["right_rubber_hand",
+                        "waist_yaw_link"]
+
+    right_ankle_pose = np.array([0, -0.16, -0.75, 1, 0, 0, 0])
+    # left_ankle_pose = np.array([0, 0.16, -0.75, 1, 0, 0, 0])
+    # right_hand_pose = np.array([0.26, -0.3, 0.20, 1, 0, 0, 0])
+    # left_hand_pose = np.array([0.30, 0.3, 0.15, 1, 0, 0, 0])
+    waist_pose = np.array([0, 0, 0, 1, 0, 0, 0])
+
+
     inds = [robot_links_names.index(franka_g1[name]) for name in humanoid_hand_names[:2]]
 
 
+    # solutions = []
+    # for i in range(robot_pose.shape[0]):  # iterate on 156 frames
+    #     solution = pks.solve_ik_with_multiple_targets(
+    #         robot=tgt_robot,
+    #         target_link_names=target_link_names,
+
+    #         target_positions=np.array([robot_pose[i, inds[0], 4:],
+    #                                     waist_pose[:3]]),
+    #         target_wxyzs=np.array([robot_pose[i, inds[0], :4],
+    #                                waist_pose[3:]]),
+    #     )
+
+    #     solutions.append(solution)
+
+    # 初始化 previous_solution 以便平滑
+    batch_size = args.num_envs
+    prev_solution = None
+
     solutions = []
-    for i in range(robot_pose.shape[0]):  # iterate on 156 frames
-        solution = pks.solve_ik(
+    for i in range(robot_pose.shape[0]):  # iterate on trajectory frames
+        # 当前 humanoid 关节状态（上一次的解）用于保持未约束部位
+        if prev_solution is None:
+            current_joint_values = np.zeros((batch_size, len(tgt_robot.joints.names)))
+        else:
+            current_joint_values = prev_solution
+
+        # 前向运动学获取当前 humanoid 所有关节的 link pose
+        current_links_pose = tgt_robot.forward_kinematics(current_joint_values)
+        link_names = tgt_robot.links.names
+
+        # 获取当前 humanoid 的腰位置
+        waist_idx = link_names.index("waist_yaw_link")
+        waist_pos = current_links_pose[waist_idx, 4:]
+        waist_rot = current_links_pose[waist_idx, :4]
+
+        # 目标 link 名称：只锁右手+腰
+        target_link_names = ["right_rubber_hand", "waist_yaw_link"]
+
+        # 目标位置与姿态
+        target_positions = np.array([
+            robot_pose[i, inds[0], 4:],  # franka ee 对应 humanoid 右手
+            waist_pos                    # 保持腰部原位置
+        ])
+        target_wxyzs = np.array([
+            robot_pose[i, inds[0], :4],  # franka ee 对应 humanoid 右手旋转
+            waist_rot                    # 保持腰部原旋转
+        ])
+
+        # IK 解算
+        solution = pks.solve_ik_with_multiple_targets(
             robot=tgt_robot,
-            target_link_name=target_link_names,
-            target_position=np.array(robot_pose[i, inds[0], 4:]),
-            target_wxyz=np.array(robot_pose[i, inds[0], :4]),
+            target_link_names=target_link_names,
+            target_positions=target_positions,
+            target_wxyzs=target_wxyzs,
+            # 如果支持权重，可加：
+            target_weights=np.array([1.0, 0.3])
         )
 
-        solutions.append(solution)
+        # 平滑关节输出
+        if prev_solution is None:
+            smoothed_solution = solution
+        else:
+            alpha = 0.2
+            smoothed_solution = alpha * np.array(solution) + (1 - alpha) * np.array(prev_solution)
+
+        prev_solution = smoothed_solution
+        solutions.append(smoothed_solution)
 
     for step, solution in enumerate(solutions):
         robot_obj = scenario.robots[0]
@@ -243,28 +311,29 @@ def main():
     env.close()
 
 if __name__ == "__main__":
-    task_list = [
-        "basketball_in_hoop",
-        # "beat_the_buzz",  # has bug
-        "block_pyramid",
-        "change_clock",
-        "close_fridge",
-        "empty_dishwasher",
-        "insert_onto_square_peg",
-        "lamp_on",
-        "light_bulb_in",
-        "meat_on_grill",
-        "open_box",
-        # "reach_and_drag" # bug
-        # "take_cup_out_from_cabinet"  # AttributeError: 'RigidObject' object has no attribute '_data'. Did you mean: 'data'?
-        "play_jenga"
-    ]
+    # task_list = [
+    #     # "basketball_in_hoop",
+    #     # # # "beat_the_buzz",  # has bug
+    #     # "block_pyramid",
+    #     # "change_clock",
+    #     "close_fridge",
+    #     # "empty_dishwasher",
+    #     # "insert_onto_square_peg",
+    #     # "lamp_on",
+    #     # "light_bulb_in",
+    #     # "meat_on_grill",
+    #     # "open_box",
+    #     # # # "reach_and_drag" # bug
+    #     # # # "take_cup_out_from_cabinet"  # AttributeError: 'RigidObject' object has no attribute '_data'. Did you mean: 'data'?
+    #     # "play_jenga"
+    # ]
 
-    mp.set_start_method("spawn", force=True)
+    # mp.set_start_method("spawn", force=True)
 
-    # multiprocess
-    for task in task_list:
-        p = mp.Process(target=run_task, args=(task,))
-        p.start()
-        p.join()  # wait until last task end
-    # main()
+    # # multiprocess
+    # for task in task_list:
+    #     p = mp.Process(target=run_task, args=(task,))
+    #     p.start()
+    #     p.join()  # wait until last task end
+
+    main()
