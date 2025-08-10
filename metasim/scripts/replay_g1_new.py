@@ -147,7 +147,7 @@ def main():
     handler_class = get_sim_env_class(SimType("isaaclab"))
     task = get_task("CloseBox")()
     robot_franka_src = get_robot("franka")
-    robot_franka_dst = get_robot("g1")
+    robot_franka_dst = get_robot("g1_hand")
     camera = PinholeCameraCfg(data_types=["rgb", "depth"],pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
     objects = [
         PrimitiveCubeCfg(
@@ -231,29 +231,21 @@ def main():
         robot_joint_list.append(list(joint_angle.values()))
     robot_joint_array = np.array(robot_joint_list)
     robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7]
-
-    # load jason file
-    # meta_file = "/home/xyc/RoboVerse/roboverse_demo/demo_isaaclab/CloseBox-Level0/robot-franka/demo_0000/metadata.json"
-    # meta_file = "/home/RoboVerse_Humanoid/roboverse_demo/demo_isaaclab/CloseBox-Level2/robot-franka/demo_0000/metadata.json"
-    # with open(meta_file, 'r') as f:
-    #     metadata = json.load(f)
-    # robot_joint = np.array(metadata["joint_qpos"])
-    # robot_joint = [156, 9], 156 frames + 9 joint angle?
-    # robot_joint_names = src_robot.joints.names
     src_robot_links_names = src_robot.links.names
-    # robot_pose = src_robot.forward_kinematics(robot_joint)
-    # robot_pose = [156, 26, 7] ?
-    # robot_pose = robot_pose - robot_pose[:,[0],:]
-    # robot_se3 = pp.SE3(np.array(robot_pose, copy=False))
-
     franka_g1 = {
-    'right_rubber_hand': 'panda_hand',
+    'right_hand_palm_link': 'panda_hand',
     'waist_yaw_link': 'panda_link0'
     }
-
-
-    target_link_names =["right_rubber_hand"]
-
+    target_link_names = ["right_hand_palm_link",
+                        "left_hand_palm_link",
+                        "waist_yaw_link",
+                        "right_ankle_pitch_link",
+                        "left_ankle_pitch_link"]
+    right_hand_pose = np.array([0.26, -0.3, 0.20, 1, 0, 0, 0])
+    left_hand_pose = np.array([0.30, 0.3, 0.15, 1, 0, 0, 0])
+    right_ankle_pose = np.array([0, -0.16, -0.75, 1, 0, 0, 0])
+    left_ankle_pose = np.array([0, 0.16, -0.75, 1, 0, 0, 0])
+    waist_pose = np.array([0, 0, 0, 1, 0, 0, 0])
     inds = [src_robot_links_names.index(franka_g1[name]) for name in target_link_names]
     print("inds:", inds)
     solutions = []
@@ -262,10 +254,24 @@ def main():
         solution = pks.solve_ik_with_multiple_targets(
             robot=tgt_robot,
             target_link_names=target_link_names,
-            target_positions=np.array([robot_pose[i, inds[0], 4:]]),
-            target_wxyzs=np.array([robot_pose[i, inds[0], 0:4]]),
+            target_positions=np.array([
+                                       right_hand_pose[:3],
+                                    #    robot_pose[i, inds[0], 4:],
+                                       left_hand_pose[:3],
+                                       waist_pose[:3],
+                                       right_ankle_pose[:3],
+                                       left_ankle_pose[:3],
+                                       ]),
+            target_wxyzs=np.array([
+                                right_hand_pose[:3],
+                                #    robot_pose[i, inds[0], 0:4],
+                                   left_hand_pose[3:],
+                                   waist_pose[3:],
+                                   right_ankle_pose[3:],
+                                   left_ankle_pose[3:],
+                                   ]),
         )
-        print(robot_pose[i, inds[0], 4:])
+        # print(robot_pose[i, inds[0], 4:])
         solutions.append(solution)
 
     for step, solution in enumerate(solutions):

@@ -39,7 +39,7 @@ class IsaaclabEnvOverwriter:
         self.checker = scenario.checker
         self.lights = scenario.lights
         self.checker_debug_viewers = self.checker.get_debug_viewers()
-
+        self.humanoid = scenario.humanoid
         ## XXX for initialization
         self.first_reset = True
 
@@ -205,18 +205,17 @@ class IsaaclabEnvOverwriter:
             use_scene = True
 
         add_robots(env, self.robots)
+
+        ## Add ground
+        ## TODO: test if this will conflict with the scene
+        if not use_scene:
+            create_ground()
         add_objects(env, self.objects + self.checker_debug_viewers[:1])  # TODO: now only support one checker viewer
         ## Fix shader texture map path
         for obj in self.objects:
             if isinstance(obj, RigidObjCfg) or isinstance(obj, ArticulationObjCfg):
                 fixer = ShaderFixer(obj.usd_path, f"/World/envs/env_0/{obj.name}")
                 fixer.fix_all()
-
-        ## Add ground
-        ## TODO: test if this will conflict with the scene
-        if not use_scene:
-            create_ground()
-
         ## Add table
         if self.task is not None and self.task.can_tabletop and self.scenario.try_add_table:
             try:
@@ -234,25 +233,47 @@ class IsaaclabEnvOverwriter:
             ground_prim.set_world_pose(position=(0.0, 0.0, -table_height), orientation=(1.0, 0.0, 0.0, 0.0))
 
             ## Add table
-            prim_utils.create_prim("/World/envs/env_0/metasim_table")
-            FixedCuboid(
-                prim_path="/World/envs/env_0/metasim_table/surface",
-                name="fixed_table",
-                scale=torch.tensor([table_size, table_size, table_thickness]),
-                position=torch.tensor([0.0, 0.0, -table_thickness / 2]),
-            )
-            for i, (x, y) in enumerate([
-                (-table_size * 3 / 8, -table_size * 3 / 8),
-                (table_size * 3 / 8, -table_size * 3 / 8),
-                (-table_size * 3 / 8, table_size * 3 / 8),
-                (table_size * 3 / 8, table_size * 3 / 8),
-            ]):
+            if self.humanoid:
+                prim_utils.create_prim("/World/envs/env_0/metasim_table")
                 FixedCuboid(
-                    prim_path=f"/World/envs/env_0/metasim_table/leg_{i}",
-                    name=f"fixed_table_leg_{i}",
-                    scale=torch.tensor([0.05, 0.05, table_height - table_thickness]),
-                    position=torch.tensor([x, y, -(table_height + table_thickness) / 2]),
+                    prim_path="/World/envs/env_0/metasim_table/surface",
+                    name="fixed_table",
+                    scale=torch.tensor([table_size, table_size, table_thickness]),
+                    position=torch.tensor([.7, 0.0, -table_thickness / 2]),
                 )
+                for i, (x, y) in enumerate([
+                    (-table_size * 3 / 8, -table_size * 3 / 8),
+                    (table_size * 3 / 8, -table_size * 3 / 8),
+                    (-table_size * 3 / 8, table_size * 3 / 8),
+                    (table_size * 3 / 8, table_size * 3 / 8),
+                ]):
+                    FixedCuboid(
+                        prim_path=f"/World/envs/env_0/metasim_table/leg_{i}",
+                        name=f"fixed_table_leg_{i}",
+                        scale=torch.tensor([0.05, 0.05, table_height - table_thickness]),
+                        position=torch.tensor([x+0.7, y, -(table_height + table_thickness) / 2]),
+                    )
+            else:
+                prim_utils.create_prim("/World/envs/env_0/metasim_table")
+                FixedCuboid(
+                    prim_path="/World/envs/env_0/metasim_table/surface",
+                    name="fixed_table",
+                    scale=torch.tensor([table_size, table_size, table_thickness]),
+                    position=torch.tensor([0.0, 0.0, -table_thickness / 2]),
+                )
+                for i, (x, y) in enumerate([
+                    (-table_size * 3 / 8, -table_size * 3 / 8),
+                    (table_size * 3 / 8, -table_size * 3 / 8),
+                    (-table_size * 3 / 8, table_size * 3 / 8),
+                    (table_size * 3 / 8, table_size * 3 / 8),
+                ]):
+                    FixedCuboid(
+                        prim_path=f"/World/envs/env_0/metasim_table/leg_{i}",
+                        name=f"fixed_table_leg_{i}",
+                        scale=torch.tensor([0.05, 0.05, table_height - table_thickness]),
+                        position=torch.tensor([x, y, -(table_height + table_thickness) / 2]),
+                    )
+
         ## Add wall
         if self.scenario.random.wall:
             try:
