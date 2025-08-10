@@ -632,10 +632,12 @@ class IsaacgymHandler(BaseSimHandler):
 
             # carefully set each robot
             env_robot_handles = []
+            collision_filter = 1
             for robot, robot_asset, robot_dof_props in zip(self.robots, robot_asset_list, robot_dof_props_list):
                 robot_pose = gymapi.Transform()
                 robot_pose.p = gymapi.Vec3(*robot.default_position)
-                robot_handle = self.gym.create_actor(env, robot_asset, robot_pose, "robot", i, 2)  # TODO
+                robot_handle = self.gym.create_actor(env, robot_asset, robot_pose, "robot", i, collision_filter)  # TODO
+                collision_filter *= 2  # increase collision filter for next robot
                 self.gym.enable_actor_dof_force_sensors(env, robot_handle)
                 self.gym.set_actor_scale(env, robot_handle, robot.scale[0])
                 assert robot.scale[0] == 1.0 and self.robot.scale[1] == 1.0 and robot.scale[2] == 1.0
