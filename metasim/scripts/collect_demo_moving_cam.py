@@ -282,12 +282,13 @@ def main():
     assert args.num_envs == 1, "Currently only support 1 env"
     global global_step, tot_success, tot_give_up
     handler_class = get_sim_env_class(SimType(args.sim))
-    task = get_task(args.task)
+    task_cls = get_task(args.task)
+    task = task_cls()
     robot = get_robot(args.robot)
     camera = PinholeCameraCfg(data_types=["rgb", "depth"], pos=(1, -0.5, 1.0), look_at=(0.0, 0.0, 0.0))
     scenario = ScenarioCfg(
         task=task,
-        robot=robot,
+        robots=[robot],
         scene=args.scene,
         cameras=[camera],
         random=args.random,
@@ -373,7 +374,7 @@ def main():
 
     ## Reset before first step
     obs, extras = env.reset(states=[init_states[demo_idx] for demo_idx in demo_idxs])
-    log.info(obs[0].cameras["camera0"])
+    log.info(obs.cameras["camera0"])
     obs = state_tensor_to_nested(env.handler, obs)
 
     ## Initialize
@@ -395,7 +396,7 @@ def main():
         actions = get_actions(all_actions, env, demo_idxs)
         step += 1
         obs, reward, success, time_out, extras = env.step(actions)
-        log.info(obs[0].cameras["camera0"])
+        log.info(obs.cameras["camera0"])
         obs = state_tensor_to_nested(env.handler, obs)
         run_out = get_run_out(all_actions, env, demo_idxs)
 

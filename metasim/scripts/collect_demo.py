@@ -23,8 +23,10 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal
 
+import rootutils
 import tyro
 
+rootutils.setup_root(__file__, pythonpath=True)
 from metasim.cfg.randomization import RandomizationCfg
 from metasim.cfg.render import RenderCfg
 
