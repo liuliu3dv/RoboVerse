@@ -591,8 +591,12 @@ class IsaacgymHandler(BaseSimHandler):
 
                 if self.objects[obj_i].friction is not None:
                     shape_props = self.gym.get_actor_rigid_shape_properties(env, obj_handle)
-                    for shape_prop in shape_props:
-                        shape_prop.friction = self.objects[obj_i].friction
+                    if self.objects[obj_i].friction_idx is None:
+                        for shape_prop in shape_props:
+                            shape_prop.friction = self.objects[obj_i].friction
+                    else:
+                        for friction_idx in self.objects[obj_i].friction_idx:
+                            shape_props[friction_idx].friction = self.objects[obj_i].friction
                     self.gym.set_actor_rigid_shape_properties(env, obj_handle, shape_props)
 
                 if isinstance(self.objects[obj_i], _FileBasedMixin):
@@ -638,12 +642,10 @@ class IsaacgymHandler(BaseSimHandler):
 
             # carefully set each robot
             env_robot_handles = []
-            collision_filter = 1
             for robot, robot_asset, robot_dof_props in zip(self.robots, robot_asset_list, robot_dof_props_list):
                 robot_pose = gymapi.Transform()
                 robot_pose.p = gymapi.Vec3(*robot.default_position)
-                robot_handle = self.gym.create_actor(env, robot_asset, robot_pose, "robot", i, collision_filter)  # TODO
-                collision_filter *= 2  # increase collision filter for next robot
+                robot_handle = self.gym.create_actor(env, robot_asset, robot_pose, "robot", i, 1)  # TODO
                 self.gym.enable_actor_dof_force_sensors(env, robot_handle)
                 self.gym.set_actor_scale(env, robot_handle, robot.scale[0])
                 assert robot.scale[0] == 1.0 and self.robot.scale[1] == 1.0 and robot.scale[2] == 1.0
