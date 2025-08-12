@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
@@ -25,7 +26,6 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
-    "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
@@ -95,6 +95,8 @@ html_context = {
 html_css_files = [
     "css/custom.css",
 ]
+html_show_copyright = True
+html_show_sphinx = False
 html_static_path = ["_static"]
 
 ### Autodoc configurations ###
@@ -103,6 +105,7 @@ autodoc_typehints = "signature"
 autodoc_class_signature = "separated"
 autodoc_default_options = {
     "autosummary": True,
+    "exclude-members": "__init__",
 }
 autodoc_inherit_docstrings = True
 autodoc_member_order = "bysource"
@@ -182,6 +185,8 @@ autodoc_mock_imports = [
     ## Blender
     "bpy",
     "mathutils",
+    ## GSNet
+    "MinkowskiEngine",
     ## MetaSim dependencies
     "numpy",
     "torch",
@@ -189,7 +194,6 @@ autodoc_mock_imports = [
     "imageio",
     "loguru",
     "gymnasium",
-    "rootutils",
     "rich",
     "tyro",
     "tqdm",
@@ -212,5 +216,18 @@ def skip_member(app, what, name, obj, skip, options):
     return None
 
 
+def generate_task_markdown(app):
+    script_path = os.path.join(app.srcdir, "dataset_benchmark", "tasks", "generate_task_docs.py")
+    if not os.path.exists(script_path):
+        # print(f"[Sphinx] ❌ generate_task_docs.py not found at {script_path}")
+        return
+
+    # print(f"[Sphinx] 🛠 Generating task markdown pages with: {script_path}")
+    result = subprocess.run(
+        [sys.executable, script_path], cwd=os.path.dirname(script_path), capture_output=True, text=True, check=False
+    )
+
+
 def setup(app):
     app.connect("autodoc-skip-member", skip_member)
+    app.connect("builder-inited", generate_task_markdown)

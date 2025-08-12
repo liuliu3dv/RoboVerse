@@ -1,17 +1,25 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
 import torch
 from loguru import logger as log
 
-from metasim.cfg.scenario import ScenarioCfg
+from metasim.cfg.randomization import FrictionRandomCfg
+from metasim.cfg.robots import BaseRobotCfg
+
+if TYPE_CHECKING:
+    from metasim.cfg.scenario import ScenarioCfg
+from metasim.queries.base import BaseQueryType
 from metasim.types import Action, EnvState, Extra, Obs, Reward, Success, TimeOut
 from metasim.utils.state import TensorState, state_tensor_to_nested
 
 
-class BaseSimHandler:
+class BaseSimHandler(ABC):
     """Base class for simulation handler."""
 
-    def __init__(self, scenario: ScenarioCfg):
+    def __init__(self, scenario: ScenarioCfg, optional_queries: dict[str, BaseQueryType] | None = None):
         ## Overwrite scenario with task, TODO: this should happen in scenario class post_init
         if scenario.task is not None:
             scenario.objects = scenario.task.objects
@@ -22,19 +30,26 @@ class BaseSimHandler:
         self.scenario = scenario
         self._num_envs = scenario.num_envs
         self.headless = scenario.headless
+        self.optional_queries = optional_queries
 
         ## For quick reference
         self.task = scenario.task
-        self.robot = scenario.robot
+        self.robots = scenario.robots
         self.cameras = scenario.cameras
         self.sensors = scenario.sensors
         self.objects = scenario.objects
         self.checker = scenario.checker
-        self.object_dict = {obj.name: obj for obj in self.objects + [self.robot] + self.checker.get_debug_viewers()}
+        self.object_dict = {obj.name: obj for obj in self.objects + self.robots + self.checker.get_debug_viewers()}
         """A dict mapping object names to object cfg instances. It includes objects, robot, and checker debug viewers."""
+        self._state_cache_expire = True
 
     def launch(self) -> None:
-        raise NotImplementedError
+        """Launch the simulation."""
+        if self.optional_queries is None:
+            self.optional_queries = {}
+        for query_name, query_type in self.optional_queries.items():
+            query_type.bind_handler(self)
+        # raise NotImplementedError
 
     ############################################################
     ## Gymnasium main methods
@@ -43,8 +58,7 @@ class BaseSimHandler:
         raise NotImplementedError
 
     def reset(self, env_ids: list[int] | None = None) -> tuple[TensorState, Extra]:
-        """
-        Reset the environment.
+        """Reset the environment.
 
         Args:
             env_ids: The indices of the environments to reset. If None, all environments are reset.
@@ -59,15 +73,32 @@ class BaseSimHandler:
         raise NotImplementedError
 
     def close(self) -> None:
+        """Close the simulation."""
         raise NotImplementedError
 
     ############################################################
     ## Set states
     ############################################################
     def set_states(self, states: list[EnvState], env_ids: list[int] | None = None) -> None:
+        """Set the states of the environment.
+
+        Args:
+            states (dict): A dictionary containing the states of the environment
+            env_ids (list[int]): List of environment ids to set the states. If None, set the states of all environments
+        """
+        self._state_cache_expire = True
+        self._set_states(states, env_ids=env_ids)
+
+    def _set_states(self, states: list[EnvState], env_ids: list[int] | None = None) -> None:
         raise NotImplementedError
 
     def set_dof_targets(self, obj_name: str, actions: list[Action]) -> None:
+        """Set the dof targets of the robot.
+
+        Args:
+            obj_name (str): The name of the robot
+            actions (list[Action]): The target actions for the robot
+        """
         raise NotImplementedError
 
     def set_pose(self, obj_name: str, pos: torch.Tensor, rot: torch.Tensor, env_ids: list[int] | None = None) -> None:
@@ -77,8 +108,30 @@ class BaseSimHandler:
     ############################################################
     ## Get states
     ############################################################
+    @abstractmethod
+    def _get_states(self, env_ids: list[int] | None = None) -> list[EnvState]:
+        """Get the states of the environment.
+
+        Args:
+            env_ids: List of environment ids to get the states from. If None, get the states of all environments.
+
+        Returns:
+            dict: A dictionary containing the states of the environment
+        """
+        pass
+
     def get_states(self, env_ids: list[int] | None = None) -> list[EnvState]:
-        raise NotImplementedError
+        if self._state_cache_expire:
+            self._states = self._get_states(env_ids=env_ids)
+            self._state_cache_expire = False
+        return self._states
+
+    def get_extra(self):
+        """Get the extra information of the environment."""
+        ret_dict = {}
+        for query_name, query_type in self.optional_queries.items():
+            ret_dict[query_name] = query_type()
+        return ret_dict
 
     def get_vel(self, obj_name: str, env_ids: list[int] | None = None) -> torch.FloatTensor:
         if self.num_envs > 1:
@@ -149,13 +202,26 @@ class BaseSimHandler:
     ############################################################
     ## Simulate
     ############################################################
+    @abstractmethod
+    def _simulate(self):
+        pass
+
     def simulate(self):
+        """Simulate the environment."""
+        self._state_cache_expire = True
+        self._simulate()
+
+    ############################################################
+    ## Domain Randomization
+    ############################################################
+    def rand_rigid_body_fric(self, cfg: FrictionRandomCfg):
         raise NotImplementedError
 
     ############################################################
     ## Utils
     ############################################################
     def refresh_render(self) -> None:
+        """Refresh the render."""
         raise NotImplementedError
 
     ############################################################
@@ -176,15 +242,16 @@ class BaseSimHandler:
         """
         raise NotImplementedError
 
-    def get_joint_reindex(self, obj_name: str) -> list[int]:
+    def get_joint_reindex(self, obj_name: str, inverse: bool = False) -> list[int]:
         """Get the reindexing order for joint indices of a given object. The returned indices can be used to reorder the joints such that they are sorted alphabetically by their names.
 
         Args:
             obj_name (str): The name of the object.
+            inverse (bool): Whether to return the inverse reindexing order. Default is False.
 
         Returns:
             list[int]: A list of joint indices that specifies the order to sort the joints alphabetically by their names.
-               The length of the list matches the number of joints.
+               The length of the list matches the number of joints. If ``inverse`` is True, the returned list is inversed, which means they can be used to restore the original order.
 
         Example:
             Suppose ``obj_name = "h1"``, and the ``h1`` has joints:
@@ -200,13 +267,15 @@ class BaseSimHandler:
         """
         if not hasattr(self, "_joint_reindex_cache"):
             self._joint_reindex_cache = {}
+            self._joint_reindex_cache_inverse = {}
 
         if obj_name not in self._joint_reindex_cache:
             origin_joint_names = self.get_joint_names(obj_name, sort=False)
             sorted_joint_names = self.get_joint_names(obj_name, sort=True)
             self._joint_reindex_cache[obj_name] = [origin_joint_names.index(jn) for jn in sorted_joint_names]
+            self._joint_reindex_cache_inverse[obj_name] = [sorted_joint_names.index(jn) for jn in origin_joint_names]
 
-        return self._joint_reindex_cache[obj_name]
+        return self._joint_reindex_cache_inverse[obj_name] if inverse else self._joint_reindex_cache[obj_name]
 
     def get_body_names(self, obj_name: str, sort: bool = True) -> list[str]:
         """Get the body names for a given object.
@@ -259,18 +328,25 @@ class BaseSimHandler:
 
     @property
     def episode_length_buf(self) -> list[int]:
-        """
-        The timestep of each environment, restart from 0 when reset, plus 1 at each step.
-        """
+        """The timestep of each environment, restart from 0 when reset, plus 1 at each step."""
         raise NotImplementedError
 
     @property
     def actions_cache(self) -> list[Action]:
-        """
-        Cache of actions.
-        """
+        """Cache of actions."""
         raise NotImplementedError
 
     @property
     def device(self) -> torch.device:
         raise NotImplementedError
+
+    ############################################################
+    ## Temporary
+    ############################################################
+
+    @property
+    def robot(self) -> BaseRobotCfg:
+        """The robot in the scenario. This is only for temporary use, we should remove this property in the future."""
+        if len(self.robots) > 1:
+            log.warning("Only the first robot is used for now, the others are ignored")
+        return self.robots[0]

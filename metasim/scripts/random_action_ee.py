@@ -8,7 +8,7 @@ import tyro
 class Args:
     robot: str = "franka"
     num_envs: int = 1
-    sim: Literal["isaaclab", "isaacgym", "pyrep", "pybullet", "sapien", "mujoco"] = "isaaclab"
+    sim: Literal["isaaclab", "isaacgym", "genesis", "pybullet", "mujoco", "sapien2", "sapien3"] = "isaaclab"
     decimation: int = 40
 
 
@@ -23,14 +23,10 @@ try:
 except ImportError:
     pass
 
-import rootutils
 import torch
 from curobo.types.math import Pose
 from loguru import logger as log
 from rich.logging import RichHandler
-
-rootutils.setup_root(__file__, pythonpath=True)
-log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
@@ -39,12 +35,14 @@ from metasim.utils.kinematics_utils import get_curobo_models
 from metasim.utils.math import quat_apply, quat_from_euler_xyz, quat_inv
 from metasim.utils.setup_util import get_robot, get_sim_env_class
 
+log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
+
 
 def main():
     num_envs: int = args.num_envs
     robot = get_robot(args.robot)
     camera = PinholeCameraCfg(pos=(1.5, 0.0, 1.5), look_at=(0.0, 0.0, 0.0))
-    scenario = ScenarioCfg(robot=robot, cameras=[camera], sim=args.sim, decimation=args.decimation)
+    scenario = ScenarioCfg(robots=[robot], cameras=[camera], sim=args.sim, decimation=args.decimation)
 
     env_class = get_sim_env_class(SimType(args.sim))
     env = env_class(scenario)
@@ -62,7 +60,7 @@ def main():
     ## cuRobo controller
     *_, robot_ik = get_curobo_models(robot)
     curobo_n_dof = len(robot_ik.robot_config.cspace.joint_names)
-    ee_n_dof = len(robot.gripper_release_q)
+    ee_n_dof = len(robot.gripper_open_q)
 
     if args.sim == "isaaclab":
         FixedSphere(
@@ -80,9 +78,9 @@ def main():
         log.debug(f"Step {step}")
 
         # Generate random actions
-        random_gripper_widths = torch.rand((num_envs, len(robot.gripper_release_q)))
-        random_gripper_widths = torch.tensor(robot.gripper_release_q) + random_gripper_widths * (
-            torch.tensor(robot.gripper_actuate_q) - torch.tensor(robot.gripper_release_q)
+        random_gripper_widths = torch.rand((num_envs, len(robot.gripper_open_q)))
+        random_gripper_widths = torch.tensor(robot.gripper_open_q) + random_gripper_widths * (
+            torch.tensor(robot.gripper_close_q) - torch.tensor(robot.gripper_open_q)
         )
 
         ee_rot_target = torch.rand((num_envs, 3), device="cuda") * torch.pi
@@ -126,7 +124,8 @@ def main():
         q[:, -ee_n_dof:] = random_gripper_widths
 
         actions = [
-            {"dof_pos_target": dict(zip(robot.actuators.keys(), q[i_env].tolist()))} for i_env in range(num_envs)
+            {robot.name: {"dof_pos_target": dict(zip(robot.actuators.keys(), q[i_env].tolist()))}}
+            for i_env in range(num_envs)
         ]
         q_min = torch.min(torch.stack([q_min, q[0]], -1), -1)[0]
         q_max = torch.max(torch.stack([q_max, q[0]], -1), -1)[0]

@@ -18,7 +18,7 @@ class Args:
     device: str = "cuda:0"
     ignore_ground_collision: bool = False
     binary_action: bool = False
-    """Use binary action for the target robot. If `True`, the resulting action for each step will be either `gripper_release_q` or `gripper_actuate_q`, otherwise the resulting action will be scaled to the new gripper joint limits"""
+    """Use binary action for the target robot. If `True`, the resulting action for each step will be either `gripper_open_q` or `gripper_close_q`, otherwise the resulting action will be scaled to the new gripper joint limits"""
     viz: bool = False
 
     def __post_init__(self):
@@ -33,30 +33,26 @@ args = tyro.cli(Args)
 #########################################
 ### Normal code
 #########################################
-import os
-
 try:
     import isaacgym  # noqa: F401
 except ImportError:
     pass
 
+import os
+from glob import glob
+
 import numpy as np
-import rootutils
 import torch
 from curobo.types.math import Pose
 from loguru import logger as log
 from rich.logging import RichHandler
 from tqdm.rich import tqdm, trange
 
-rootutils.setup_root(__file__, pythonpath=True)
-log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
-
-from glob import glob
-
 from metasim.utils.demo_util.loader import load_traj_file, save_traj_file
 from metasim.utils.kinematics_utils import ee_pose_from_tcp_pose, get_curobo_models, tcp_pose_from_ee_pose
 from metasim.utils.setup_util import get_robot, get_task
 
+log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 NUM_SEED = 20
 
 
@@ -237,10 +233,10 @@ def single(src_path, tgt_path, src_robot, tgt_robot):
     if args.viz:
         to_plot.append(plot_point_cloud(tgt_ee_pos_traj[0].cpu().numpy(), name=tgt_robot_cfg.name))
 
-    src_release_q = torch.tensor(src_robot_cfg.gripper_release_q, device=args.device)[None, None, :]
-    src_actuate_q = torch.tensor(src_robot_cfg.gripper_actuate_q, device=args.device)[None, None, :]
-    tgt_release_q = torch.tensor(tgt_robot_cfg.gripper_release_q, device=args.device)[None, None, :]
-    tgt_actuate_q = torch.tensor(tgt_robot_cfg.gripper_actuate_q, device=args.device)[None, None, :]
+    src_release_q = torch.tensor(src_robot_cfg.gripper_open_q, device=args.device)[None, None, :]
+    src_actuate_q = torch.tensor(src_robot_cfg.gripper_close_q, device=args.device)[None, None, :]
+    tgt_release_q = torch.tensor(tgt_robot_cfg.gripper_open_q, device=args.device)[None, None, :]
+    tgt_actuate_q = torch.tensor(tgt_robot_cfg.gripper_close_q, device=args.device)[None, None, :]
     src_ee_act_rel = torch.abs(tgt_ee_act_rel - src_release_q) / torch.abs(src_actuate_q - src_release_q)
     src_ee_act_rel = src_ee_act_rel.mean(axis=-1)  # Avg over two fingers
 

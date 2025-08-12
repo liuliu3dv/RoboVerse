@@ -1,4 +1,4 @@
-# 1. Control Robot
+#  1. Control Robot
 In this tutorial, we will show you how to use MetaSim to control a robot.
 
 ## Common Usage
@@ -37,7 +37,7 @@ Note that we find the `headless` mode of Genesis is not stable. So we recommend 
 
 #### Sapien
 ```bash
-python get_started/1_control_robot.py  --sim sapien
+python get_started/1_control_robot.py  --sim sapien3
 ```
 
 #### Pybullet

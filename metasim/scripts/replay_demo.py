@@ -12,7 +12,6 @@ except ImportError:
 
 import imageio as iio
 import numpy as np
-import rootutils
 import tyro
 from loguru import logger as log
 from numpy.typing import NDArray
@@ -20,12 +19,9 @@ from rich.logging import RichHandler
 from torchvision.utils import make_grid, save_image
 from tyro import MISSING
 
-logging.addLevelName(5, "TRACE")
-log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
-rootutils.setup_root(__file__, pythonpath=True)
-
 from metasim.cfg.randomization import RandomizationCfg
 from metasim.cfg.render import RenderCfg
+from metasim.cfg.robots.base_robot_cfg import BaseRobotCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
 from metasim.constants import SimType
@@ -34,6 +30,9 @@ from metasim.utils import configclass
 from metasim.utils.demo_util import get_traj
 from metasim.utils.setup_util import get_sim_env_class
 from metasim.utils.state import TensorState
+
+logging.addLevelName(5, "TRACE")
+log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 
 @configclass
@@ -45,15 +44,8 @@ class Args:
     random: RandomizationCfg = RandomizationCfg()
 
     ## Handlers
-    sim: Literal[
-        "isaaclab", "isaacgym", "genesis", "pyrep", "pybullet", "sapien", "sapien2", "sapien3", "mujoco", "blender"
-    ] = "isaaclab"
-    renderer: (
-        Literal[
-            "isaaclab", "isaacgym", "genesis", "pyrep", "pybullet", "sapien", "sapien2", "sapien3", "mujoco", "blender"
-        ]
-        | None
-    ) = None
+    sim: Literal["isaaclab", "isaacgym", "genesis", "pybullet", "sapien2", "sapien3", "mujoco", "mjx"] = "isaaclab"
+    renderer: Literal["isaaclab", "isaacgym", "genesis", "pybullet", "mujoco", "sapien2", "sapien3"] | None = None
 
     ## Others
     num_envs: int = 1
@@ -77,7 +69,7 @@ args = tyro.cli(Args)
 ###########################################################
 ## Utils
 ###########################################################
-def get_actions(all_actions, action_idx: int, num_envs: int):
+def get_actions(all_actions, action_idx: int, num_envs: int, robot: BaseRobotCfg):
     envs_actions = all_actions[:num_envs]
     actions = [
         env_actions[action_idx] if action_idx < len(env_actions) else env_actions[-1] for env_actions in envs_actions
@@ -143,7 +135,7 @@ def main():
     camera = PinholeCameraCfg(pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
     scenario = ScenarioCfg(
         task=args.task,
-        robot=args.robot,
+        robots=[args.robot],
         scene=args.scene,
         cameras=[camera],
         random=args.random,
@@ -179,7 +171,9 @@ def main():
     assert os.path.exists(scenario.task.traj_filepath), (
         f"Trajectory file: {scenario.task.traj_filepath} does not exist."
     )
-    init_states, all_actions, all_states = get_traj(scenario.task, scenario.robot, env.handler)
+    init_states, all_actions, all_states = get_traj(
+        scenario.task, scenario.robots[0], env.handler
+    )  # XXX: only support one robot
     toc = time.time()
     log.trace(f"Time to load data: {toc - tic:.2f}s")
 
@@ -221,7 +215,7 @@ def main():
                 break
 
         else:
-            actions = get_actions(all_actions, step, num_envs)
+            actions = get_actions(all_actions, step, num_envs, scenario.robots[0])
             obs, reward, success, time_out, extras = env.step(actions)
             scenario.cameras[0].pos = (
                 scenario.cameras[0].pos[0] + 0.01 * step,

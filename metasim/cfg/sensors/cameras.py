@@ -14,7 +14,7 @@ class BaseCameraCfg:
 
     name: str = "camera0"
     """Name of the camera. Defaults to "camera0". Different cameras should have different names, so if you add multiple cameras, make sure to give them unique names."""
-    data_types: list[Literal["rgb", "depth"]] = ["rgb", "depth"]
+    data_types: list[Literal["rgb", "depth", "instance_seg", "instance_id_seg"]] = ["rgb", "depth"]
     """List of sensor types to enable for the camera. Defaults to ["rgb", "depth"]."""
     width: int = 256
     """Width of the image in pixels. Defaults to 256."""
@@ -24,6 +24,14 @@ class BaseCameraCfg:
     """Position of the camera in the world frame. Defaults to (0.0, 0.0, 1.0)."""
     look_at: tuple[float, float, float] = (0.0, 0.0, 0.0)
     """Look at point of the camera in the world frame. Defaults to (0.0, 0.0, 0.0)."""
+    mount_to: str | tuple[str, str] | None = None
+    """Mount the camera to a specific object or robot. Defaults to None."""
+    mount_link: str | tuple[str, str] | None = None
+    """Specify the link to mount the camera to. Defaults to None."""
+    mount_pos: tuple[float, float, float] | None = None
+    """Position of the camera on the mount. Defaults to None."""
+    mount_quat: tuple[float, float, float, float] | None = None
+    """Quaternion of the camera on the mount. Defaults to None."""
 
 
 @configclass

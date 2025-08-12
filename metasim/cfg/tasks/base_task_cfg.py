@@ -8,7 +8,10 @@ import gymnasium as gym
 import torch
 
 from metasim.cfg.checkers import BaseChecker
+from metasim.cfg.control import ControlCfg
 from metasim.cfg.objects import BaseObjCfg
+from metasim.cfg.randomization import RandomizationCfg
+from metasim.cfg.simulator_params import SimParamCfg
 from metasim.constants import BenchmarkType, TaskType
 from metasim.types import EnvState
 from metasim.utils import configclass
@@ -29,6 +32,9 @@ class BaseTaskCfg:
         can_tabletop: Whether the task can be tabletop.
         reward_functions: The list of reward functions.
         reward_weights: The list of reward weights.
+        sim_params: The simulation params.
+        env_spacing: The spacing of parrelal environment.
+        random: The randomization config.
     """
 
     decimation: int = 3
@@ -41,6 +47,10 @@ class BaseTaskCfg:
     can_tabletop: bool = False
     reward_functions: list[callable[[list[EnvState], str | None], torch.FloatTensor]] = MISSING
     reward_weights: list[float] = MISSING
+    sim_params: SimParamCfg = SimParamCfg()
+    control: ControlCfg = ControlCfg()
+    env_spacing: float = 1.0
+    random: RandomizationCfg | None = None
 
 
 @configclass

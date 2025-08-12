@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import time
 from typing import Generic, TypeVar
 
 import gymnasium as gym
+import numpy as np
 import torch
 from loguru import logger as log
 
@@ -64,12 +66,14 @@ def IdentityEnvWrapper(cls: type[BaseSimHandler]) -> type[EnvWrapper[BaseSimHand
         @property
         def action_space(self) -> gym.Space:
             action_low = torch.tensor(
-                [limit[0] for limit in self.handler.scenario.robot.joint_limits.values()], dtype=torch.float32
+                [limit[0] for limit in self.handler.scenario.robots[0].joint_limits.values()], dtype=torch.float32
             )
             action_high = torch.tensor(
-                [limit[1] for limit in self.handler.scenario.robot.joint_limits.values()], dtype=torch.float32
+                [limit[1] for limit in self.handler.scenario.robots[0].joint_limits.values()], dtype=torch.float32
             )
-            return gym.spaces.Box(low=action_low, high=action_high, shape=(len(action_low),), dtype=torch.float32)
+            return gym.spaces.Box(
+                low=action_low.cpu().numpy(), high=action_high.cpu().numpy(), shape=(len(action_low),), dtype=np.float32
+            )
 
     return IdentityEnv
 
@@ -81,7 +85,7 @@ def GymEnvWrapper(cls: type[THandler]) -> type[EnvWrapper[THandler]]:
         def __init__(self, *args, **kwargs):
             self.handler = cls(*args, **kwargs)
             self.handler.launch()
-            self._episode_length_buf = torch.zeros(self.handler.num_envs, dtype=torch.int32)
+            self._episode_length_buf = torch.zeros(self.handler.num_envs, dtype=torch.int32, device=self.handler.device)
 
         def reset(self, states: list[EnvState] | None = None, env_ids: list[int] | None = None) -> tuple[Obs, Extra]:
             if env_ids is None:
@@ -90,9 +94,6 @@ def GymEnvWrapper(cls: type[THandler]) -> type[EnvWrapper[THandler]]:
             self._episode_length_buf[env_ids] = 0
             if states is not None:
                 self.handler.set_states(states, env_ids=env_ids)
-            if self.handler.scenario.sim in ["mujoco", "isaacgym"]:
-                ## HACK
-                self.handler.simulate()
             self.handler.checker.reset(self.handler, env_ids=env_ids)
             self.handler.refresh_render()
             states = self.handler.get_states()
@@ -100,7 +101,27 @@ def GymEnvWrapper(cls: type[THandler]) -> type[EnvWrapper[THandler]]:
 
         def step(self, actions: list[Action]) -> tuple[Obs, Reward, Success, TimeOut, Extra]:
             self._episode_length_buf += 1
-            self.handler.set_dof_targets(self.handler.robot.name, actions)
+            for robot in self.handler.robots:
+                self.handler.set_dof_targets(robot.name, actions)
+            tic = time.time()
+            self.handler.simulate()
+            toc = time.time()
+            log.trace(f"Time taken to handler.simulate(): {toc - tic:.4f}s")
+            reward = None
+            tic = time.time()
+            success = self.handler.checker.check(self.handler)
+            toc = time.time()
+            log.trace(f"Time taken to handler.checker.check(): {toc - tic:.4f}s")
+            tic = time.time()
+            states = self.handler.get_states()
+            toc = time.time()
+            log.trace(f"Time taken to handler.get_states(): {toc - tic:.4f}s")
+            time_out = self._episode_length_buf >= self.handler.scenario.episode_length
+            return states, reward, success, time_out, None
+
+        def step_actions(self, actions) -> tuple[Obs, Reward, Success, TimeOut, Extra]:
+            self._episode_length_buf += 1
+            self.handler.set_actions(self.handler.robot.name, actions)
             self.handler.simulate()
             reward = None
             success = self.handler.checker.check(self.handler)
@@ -128,23 +149,35 @@ def GymEnvWrapper(cls: type[THandler]) -> type[EnvWrapper[THandler]]:
             return self._episode_length_buf.tolist()
 
         @property
+        def episode_length_buf_tensor(self) -> list[int]:
+            return self._episode_length_buf
+
+        @property
         def action_space(self) -> gym.Space:
             action_low = torch.tensor(
-                [limit[0] for limit in self.handler.scenario.robot.joint_limits.values()], dtype=torch.float32
+                [limit[0] for limit in self.handler.scenario.robots[0].joint_limits.values()], dtype=torch.float32
             )
             action_high = torch.tensor(
-                [limit[1] for limit in self.handler.scenario.robot.joint_limits.values()], dtype=torch.float32
+                [limit[1] for limit in self.handler.scenario.robots[0].joint_limits.values()], dtype=torch.float32
             )
-            return gym.spaces.Box(low=action_low, high=action_high, shape=(len(action_low),), dtype=torch.float32)
+            return gym.spaces.Box(
+                low=action_low.cpu().numpy(), high=action_high.cpu().numpy(), shape=(len(action_low),), dtype=np.float32
+            )
 
         @property
         def observation_space(self) -> gym.Space:
+            # Handle simple format like {"shape": [48]} used by IsaacGym tasks
+            if "shape" in self.handler.scenario.task.observation_space:
+                shape = self.handler.scenario.task.observation_space["shape"]
+                return gym.spaces.Box(low=-np.inf, high=np.inf, shape=tuple(shape), dtype=np.float32)
+
+            # Handle nested format for more complex observation spaces
             observation_space = {}
             for obj in self.handler.scenario.task.observation_space.keys():
                 if obj == "robot":
-                    for joint in self.handler.scenario.robot.joint_names:
+                    for joint in self.handler.scenario.robots[0].joint_names:
                         observation_space[joint] = gym.spaces.Box(
-                            low=-torch.inf, high=torch.inf, shape=(1,), dtype=torch.float32
+                            low=-np.inf, high=np.inf, shape=(1,), dtype=np.float32
                         )
                 else:
                     for key, value in self.handler.scenario.task.observation_space[obj].items():

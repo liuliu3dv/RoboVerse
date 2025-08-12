@@ -11,15 +11,10 @@ except ImportError:
     pass
 
 
-import rootutils
 import torch
 import tyro
 from loguru import logger as log
 from rich.logging import RichHandler
-
-rootutils.setup_root(__file__, pythonpath=True)
-log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
-
 
 from metasim.cfg.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
 from metasim.cfg.scenario import ScenarioCfg
@@ -29,13 +24,13 @@ from metasim.utils import configclass
 from metasim.utils.setup_util import get_sim_env_class
 from metasim.utils.state import state_tensor_to_nested
 
+log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
+
 
 @configclass
 class Args:
     robot: str = "franka"
-    sim: Literal["isaaclab", "isaacgym", "genesis", "pyrep", "pybullet", "sapien", "sapien3", "mujoco", "blender"] = (
-        "isaaclab"
-    )
+    sim: Literal["isaaclab", "isaacgym", "genesis", "pybullet", "mujoco", "sapien2", "sapien3"] = "isaaclab"
     num_envs: int = 1
     headless: bool = True
 
@@ -47,7 +42,7 @@ args = tyro.cli(Args)
 
 # initialize scenario
 scenario = ScenarioCfg(
-    robot=args.robot,
+    robots=[args.robot],
     try_add_table=False,
     sim=args.sim,
     headless=args.headless,

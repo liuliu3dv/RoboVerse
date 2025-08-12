@@ -1,7 +1,7 @@
 [project]
 name = "roboverse-py"
 version = "0.1.17"
-requires-python = ">=3.8,<3.11"
+requires-python = ">=3.8"
 dependencies = [
     "gymnasium",
     "huggingface-hub",
@@ -20,6 +20,7 @@ dependencies = [
 isaaclab = [
     "protobuf<5",
     "pyglet<2",
+    "warp-lang<1.8",  # warp==1.8.0 has bug with IsaacLab v1.4.1
     "torch==2.4.0+cu118",
     "torchvision==0.19.0+cu118",
     "isaacsim==4.2.0.2",
@@ -27,20 +28,29 @@ isaaclab = [
     "isaacsim-extscache-kit==4.2.0.2",
     "isaacsim-extscache-kit-sdk==4.2.0.2",
 ]
-isaaclab2 = [
-    "torch==2.5.1+cu118",
-    "torchvision==0.20.1+cu118",
+isaaclab211 = [
+    "torch==2.7.0+cu128",
+    "torchvision==0.22.0+cu128",
     "isaacsim[all,extscache]==4.5.0",
+]
+isaaclab220 = [
+    "torch==2.7.0+cu128",
+    "torchvision==0.22.0+cu128",
+    "isaacsim[all,extscache]==5.0.0",
 ]
 isaacgym = [
     "numpy<2",
     "fsspec<=2025.3.0",  # fsspec==2025.3.1 has bug with python 3.8
 ]
 mujoco = ["mujoco", "dm-control"]
+mjx = ["mujoco-mjx>=3.2.7", "dm-control", "jax[cuda]"]
 sapien2 = ["mani-skill2 @ git+https://github.com/haosulab/ManiSkill.git@v0.5.3"]
 sapien3 = ["sapien>=3.0.0.b1"]
 pybullet = ["numpy<2", "pybullet"]
-genesis = ["genesis-world"]
+genesis = [
+    "genesis-world",
+    "libigl==2.5.1",  # for genesis 0.2.1, see https://github.com/Genesis-Embodied-AI/Genesis/issues/1156#issuecomment-3069006079
+]
 
 [tool.uv]
 index-strategy = "unsafe-best-match"
@@ -49,6 +59,7 @@ index-strategy = "unsafe-best-match"
 extra-index-url = [
     "https://pypi.org/simple",
     "https://download.pytorch.org/whl/cu118",
+    "https://download.pytorch.org/whl/cu128",
     "https://pypi.nvidia.com",
 ]
 
@@ -74,6 +85,7 @@ lint.select = [
 ]
 lint.ignore = [
     "B007",  # allow used loop control variable without leading underscore
+    "D100",  # allow no docstrings in public module
     "D105",  # allow magic methods without docstring
     "D107",  # allow __init__ without docstring
     "E266",  # allow multiple leading # in comments
@@ -103,6 +115,7 @@ extend-exclude = [
     "roboverse_learn/rl/algos/dreamer",
     "roboverse_learn/rl/algos/ppo",
     "roboverse_learn/rl/algos/sac",
+    "roboverse_learn/rl/rsl_rl",
     "wandb",
     "third_party",
     "tmp",
@@ -126,6 +139,8 @@ include = ["metasim*"]
 "metasim/cfg/tasks/maniskill/utils/**.py" = ["T20", "D"]
 ## For long-term-support scripts, allow no docstrings
 "metasim/scripts/**.py" = ["D"]
+## For get_started scripts, allow no docstrings
+"get_started/**.py" = ["D"]
 ## For unit test, allow no docstrings
 "metasim/test/**.py" = ["D"]
 ## For special tasks, allow no docstrings
@@ -139,7 +154,6 @@ include = ["metasim*"]
 ## For roboverse_learn, allow no docstrings, allow print
 "roboverse_learn/**.py" = ["D", "T20"]
 ## Temporary disable linting for quick testing
-"metasim/cfg/checkers/**.py" = ["D"]  # FIXME: Feishi add docstring and remove this
 "metasim/cfg/robots/**.py" = ["D"]  # FIXME: whoever in charge of the robot add docstring and remove this
 "metasim/cfg/scenes/**.py" = ["D"]  # FIXME: Charlie add docstring and remove this
 "metasim/cfg/tasks/arnold/**.py" = ["D"]  # FIXME: Steven add docstring and remove this
@@ -156,14 +170,7 @@ include = ["metasim*"]
 "metasim/cfg/tasks/simpler_env/**.py" = ["D"]  # FIXME: Boshi add docstring and remove this
 "metasim/cfg/tasks/skillblender/**.py" = ["D"]  # FIXME: Haoran add docstring and remove this
 "metasim/cfg/tasks/metaworld/**.py" = ["D"]  # FIXME: Siheng add docstring and remove this
-"metasim/double_sim/**.py" = ["D"]  # FIXME: Feishi add docstring and remove this
-"metasim/sim/blender/**.py" = ["D"]  # FIXME: Feishi add docstring and remove this
-"metasim/sim/genesis/**.py" = ["D"]  # FIXME: Haoran add docstring and remove this
-"metasim/sim/isaacgym/**.py" = ["D"]  # FIXME: Haoran add docstring and remove this
-"metasim/sim/mujoco/**.py" = ["D"]  # FIXME: Charlie add docstring and remove this
-"metasim/sim/pyrep/**.py" = ["D"]  # FIXME: Feishi add docstring and remove this
-"metasim/sim/gym_env.py" = ["D"]  # FIXME: Feishi add docstring and remove this
-"metasim/sim/*.py" = ["D"]  # FIXME: Feishi add docstring and remove this
+"metasim/sim/**.py" = ["D"]
 "metasim/utils/teleop_utils.py" = ["D"]  # FIXME: Chaoyi add docstring and remove this
 
 [tool.ruff.lint.isort]

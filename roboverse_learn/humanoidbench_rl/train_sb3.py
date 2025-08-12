@@ -97,7 +97,7 @@ def main():
     if config.get("sim") == "isaacgym":
         from isaacgym import gymapi, gymtorch, gymutil  # noqa: F401
 
-    if config.get("use_wandb"):
+    if config.get("use_wandb") and config.get("train_or_eval") == "train":
         run = wandb.init(
             project=config.get("wandb_project", "humanoidbench_rl_training"),
             entity=config.get("wandb_entity"),
@@ -118,11 +118,11 @@ def main():
 
     scenario = ScenarioCfg(
         task=config.get("task"),
-        robot=config.get("robot"),
+        robots=config.get("robots"),
         try_add_table=config.get("add_table", False),
         sim=config.get("sim"),
         num_envs=config.get("num_envs", 1),
-        headless=True if config.get("train_or_eval") == "train" else False,
+        headless=config.get("headless", True),
         cameras=[],
     )
 
@@ -139,6 +139,8 @@ def main():
     elif config.get("sim") == "isaacgym":
         env = Sb3EnvWrapper(scenario=scenario)
     elif config.get("sim") == "isaaclab":
+        env = Sb3EnvWrapper(scenario=scenario)
+    elif config.get("sim") == "mjx":
         env = Sb3EnvWrapper(scenario=scenario)
     else:
         raise ValueError(f"Invalid sim type: {config.get('sim')}")
@@ -251,7 +253,7 @@ def main():
         )
     elif config.get("train_or_eval") == "eval":
         # Load the trained model
-        model.load(config.get("model_path"))
+        model.load(config.get("eval_model_path"))
 
         # Evaluate the agent
         log.info("Starting evaluation...")
@@ -262,7 +264,7 @@ def main():
             obs, reward, done, info = env.step(action)
             rewards.append(reward)
             env.render()
-            if done:
+            if done[0]:
                 obs = env.reset()
                 import matplotlib.pyplot as plt
 

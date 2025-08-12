@@ -1,4 +1,4 @@
-# 0. Static Scene
+#  0. Static Scene
 In this tutorial, we will show you how to use MetaSim to simulate a static scene.
 
 ## Common Usage
@@ -34,7 +34,7 @@ Note that we find the `headless` mode of Genesis is not stable. So we recommend 
 
 #### Sapien
 ```bash
-python get_started/0_static_scene.py  --sim sapien
+python get_started/0_static_scene.py  --sim sapien3
 ```
 
 #### Pybullet

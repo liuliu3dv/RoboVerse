@@ -7,6 +7,7 @@
 
 tasks/overview
 tasks/descriptions
+tasks/task_groups
 ```
 
 ```{toctree}
@@ -16,12 +17,13 @@ tasks/descriptions
 dataset/robots
 dataset/objects
 dataset/scenes
-dataset/assets_converter
 ```
 
 ```{toctree}
 :caption: RoboVerse Benchmark
 :titlesonly:
 
-benchmark
+benchmark/overview
+benchmark/results
+benchmark/usage
 ```
