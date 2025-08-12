@@ -35,6 +35,7 @@ from metasim.utils.demo_util import get_traj
 from metasim.utils.setup_util import get_robot, get_sim_env_class, get_task
 from metasim.utils.state import state_tensor_to_nested
 from metasim.utils.tensor_util import tensor_to_cpu
+import os
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 NUM_SEED = 20
@@ -82,7 +83,7 @@ class Args:
     """Maximum number of demos to collect, None for all demos"""
     retry_num: int = 0
     """Number of retries for a failed demo"""
-    headless: bool = False
+    headless: bool = True
     """Run in headless mode"""
     table: bool = True
     """Try to add a table"""
@@ -138,10 +139,8 @@ def get_urdf(robot_name: str) -> str:
     urdf = URDF.load("./roboverse_data/robots/franka/urdf/franka_panda.urdf")
     return urdf
 
-
 def get_pk_robot(urdf) -> Robot:
     return pk.Robot.from_urdf(urdf)
-
 
 def run_task(task_name: str):
     # main() + task
@@ -150,18 +149,22 @@ def run_task(task_name: str):
 
 def main():
 
+    # global global_step, tot_success, tot_give_up
     handler_class = get_sim_env_class(SimType("isaaclab"))
+    # task = get_task("open_box")()
 
     cur_task = args.task
-
     task = get_task(cur_task)()
-    robot_g1 = get_robot("g1")
-    robot_franka = get_robot("franka")
+    print(cur_task)
+
+    # robot_franka_src = get_robot("franka")
+    # robot_franka_dst = get_robot("g1_hand")
     camera = PinholeCameraCfg(data_types=["rgb", "depth"],pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
 
     scenario = ScenarioCfg(
+        # TODO retarget task
         task=task,
-        robots=[robot_g1],
+        robots=[],
         scene=args.scene,
         # objects=objects,
         cameras=[camera],
@@ -172,100 +175,55 @@ def main():
         sim=args.sim,
         headless=args.headless,
         num_envs=args.num_envs,
+        humanoid=True
     )
 
-    # print(task.traj_path)
-    # print(k)
-    # In handler class, call __setup_scene()
     env = handler_class(scenario)
-    init_states, all_actions, all_states = get_traj(task, robot_franka, env.handler)
+    obs, extras = env.reset()
+    obs_saver = ObsSaver(video_path=f"./metasim/scripts/replay_g1_calvin_actions/{cur_task}/replay_{args.sim}.mp4")
 
-    init_states[0]["robots"]["g1"] = {
-                "pos": torch.tensor([0, 0., 0.2]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-    }
+    # for step, solution in enumerate(solutions):
+    #     robot_obj = scenario.robots[0]
+    #     actions = [
+    #         {
+    #             "g1": {
+    #                 "dof_pos_target": dict(zip(robot_obj.actuators.keys(), solution))
+    #             }
+    #         }
+    #         for i_env in range(args.num_envs)
+    #     ]
+    #     # print(solution)
+    #     # 执行动作
+    #     obs, reward, success, time_out, extras = env.step(actions)
+    #     obs_saver.add(obs)
 
-    # 准备录像保存器
-    obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting/replay_g1_10_actions/{cur_task}/replay_{args.sim}.mp4")
-    src_robot_urdf = URDF.load("./roboverse_data/robots/franka_with_gripper_extension/urdf/franka_with_gripper_extensions.urdf")
-    src_robot = get_pk_robot(src_robot_urdf)
-    tgt_robot_urdf = URDF.load("./roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf")
-    tgt_robot = get_pk_robot(tgt_robot_urdf)
-    src_robot.joints.actuated_names
-    robot_joint = all_actions[0]
-    robot_joint_list = []
-    for index, action in enumerate(robot_joint):
-        joint_angle = action['franka']['dof_pos_target']
-        robot_joint_list.append(list(joint_angle.values()))
-    robot_joint_array = np.array(robot_joint_list)
-
-    robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7] # robotic arm has 26 links
-    robot_links_names = src_robot.links.names
-
-    franka_g1 = {
-    'right_rubber_hand': 'panda_hand',
-    'waist_yaw_link': 'panda_link0'
-    }
-
-    humanoid_hand_names = ['right_rubber_hand',
-                           'waist_yaw_link']
-    target_link_names ="right_rubber_hand"
-    inds = [robot_links_names.index(franka_g1[name]) for name in humanoid_hand_names[:2]]
-
-
-    solutions = []
-    for i in range(robot_pose.shape[0]):  # iterate on 156 frames
-        solution = pks.solve_ik(
-            robot=tgt_robot,
-            target_link_name=target_link_names,
-            target_position=np.array(robot_pose[i, inds[0], 4:]),
-            target_wxyz=np.array(robot_pose[i, inds[0], :4]),
-        )
-
-        solutions.append(solution)
-
-    for step, solution in enumerate(solutions):
-        robot_obj = scenario.robots[0]
-        actions = [
-            {
-                "g1": {
-                    "dof_pos_target": dict(zip(robot_obj.actuators.keys(), solution))
-                }
-            }
-            for i_env in range(args.num_envs)
-        ]
-
-        # 执行动作
-        obs, reward, success, time_out, extras = env.step(actions)
+    for step in range(50):
+        obs, reward, success, time_out, extras = env.step()
         obs_saver.add(obs)
+
 
     obs_saver.save()
     env.close()
 
-if __name__ == "__main__":
-    task_list = [
-        "basketball_in_hoop",
-        # "beat_the_buzz",  # has bug
-        "block_pyramid",
-        "change_clock",
-        "close_fridge",
-        "empty_dishwasher",
-        "insert_onto_square_peg",
-        "lamp_on",
-        "light_bulb_in",
-        "meat_on_grill",
-        "open_box",
-        # "reach_and_drag" # bug
-        # "take_cup_out_from_cabinet"  # AttributeError: 'RigidObject' object has no attribute '_data'. Did you mean: 'data'?
-        "play_jenga"
-    ]
+# if __name__=="__main__":
+#     main()
 
+if __name__ == "__main__":
+
+    base_path = "/home/RoboVerse_Humanoid/roboverse_data/trajs/calvin/"
+    task_list = os.listdir(base_path)
+    task_list.sort()
     mp.set_start_method("spawn", force=True)
 
+    bug_tasks_list = []
     # multiprocess
     for task in task_list:
-        p = mp.Process(target=run_task, args=(task,))
-        p.start()
-        p.join()  # wait until last task end
+        try:
+            p = mp.Process(target=run_task, args=(task,))
+            p.start()
+            p.join()  # wait until last task end
+        except Exception as e:
+            bug_tasks_list.append(task)
+            log.error(f"Task {task} failed with error: {e}")
+    print(bug_tasks_list, file=open("calvin_error.txt", "w"))
     # main()

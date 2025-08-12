@@ -204,7 +204,7 @@ def main():
         num_envs=args.num_envs,
         humanoid=True
     )
-    # 这里的traj是什么?
+
     env = handler_class(scenario)
     init_states, all_actions, all_states = get_traj(task, robot_franka_src, env.handler)
     print("Init states:", init_states[0]['robots']['franka'])
@@ -304,7 +304,7 @@ def main():
     # obs, extras = env.reset()
     # 准备录像保存器
     obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"./metasim/scripts/replay_g1_calvin_actions/{cur_task}/replay_{args.sim}.mp4")
+    obs_saver = ObsSaver(video_path=f"./metasim/scripts/replay_g1_calvin_actions_v2/{cur_task}/replay_{args.sim}.mp4")
 
     for step, solution in enumerate(solutions):
         robot_obj = scenario.robots[0]

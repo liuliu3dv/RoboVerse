@@ -78,7 +78,7 @@ class IsaaclabHandler(BaseSimHandler):
             raise ValueError("Isaaclab does not support rasterization")
         else:
             raise ValueError(f"Unknown render mode: {self.scenario.render.mode}")
-
+        # start isaac lab
         app_launcher = AppLauncher(args)
         self.simulation_app = app_launcher.app
 
@@ -101,7 +101,7 @@ class IsaaclabHandler(BaseSimHandler):
         env_cfg.sim.physx.friction_correlation_distance = self.scenario.sim_params.friction_correlation_distance
         env_cfg.sim.physx.solver_type = self.scenario.sim_params.solver_type
 
-        self.env: EmptyEnv = gym.make("MetaSimEmptyTaskEnv", cfg=env_cfg)
+        self.env: EmptyEnv = gym.make("MetaSimEmptyTaskEnv", cfg=env_cfg)  # here, jump to setup scene
 
         ## Render mode setting, must be done after isaaclab is launched
         ## For more info, see the import below

@@ -217,6 +217,7 @@ class IsaaclabEnvOverwriter:
                 fixer = ShaderFixer(obj.usd_path, f"/World/envs/env_0/{obj.name}")
                 fixer.fix_all()
         ## Add table
+        self.task.can_tabletop = True  # calvin, can_tabletop = False
         if self.task is not None and self.task.can_tabletop and self.scenario.try_add_table:
             try:
                 import omni.isaac.core.utils.prims as prim_utils
@@ -239,6 +240,7 @@ class IsaaclabEnvOverwriter:
                     prim_path="/World/envs/env_0/metasim_table/surface",
                     name="fixed_table",
                     scale=torch.tensor([table_size, table_size, table_thickness]),
+                    # position=torch.tensor([0.0, 0.0, -table_thickness / 2]),
                     position=torch.tensor([.7, 0.0, -table_thickness / 2]),
                 )
                 for i, (x, y) in enumerate([
