@@ -30,7 +30,6 @@ from algorithms.ppo.ppo import PPO
 from rl_env_wrapper import BiDexEnvWrapper
 
 from metasim.cfg.scenario import ScenarioCfg
-from metasim.cfg.sensors import PinholeCameraCfg
 from metasim.utils import configclass
 from metasim.utils.setup_util import get_task
 
@@ -77,11 +76,22 @@ class Args:
 
 
 def get_config_path(args):
-    if args.task in ["ShadowHandOver", "ShadowHandCatchUnderarm", "ShadowHandOver2Underarm",
-                     "ShadowHandPushBlock", "ShadowHandCatchAbreast", "ShadowHandSwingCup",
-                     "ShadowHandCloseInward", "ShadowHandCloseOutward", "ShadowHandScissor",
-                     "ShadowHandPen", "ShadowHandTwoCatchUnderarm", "ShadowHandBottle",
-                     "ShadowHandGraspPlace", "ShadowHandKettle"]:
+    if args.task in [
+        "ShadowHandOver",
+        "ShadowHandCatchUnderarm",
+        "ShadowHandOver2Underarm",
+        "ShadowHandPushBlock",
+        "ShadowHandCatchAbreast",
+        "ShadowHandSwingCup",
+        "ShadowHandCloseInward",
+        "ShadowHandCloseOutward",
+        "ShadowHandScissor",
+        "ShadowHandPen",
+        "ShadowHandTwoCatchUnderarm",
+        "ShadowHandBottle",
+        "ShadowHandGraspPlace",
+        "ShadowHandKettle",
+    ]:
         return (
             os.path.join(args.logdir, f"{args.task}/{args.algo}"),
             f"roboverse_learn/bidex/cfg/{args.algo}/{args.obs_type}/config.yaml",
@@ -193,7 +203,11 @@ def train(args):
 
     wandb_run = None
     if args.use_wandb and not is_testing:
-        wandb_name = f"{args.task}_{args.algo}_{args.name}_{task.current_object_type}_{time.strftime('%Y_%m_%d_%H_%M_%S')}" if args.experiment == "Base" else f"{args.task}_{args.algo}_{args.name}_{task.current_object_type}_{args.experiment}_{time.strftime('%Y_%m_%d_%H_%M_%S')}"
+        wandb_name = (
+            f"{args.task}_{args.algo}_{args.name}_{task.current_object_type}_{time.strftime('%Y_%m_%d_%H_%M_%S')}"
+            if args.experiment == "Base"
+            else f"{args.task}_{args.algo}_{args.name}_{task.current_object_type}_{args.experiment}_{time.strftime('%Y_%m_%d_%H_%M_%S')}"
+        )
         wandb_run = wandb.init(
             project=args.wandb_project,
             config=args.train_cfg,
