@@ -8,32 +8,34 @@ from metasim.utils import configclass
 
 
 @configclass
-class G1Cfg(RobotCfg):
-    name: str = "g1"
+class G1StaticCfg(RobotCfg):
+    name: str = "g1_static"
     num_joints: int = 21
     usd_path: str = "roboverse_data/robots/g1/usd/g1_29dof_lock_waist_rev_1_0_modified.usd"
     xml_path: str = MISSING
     urdf_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf"
     enabled_gravity: bool = True
-    fix_base_link: bool = False
+    fix_base_link: bool = True
     enabled_self_collisions: bool = False
     isaacgym_flip_visual_attachments: bool = False
     collapse_fixed_joints: bool = True
 
     actuators: dict[str, BaseActuatorCfg] = {
-        "left_hip_pitch": BaseActuatorCfg(stiffness=200, damping=5),
-        "left_hip_roll": BaseActuatorCfg(stiffness=150, damping=5),
-        "left_hip_yaw": BaseActuatorCfg(stiffness=150, damping=5),
-        "left_knee": BaseActuatorCfg(stiffness=200, damping=5),
-        "left_ankle_pitch": BaseActuatorCfg(stiffness=20, damping=4),
-        "left_ankle_roll": BaseActuatorCfg(stiffness=20, damping=4),
-        "right_hip_pitch": BaseActuatorCfg(stiffness=200, damping=5),
-        "right_hip_roll": BaseActuatorCfg(stiffness=150, damping=5),
-        "right_hip_yaw": BaseActuatorCfg(stiffness=150, damping=5),
-        "right_knee": BaseActuatorCfg(stiffness=200, damping=5),
-        "right_ankle_pitch": BaseActuatorCfg(stiffness=20, damping=4),
-        "right_ankle_roll": BaseActuatorCfg(stiffness=20, damping=4),
-        "waist_yaw": BaseActuatorCfg(stiffness=200, damping=5),
+        # fiexed
+        "left_hip_pitch": BaseActuatorCfg(stiffness=2000, damping=50),
+        "left_hip_roll": BaseActuatorCfg(stiffness=1500, damping=50),
+        "left_hip_yaw": BaseActuatorCfg(stiffness=1500, damping=50),
+        "left_knee": BaseActuatorCfg(stiffness=2000, damping=50),
+        "left_ankle_pitch": BaseActuatorCfg(stiffness=200, damping=40),
+        "left_ankle_roll": BaseActuatorCfg(stiffness=200, damping=40),
+        "right_hip_pitch": BaseActuatorCfg(stiffness=2000, damping=50),
+        "right_hip_roll": BaseActuatorCfg(stiffness=1500, damping=50),
+        "right_hip_yaw": BaseActuatorCfg(stiffness=1500, damping=50),
+        "right_knee": BaseActuatorCfg(stiffness=2000, damping=50),
+        "right_ankle_pitch": BaseActuatorCfg(stiffness=200, damping=40),
+        "right_ankle_roll": BaseActuatorCfg(stiffness=200, damping=40),
+        "waist_yaw": BaseActuatorCfg(stiffness=2000, damping=50),
+        # actioness
         "left_shoulder_pitch": BaseActuatorCfg(stiffness=40, damping=10),
         "left_shoulder_roll": BaseActuatorCfg(stiffness=40, damping=10),
         "left_shoulder_yaw": BaseActuatorCfg(stiffness=40, damping=10),

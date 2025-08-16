@@ -317,18 +317,23 @@ class IsaacsimHandler(BaseSimHandler):
                 action_tensors.append(action_tensor)
             action_tensor_all = torch.cat(action_tensors, dim=-1)
 
+            # reverse_reindex = self.get_joint_reindex(self.robots[0].name, inverse=True)
+            # action_tensor_all = action_tensor_all[:, reverse_reindex]
+
         # Apply actions to all robots
-        start_idx = 0
+        # start_idx = 0
         for robot in self.robots:
             robot_inst = self.scene.articulations[robot.name]
-            actionable_joint_ids = [
-                robot_inst.joint_names.index(jn) for jn in robot.actuators if robot.actuators[jn].fully_actuated
-            ]
+            # actionable_joint_ids = [
+            #     robot_inst.joint_names.index(jn) for jn in robot.actuators if robot.actuators[jn].fully_actuated
+            # ]
             robot_inst.set_joint_position_target(
-                action_tensor_all[:, start_idx : start_idx + len(actionable_joint_ids)],
-                joint_ids=actionable_joint_ids,
+                # action_tensor_all[:, start_idx : start_idx + len(actionable_joint_ids)],
+                action_tensor_all,
+                # joint_ids=actionable_joint_ids,
+                joint_ids=list(range(21)),
             )
-            start_idx += len(actionable_joint_ids)
+            # start_idx += len(actionable_joint_ids)
 
     def _simulate(self):
         is_rendering = self.sim.has_gui() or self.sim.has_rtx_sensors()
@@ -357,10 +362,12 @@ class IsaacsimHandler(BaseSimHandler):
                 articulation_props=sim_utils.ArticulationRootPropertiesCfg(fix_root_link=robot.fix_base_link),
             ),
             actuators={
+                # jn: ImplicitActuatorCfg(
                 jn: ImplicitActuatorCfg(
                     joint_names_expr=[jn],
                     stiffness=actuator.stiffness,
                     damping=actuator.damping,
+                    friction=actuator.friction,
                 )
                 for jn, actuator in robot.actuators.items()
             },
@@ -370,7 +377,8 @@ class IsaacsimHandler(BaseSimHandler):
         cfg.spawn.rigid_props.disable_gravity = not robot.enabled_gravity
         cfg.spawn.articulation_props.enabled_self_collisions = robot.enabled_self_collisions
         init_state = ArticulationCfg.InitialStateCfg(
-            pos=[0.0, 0.0, 0.0],
+            # TODO hard code here
+            pos=[0.0, 0.0, 0.735],
             joint_pos=robot.default_joint_positions,
             joint_vel={".*": 0.0},
         )
