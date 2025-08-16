@@ -100,16 +100,7 @@ if __name__ == "__main__":
 
     init_states = [
         {
-            "objects": {
-                "cube": {
-                    "pos": torch.tensor([0.3, -0.2, 0.05]),
-                    "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-                },
-                "sphere": {
-                    "pos": torch.tensor([0.4, -0.6, 0.05]),
-                    "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-                },
-            },
+            "objects": {},
             "robots": {
                 "g1": {
                     "pos": torch.tensor([0.0, 0.0, 0.735]),
@@ -144,14 +135,10 @@ if __name__ == "__main__":
     env.launch()
     env.set_states(init_states * scenario.num_envs)
     os.makedirs("get_started/output", exist_ok=True)
-
     obs = env.get_states(mode="dict")
-    ## Main loop
     obs_saver = ObsSaver(video_path=f"get_started/output/1_move_robot_{args.sim}.mp4")
     obs_saver.add(obs)
-
     num_dof = len(env.get_joint_names(env.robots[0].name))
-
     lower_body_joints_names = {
         "left_hip_pitch",
         "left_hip_roll",
@@ -168,14 +155,11 @@ if __name__ == "__main__":
         "waist_yaw",
     }
     sorted_joint_names = env.get_joint_names(env.robots[0].name, sort=True)
-    # lower_body_joints_indexes = [sorted_joint_names.index(joint_name) for joint_name in lower_body_joints_names]
-
     step = 0
     robot = scenario.robots[0]
 
     while True:
         log.debug(f"Step {step}")
-
         actions = torch.rand([args.num_envs, num_dof], device="cuda")
         for joint_name in lower_body_joints_names:
             idx = sorted_joint_names.index(joint_name)
@@ -185,5 +169,3 @@ if __name__ == "__main__":
             env.simulate()
         obs = env.get_states(mode="dict")
         step += 1
-
-    # obs_saver.save()
