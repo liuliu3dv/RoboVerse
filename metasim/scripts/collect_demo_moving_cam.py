@@ -246,6 +246,37 @@ def is_status_success(log_dir: str) -> bool:
     )
 
 
+from metasim.utils.math import matrix_from_quat
+
+
+def calculate_extrinsics_from_quat(pos, quat_world):
+    """
+    Calculate camera extrinsics matrix from position and quaternion.
+
+    Args:
+        pos: Camera position, shape (num_envs, 3)
+        quat_world: Camera quaternion in world convention (w,x,y,z), shape (num_envs, 4)
+
+    Returns:
+        extrinsics: Camera extrinsics matrix, shape (num_envs, 4, 4)
+    """
+    device = pos.device
+    num_envs = pos.shape[0]
+
+    # Convert quaternion to rotation matrix
+    R = matrix_from_quat(quat_world)  # Shape: (num_envs, 3, 3)
+
+    # Calculate translation: t = -R @ pos
+    t = -torch.bmm(R, pos.unsqueeze(-1)).squeeze(-1)  # Shape: (num_envs, 3)
+
+    # Create 4x4 extrinsics matrix
+    extrinsics = torch.eye(4, device=device).unsqueeze(0).repeat(num_envs, 1, 1)
+    extrinsics[:, :3, :3] = R
+    extrinsics[:, :3, 3] = t
+
+    return extrinsics
+
+
 class DemoIndexer:
     def __init__(self, save_root_dir: str, start_idx: int, end_idx: int, pbar: tqdm):
         self.save_root_dir = save_root_dir
@@ -396,7 +427,13 @@ def main():
         actions = get_actions(all_actions, env, demo_idxs)
         step += 1
         obs, reward, success, time_out, extras = env.step(actions)
-        log.info(obs.cameras["camera0"])
+
+        pos = obs.cameras["camera0"].pos
+        quat_world = obs.cameras["camera0"].quat_world
+        # breakpoint()
+        extrinsics = calculate_extrinsics_from_quat(pos, quat_world)
+        log.info(obs.cameras["camera0"].intrinsics)
+        log.info(extrinsics)
         obs = state_tensor_to_nested(env.handler, obs)
         run_out = get_run_out(all_actions, env, demo_idxs)
 
