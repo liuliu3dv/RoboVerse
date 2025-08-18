@@ -644,7 +644,7 @@ class IsaacgymHandler(BaseSimHandler):
         action_array_list = []
 
         for action_data in actions:
-            flat_vals = []
+            flat_vals = [] p
             for joint_i, joint_name in enumerate(self._joint_info[self.robots[0].name]["names"]):
                 if self.robots[0].actuators[joint_name].fully_actuated:
                     flat_vals.append(

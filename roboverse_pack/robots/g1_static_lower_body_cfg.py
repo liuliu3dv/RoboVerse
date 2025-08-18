@@ -12,6 +12,7 @@ class G1StaticCfg(RobotCfg):
     name: str = "g1_static"
     num_joints: int = 21
     usd_path: str = "roboverse_data/robots/g1/usd/g1_29dof_lock_waist_rev_1_0_modified.usd"
+    # usd_path: str = "roboverse_data/robots/g1/usd/test.usd"
     xml_path: str = MISSING
     urdf_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf"
     enabled_gravity: bool = True

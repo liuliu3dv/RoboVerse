@@ -1,4 +1,4 @@
-"""Rsl_rl 1.0.2 wrapper, align OnPolicyRunnner in rsl_rl with metasim."""
+"""Wrapper for rsl_rl 2.3.10, align OnPolicyRunnner in rsl_rl with metasim."""
 
 from __future__ import annotations
 
@@ -8,9 +8,8 @@ from rsl_rl.env import VecEnv
 
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.constants import SimType
-from metasim.sim.env_wrapper import EnvWrapper
-from metasim.utils.setup_util import get_sim_env_class
 
+from metasim.utils.setup_util import get_sim_handler_class
 from metasim.utils.state import list_state_to_tensor
 
 
@@ -33,12 +32,8 @@ class RslRlWrapper(VecEnv):
         self.device = torch.device("cuda" if torch.cuda.is_available else "cpu")
         log.info(f"using device {self.device}")
 
-        # TODO read camera config
-        # self.env.cfg.sensor.camera
-
         # load simulator handler
-        env_class = get_sim_env_class(SimType(scenario.sim))
-        self.env: EnvWrapper = env_class(scenario)
+        self.env = get_sim_handler_class(SimType(scenario.sim))
         self._parse_cfg(scenario)
         self._get_init_states(scenario)
 
@@ -98,7 +93,7 @@ class RslRlWrapper(VecEnv):
         Reset state in the env and buffer in the wrapper
         """
         if env_ids is None:
-            env_ids = list(range(self.handler.num_envs))
+            env_ids = list(range(self.env.num_envs))
 
         # reset in the env
         self.env.reset(env_ids)

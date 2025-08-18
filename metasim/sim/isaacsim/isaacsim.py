@@ -364,6 +364,7 @@ class IsaacsimHandler(BaseSimHandler):
             actuators={
                 # jn: ImplicitActuatorCfg(
                 jn: ImplicitActuatorCfg(
+                    # prim_path
                     joint_names_expr=[jn],
                     stiffness=actuator.stiffness,
                     damping=actuator.damping,
