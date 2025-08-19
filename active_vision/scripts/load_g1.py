@@ -103,21 +103,21 @@ if __name__ == "__main__":
             "objects": {},
             "robots": {
                 "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.735]),
+                    "pos": torch.tensor([0.0, 0.0, 0.0]),
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
-                        "left_hip_pitch": -0.4,
-                        "left_hip_roll": 0,
-                        "left_hip_yaw": 0.0,
-                        "left_knee": 0.8,
-                        "left_ankle_pitch": -0.4,
-                        "left_ankle_roll": 0,
-                        "right_hip_pitch": -0.4,
-                        "right_hip_roll": 0,
-                        "right_hip_yaw": 0.0,
-                        "right_knee": 0.8,
-                        "right_ankle_pitch": -0.4,
-                        "right_ankle_roll": 0,
+                        # "left_hip_pitch": -0.4,
+                        # "left_hip_roll": 0,
+                        # "left_hip_yaw": 0.0,
+                        # "left_knee": 0.8,
+                        # "left_ankle_pitch": -0.4,
+                        # "left_ankle_roll": 0,
+                        # "right_hip_pitch": -0.4,
+                        # "right_hip_roll": 0,
+                        # "right_hip_yaw": 0.0,
+                        # "right_knee": 0.8,
+                        # "right_ankle_pitch": -0.4,
+                        # "right_ankle_roll": 0,
                         "waist_yaw": 0.0,
                         "left_shoulder_pitch": 0.0,
                         "left_shoulder_roll": 0.0,
@@ -168,9 +168,9 @@ if __name__ == "__main__":
         log.debug(f"Step {step}")
 
         actions = torch.rand([args.num_envs, num_dof], device="cuda")
-        for joint_name in lower_body_joints_names:
-            idx = sorted_joint_names.index(joint_name)
-            actions[:, idx] = init_states[0]["robots"]["g1"]["dof_pos"][joint_name]
+        # for joint_name in lower_body_joints_names:
+        #     idx = sorted_joint_names.index(joint_name)
+        #     actions[:, idx] = init_states[0]["robots"]["g1"]["dof_pos"][joint_name]
         env.set_dof_targets(actions)
         for i in range(decimation):
             env.simulate()

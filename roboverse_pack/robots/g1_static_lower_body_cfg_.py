@@ -11,11 +11,11 @@ from metasim.utils import configclass
 class G1StaticCfg(RobotCfg):
     name: str = "g1_static"
     num_joints: int = 9
-    usd_path: str = "roboverse_data/robots/g1/usd/g1_29dof_lock_waist_rev_1_0_modified_lower_fixed.usd"
+    # usd_path: str = "roboverse_data/robots/g1/xml/g1_29dof_lock_waist_rev_1_0_modified_lower_fixed_new.usd"
+    # usd_path: str = "roboverse_data/robots/g1/usd/test.usd"
+    usd_path: str = "roboverse_data/robots/g1/xml/g1_29dof_lock_waist_rev_1_0_modified_lower_fixed_without_fixed_base_tst1111.usd"
     xml_path: str = MISSING
-    urdf_path: str = (
-        "roboverse_data/robots/g1/xml/g1_29dof_lock_waist_rev_1_0_modified_lower_fixed.usd"
-    )
+    urdf_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_lock_waist_rev_1_0_modified.urdf"
     enabled_gravity: bool = True
     fix_base_link: bool = True
     # fix_base_link: bool = False
@@ -38,15 +38,15 @@ class G1StaticCfg(RobotCfg):
         # "right_ankle_pitch": BaseActuatorCfg(stiffness=200, damping=40),
         # "right_ankle_roll": BaseActuatorCfg(stiffness=200, damping=40),
         # actioness
-        "waist_yaw_joint": BaseActuatorCfg(stiffness=2000, damping=50),
-        "left_shoulder_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "left_shoulder_roll_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "left_shoulder_yaw_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "left_elbow_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "right_shoulder_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "right_shoulder_roll_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "right_shoulder_yaw_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "right_elbow_joint": BaseActuatorCfg(stiffness=40, damping=10),
+        "waist_yaw": BaseActuatorCfg(stiffness=2000, damping=50),
+        "left_shoulder_pitch": BaseActuatorCfg(stiffness=40, damping=10),
+        "left_shoulder_roll": BaseActuatorCfg(stiffness=40, damping=10),
+        "left_shoulder_yaw": BaseActuatorCfg(stiffness=40, damping=10),
+        "left_elbow": BaseActuatorCfg(stiffness=40, damping=10),
+        "right_shoulder_pitch": BaseActuatorCfg(stiffness=40, damping=10),
+        "right_shoulder_roll": BaseActuatorCfg(stiffness=40, damping=10),
+        "right_shoulder_yaw": BaseActuatorCfg(stiffness=40, damping=10),
+        "right_elbow": BaseActuatorCfg(stiffness=40, damping=10),
     }
     joint_limits: dict[str, tuple[float, float]] = {
         # "left_hip_pitch": (-2.5307, 2.8798),
@@ -61,15 +61,15 @@ class G1StaticCfg(RobotCfg):
         # "right_knee": (-0.087267, 2.8798),
         # "right_ankle_pitch": (-0.87267, 0.5236),
         # "right_ankle_roll": (-0.2618, 0.2618),
-        "waist_yaw_joint": (-2.618, 2.618),
-        "left_shoulder_pitch_joint": (-3.0892, 2.6704),
-        "left_shoulder_roll_joint": (-1.5882, 2.2515),
-        "left_shoulder_yaw_joint": (-2.618, 2.618),
-        "left_elbow_joint": (-1.0472, 2.0944),
-        "right_shoulder_pitch_joint": (-3.0892, 2.6704),
-        "right_shoulder_roll_joint": (-2.2515, 1.5882),
-        "right_shoulder_yaw_joint": (-2.618, 2.618),
-        "right_elbow_joint": (-1.0472, 2.0944),
+        "waist_yaw": (-2.618, 2.618),
+        "left_shoulder_pitch": (-3.0892, 2.6704),
+        "left_shoulder_roll": (-1.5882, 2.2515),
+        "left_shoulder_yaw": (-2.618, 2.618),
+        "left_elbow": (-1.0472, 2.0944),
+        "right_shoulder_pitch": (-3.0892, 2.6704),
+        "right_shoulder_roll": (-2.2515, 1.5882),
+        "right_shoulder_yaw": (-2.618, 2.618),
+        "right_elbow": (-1.0472, 2.0944),
     }
 
     torque_limits: dict[str, float] = {  # = target angles [rad] when action = 0.0
@@ -85,15 +85,15 @@ class G1StaticCfg(RobotCfg):
         # "right_knee": 139,
         # "right_ankle_pitch": 50,
         # "right_ankle_roll": 50,
-        "waist_yaw_joint": 88,
-        "left_shoulder_pitch_joint": 25,
-        "left_shoulder_roll_joint": 25,
-        "left_shoulder_yaw_joint": 25,
-        "left_elbow_joint": 25,
-        "right_shoulder_pitch_joint": 25,
-        "right_shoulder_roll_joint": 25,
-        "right_shoulder_yaw_joint": 25,
-        "right_elbow_joint": 25,
+        "waist_yaw": 88,
+        "left_shoulder_pitch": 25,
+        "left_shoulder_roll": 25,
+        "left_shoulder_yaw": 25,
+        "left_elbow": 25,
+        "right_shoulder_pitch": 25,
+        "right_shoulder_roll": 25,
+        "right_shoulder_yaw": 25,
+        "right_elbow": 25,
     }
 
     default_joint_positions: dict[str, float] = {  # = target angles [rad] when action = 0.0
@@ -109,15 +109,15 @@ class G1StaticCfg(RobotCfg):
         # "right_knee": 0.8,
         # "right_ankle_pitch": -0.4,
         # "right_ankle_roll": 0,
-        "waist_yaw_joint": 0.0,
-        "left_shoulder_pitch_joint": 0.0,
-        "left_shoulder_roll_joint": 0.0,
-        "left_shoulder_yaw_joint": 0.0,
-        "left_elbow_joint": 0.0,
-        "right_shoulder_pitch_joint": 0.0,
-        "right_shoulder_roll_joint": 0.0,
-        "right_shoulder_yaw_joint": 0.0,
-        "right_elbow_joint": 0.0,
+        "waist_yaw": 0.0,
+        "left_shoulder_pitch": 0.0,
+        "left_shoulder_roll": 0.0,
+        "left_shoulder_yaw": 0.0,
+        "left_elbow": 0.0,
+        "right_shoulder_pitch": 0.0,
+        "right_shoulder_roll": 0.0,
+        "right_shoulder_yaw": 0.0,
+        "right_elbow": 0.0,
     }
 
     control_type: dict[str, Literal["position", "effort"]] = {
@@ -133,15 +133,15 @@ class G1StaticCfg(RobotCfg):
         # "right_knee": "effort",
         # "right_ankle_pitch": "effort",
         # "right_ankle_roll": "effort",
-        "waist_yaw_joint": "effort",
-        "left_shoulder_pitch_joint": "effort",
-        "left_shoulder_roll_joint": "effort",
-        "left_shoulder_yaw_joint": "effort",
-        "left_elbow_joint": "effort",
-        "right_shoulder_pitch_joint": "effort",
-        "right_shoulder_roll_joint": "effort",
-        "right_shoulder_yaw_joint": "effort",
-        "right_elbow_joint": "effort",
+        "waist_yaw": "effort",
+        "left_shoulder_pitch": "effort",
+        "left_shoulder_roll": "effort",
+        "left_shoulder_yaw": "effort",
+        "left_elbow": "effort",
+        "right_shoulder_pitch": "effort",
+        "right_shoulder_roll": "effort",
+        "right_shoulder_yaw": "effort",
+        "right_elbow": "effort",
     }
 
     # rigid body name substrings, to find indices of different rigid bodies.
