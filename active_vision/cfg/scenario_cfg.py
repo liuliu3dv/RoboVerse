@@ -67,6 +67,9 @@ class LeggedRobotRunnerCfg:
     """max number of iterations"""
 
     # logging
+    logger: str = "wandb"
+    wandb_project: str = "active_vision"
+
     save_interval = 1000
     """save interval for checkpoints"""
     experiment_name = "test"
@@ -232,7 +235,7 @@ class BaseTableHumanoidTaskCfg:
     traj_filepath = None
     """path to the trajectory file"""
     # TODO read form max_episode_length_s and divide s
-    max_episode_length_s: int = 24
+    max_episode_length_s: int = 8
     """maximum episode length in seconds"""
     episode_length: int = 2400
     """episode length in steps"""
@@ -315,10 +318,10 @@ class BaseTableHumanoidTaskCfg:
     action_scale = 0.25
 
     def __post_init__(self):
-        self.command_ranges.wrist_max_radius = 0.25
-        self.command_ranges.l_wrist_pos_x = [-0.10, 0.25]
-        self.command_ranges.l_wrist_pos_y = [-0.10, 0.25]
-        self.command_ranges.l_wrist_pos_z = [-0.25, 0.25]
-        self.command_ranges.r_wrist_pos_x = [-0.10, 0.25]
-        self.command_ranges.r_wrist_pos_y = [-0.25, 0.10]
-        self.command_ranges.r_wrist_pos_z = [-0.25, 0.25]
+        self.command_ranges.wrist_max_radius = 0.15
+        self.command_ranges.l_wrist_pos_x = [-0.05, 0.15]
+        self.command_ranges.l_wrist_pos_y = [-0.05, 0.15]
+        self.command_ranges.l_wrist_pos_z = [-0.15, 0.15]
+        self.command_ranges.r_wrist_pos_x = [-0.05, 0.15]
+        self.command_ranges.r_wrist_pos_y = [-0.15, 0.05]
+        self.command_ranges.r_wrist_pos_z = [-0.15, 0.15]

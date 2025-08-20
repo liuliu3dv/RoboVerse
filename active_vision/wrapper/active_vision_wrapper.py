@@ -96,10 +96,8 @@ class ActiveVisionWrapper(RslRlWrapper):
         self._p_gains = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
         self._d_gains = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
         self._torque_limits = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
-        self._action_scale = (
-            self.scenario.task.action_scale
-            * torch.ones(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
-            * self.cfg.action_scale
+        self._action_scale = self.scenario.task.action_scale * torch.ones(
+            self.num_envs, self.num_actions, device=self.device, requires_grad=False
         )
         dof_names = self.env.get_joint_names(self.robot.name, sort=True)
         for i, dof_name in enumerate(dof_names):
@@ -156,7 +154,7 @@ class ActiveVisionWrapper(RslRlWrapper):
         """Compute effort from actions."""
         # scale the actions (generally output from policy)
         action_scaled = self._action_scale * actions
-        _effort = self._p_gains * (action_scaled - self._dof_pos) - self._d_gains * self._dof_vel
+        _effort = self._p_gains * (action_scaled + self.default_joint_pd_target - self._dof_pos) - self._d_gains * self._dof_vel
         self._effort = torch.clip(_effort, -self._torque_limits, self._torque_limits)
         effort = self._effort.to(torch.float32)
         return effort
@@ -174,7 +172,7 @@ class ActiveVisionWrapper(RslRlWrapper):
         # check whether torch.clone is necessary
         self.last_last_actions[:] = torch.clone(self._last_actions[:])
         self._last_actions[:] = self.actions[:]
-        self._last_dof_vel[:] = tensor_state.robots[self.robot.name].joint_vel_target
+        self._last_dof_vel[:] = tensor_state.robots[self.robot.name].joint_vel
 
     def _prepare_reward_function(self, task: BaseTableHumanoidTaskCfg):
         """Prepares a list of reward functions, which will be called to compute the total reward."""
@@ -205,7 +203,7 @@ class ActiveVisionWrapper(RslRlWrapper):
         }
         self.episode_metrics = {name: 0 for name in self.reward_scales.keys()}
 
-    def compute_reward(self, tensor_state):
+    def _compute_reward(self, tensor_state):
         """Compute all the reward from the states provided."""
         self.rew_buf[:] = 0
 
@@ -259,7 +257,7 @@ class ActiveVisionWrapper(RslRlWrapper):
         # update refreshed tensors from simulaor
         self._update_refreshed_tensors(tensor_state)
         # compute the reward
-        self.compute_reward(tensor_state)
+        self._compute_reward(tensor_state)
         # reset envs
         reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
         self.reset(reset_env_idx)
@@ -398,19 +396,10 @@ class ActiveVisionWrapper(RslRlWrapper):
     # only for reaching
 
     def _compute_observations(self, tensor_states: TensorState) -> None:
-        """Add observation into states."""
-        phase = self._get_phase()
-
-        sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
-        cos_pos = torch.cos(2 * torch.pi * phase).unsqueeze(1)
-
-        self.command_input = torch.cat((sin_pos, cos_pos, self.commands[:, :3] * self.commands_scale), dim=1)
-        self.command_input_wo_clock = self.commands[:, :3] * self.commands_scale
-
         q = (
             tensor_states.robots[self.robot.name].joint_pos - self.default_joint_pd_target
         ) * self.cfg.normalization.obs_scales.dof_pos
-        dq = tensor_states.robots[self.robot.name].joint_pos * self.cfg.normalization.obs_scales.dof_vel
+        dq = tensor_states.robots[self.robot.name].joint_vel * self.cfg.normalization.obs_scales.dof_vel
 
         wrist_pos = tensor_states.robots[self.robot.name].body_state[:, self.wrist_indices, :7]
         diff = wrist_pos - self.ref_wrist_pos
@@ -482,7 +471,6 @@ class ActiveVisionWrapper(RslRlWrapper):
         ori = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).repeat(pos.shape[0], 1)
         idx = torch.zeros(pos.shape[0], dtype=torch.long, device=self.device)
         self.marker_viz.visualize(pos, ori, marker_indices=idx)
-        
 
     def _init_target_wp(self, tensor_state: TensorState) -> None:
         self.ori_wrist_pos = (

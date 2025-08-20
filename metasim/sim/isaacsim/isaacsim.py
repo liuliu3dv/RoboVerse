@@ -327,11 +327,12 @@ class IsaacsimHandler(BaseSimHandler):
             # actionable_joint_ids = [
             #     robot_inst.joint_names.index(jn) for jn in robot.actuators if robot.actuators[jn].fully_actuated
             # ]
-            robot_inst.set_joint_position_target(
+            # TODO: hard code here, at pos control mode
+            robot_inst.set_joint_effort_target(
                 # action_tensor_all[:, start_idx : start_idx + len(actionable_joint_ids)],
                 action_tensor_all,
                 # joint_ids=actionable_joint_ids,
-                joint_ids=list(range(9)), # TODO: hard code here
+                joint_ids=list(range(9)),  #
             )
             # start_idx += len(actionable_joint_ids)
 
@@ -722,11 +723,11 @@ class IsaacsimHandler(BaseSimHandler):
             f"radius={light_cfg.radius} at {light_cfg.pos}"
         )
 
-
     def init_marker_viz(self):
         """Define markers with various different shapes."""
         import isaaclab.sim as sim_utils
         from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
+
         marker_cfg = VisualizationMarkersCfg(
             prim_path="/Visuals/myMarkers",
             markers={
