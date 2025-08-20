@@ -38,6 +38,7 @@ class ActiveVisionWrapper(RslRlWrapper):
 
         tensor_state = self.env.get_states()
         self._init_target_wp(tensor_state)
+        self.marker_viz = self.env.init_marker_viz()
 
     def _parse_rigid_body_indices(self, robot):
         """Parse rigid body indices from robot cfg."""
@@ -262,7 +263,8 @@ class ActiveVisionWrapper(RslRlWrapper):
         # reset envs
         reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
         self.reset(reset_env_idx)
-        self.update_target_wp(reset_env_idx)
+        self._update_target_wp(reset_env_idx)
+        self._update_marker_viz()
 
         # compute obs for actor,  privileged_obs for critic network
         self._compute_observations(tensor_state)
@@ -449,7 +451,7 @@ class ActiveVisionWrapper(RslRlWrapper):
             self.privileged_obs_buf, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations
         )
 
-    def update_target_wp(self, reset_env_ids):
+    def _update_target_wp(self, reset_env_ids):
         """Update target wrist positions."""
         # self.target_wp_i specifies which seq to use for each env, and self.target_wp_j specifies the timestep in the seq
         self.ref_wrist_pos = (
@@ -472,6 +474,15 @@ class ActiveVisionWrapper(RslRlWrapper):
         self.target_wp_i = torch.where(
             resample_i, torch.randint(0, self.num_pairs, (self.num_envs,), device=self.device), self.target_wp_i
         )
+
+    def _update_marker_viz(self):
+        pos = self.ref_wrist_pos[:, :, :3].reshape(-1, 3)
+        # 四元数全用单位(无旋转)
+        ori = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).repeat(pos.shape[0], 1)
+        # 只有一种原型 → 索引全 0
+        idx = torch.zeros(pos.shape[0], dtype=torch.long, device=self.device)
+        # 推给 Visualizer
+        self.marker_viz.visualize(pos, ori, marker_indices=idx)                   
 
     def _init_target_wp(self, tensor_state: TensorState) -> None:
         self.ori_wrist_pos = (
@@ -498,7 +509,7 @@ class ActiveVisionWrapper(RslRlWrapper):
         self.delayed_obs_target_wp = None
         self.delayed_obs_target_wp_steps = self.cfg.humanoid_extra_cfg.delay / self.target_wp_dt
         self.delayed_obs_target_wp_steps_int = sample_int_from_float(self.delayed_obs_target_wp_steps)
-        self.update_target_wp(torch.tensor([], dtype=torch.long, device=self.device))
+        self._update_target_wp(torch.tensor([], dtype=torch.long, device=self.device))
 
     # ==== reward functions ====
     def _reward_wrist_pos(self, tensor_state: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg):

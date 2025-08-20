@@ -722,6 +722,23 @@ class IsaacsimHandler(BaseSimHandler):
             f"radius={light_cfg.radius} at {light_cfg.pos}"
         )
 
+
+    def init_marker_viz(self):
+        """Define markers with various different shapes."""
+        import isaaclab.sim as sim_utils
+        from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
+        marker_cfg = VisualizationMarkersCfg(
+            prim_path="/Visuals/myMarkers",
+            markers={
+                "sphere": sim_utils.SphereCfg(
+                    radius=0.05,
+                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0)),
+                ),
+            },
+        )
+        self._marker_viz = VisualizationMarkers(marker_cfg)
+        return self._marker_viz
+
     # def _load_ground(self) -> None:
     #     import isaaclab.sim as sim_utils
     #     cfg_ground = sim_utils.GroundPlaneCfg(
