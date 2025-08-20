@@ -9,14 +9,12 @@ import torch
 
 from metasim.scenario.robot import RobotCfg
 from metasim.scenario.simulator_params import SimParamCfg
-from metasim.sim import BaseSimHandler
 from metasim.types import TensorState
 from metasim.utils import configclass
-from metasim.utils.humanoid_robot_util import contact_forces_tensor
 
 
 @configclass
-class LeggedRobotCfgPPO:
+class LeggedRobotRunnerCfg:
     """Configuration for PPO."""
 
     seed = 1
@@ -25,6 +23,8 @@ class LeggedRobotCfgPPO:
     @configclass
     class Policy:
         """Network config class for PPO."""
+
+        class_name = "ActorCritic"
 
         init_noise_std = 1.0
         """Initial noise std for actor network."""
@@ -55,40 +55,36 @@ class LeggedRobotCfgPPO:
         lam = 0.95
         desired_kl = 0.01
         max_grad_norm = 1.0
+        class_name = "PPO"
 
-    @configclass
-    class Runner:
-        """Runner config class for PPO."""
+    class_name = "ActorCritic"
+    """Policy class name."""
+    algorithm_class_name = "PPO"
+    """Algorithm class name."""
+    num_steps_per_env = 24
+    """per iteration"""
+    max_iterations = 1500
+    """max number of iterations"""
 
-        policy_class_name = "ActorCritic"
-        """Policy class name."""
-        algorithm_class_name = "PPO"
-        """Algorithm class name."""
-        num_steps_per_env = 24
-        """per iteration"""
-        max_iterations = 1500
-        """max number of iterations"""
-
-        # logging
-        save_interval = 1000
-        """save interval for checkpoints"""
-        experiment_name = "test"
-        """experiment name"""
-        run_name = ""
-        resume = False
-        """resume from checkpoint"""
-        load_run = -1
-        """load run number"""
-        checkpoint = -1
-        """checkpoint name"""
-        resume_path = None
-        """resume path"""
-        wandb = False
-        """Whether to use wandb."""
+    # logging
+    save_interval = 1000
+    """save interval for checkpoints"""
+    experiment_name = "test"
+    """experiment name"""
+    run_name = ""
+    resume = False
+    """resume from checkpoint"""
+    load_run = -1
+    """load run number"""
+    checkpoint = -1
+    """checkpoint name"""
+    resume_path = None
+    """resume path"""
+    wandb = False
+    """Whether to use wandb."""
 
     policy: Policy = Policy()
     algorithm: Algorithm = Algorithm()
-    runner: Runner = Runner()
 
 
 @configclass
@@ -158,19 +154,6 @@ class BaseTableHumanoidTaskCfg:
         """number of commands. linear x, linear y, angular velocity, heading"""
         resampling_time: float = 10.0
         """time before command are changed[s]."""
-        heading_command: bool = True
-        """whether to compute ang vel command from heading error."""
-
-    @configclass
-    class BaseLeggedRobotChecker(BaseChecker):
-        def check(self, handler: BaseSimHandler):
-            """Check if the contact forces are above threshold threshold."""
-            states = handler.get_states()
-            contact_forces = contact_forces_tensor(states, handler.robot.name)
-            reset_buf = torch.any(
-                torch.norm(contact_forces[:, handler.task.termination_contact_indices, :], dim=-1) > 1.0, dim=1
-            )
-            return reset_buf
 
     @configclass
     class Normalization:
@@ -208,10 +191,8 @@ class BaseTableHumanoidTaskCfg:
 
     use_vision: bool = False
     """Whether to use vision observations."""
-    ppo_cfg: LeggedRobotCfgPPO = LeggedRobotCfgPPO()
+    ppo_cfg: LeggedRobotRunnerCfg = LeggedRobotRunnerCfg()
     """PPO config."""
-    checker: BaseLeggedRobotChecker = BaseLeggedRobotChecker()
-    """Checker for resetting the environment."""
     normalization = Normalization()
     """Normalization config."""
     decimation: int = 10
@@ -258,3 +239,82 @@ class BaseTableHumanoidTaskCfg:
     """episode length in steps"""
     max_episode_length: int = 2400
     """episode length in steps"""
+
+    num_observations: int = 9
+    num_actions: int = 9
+    num_privileged_obs: int = 9
+    max_episode_length: int = 2400
+
+    @configclass
+    class HumanoidExtraCfg:
+        """An Extension of cfg.
+
+        Attributes:
+        delay: delay in seconds
+        freq: frequency for controlling sample waypoint
+        resample_on_env_reset: resample waypoints on env reset
+        """
+
+        delay: float = 0.0
+        freq: int = 10
+        resample_on_env_reset: bool = True
+
+    humanoid_extra_cfg: HumanoidExtraCfg = HumanoidExtraCfg()
+
+    init_states = [
+        {
+            "objects": {},
+            "robots": {
+                "g1": {
+                    "pos": torch.tensor([0.0, 0.0, 0.0]),
+                    "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+                    "dof_pos": {
+                        "waist_yaw": 0.0,
+                        "left_shoulder_pitch": 0.0,
+                        "left_shoulder_roll": 0.0,
+                        "left_shoulder_yaw": 0.0,
+                        "left_elbow": 0.0,
+                        "right_shoulder_pitch": 0.0,
+                        "right_shoulder_roll": 0.0,
+                        "right_shoulder_yaw": 0.0,
+                        "right_elbow": 0.0,
+                    },
+                },
+            },
+        }
+    ]
+
+    command_dim = 14
+    num_actions = 9
+
+    torque_limit_scale = 1.0
+
+    reward_weights: dict[str, float] = {
+        "wrist_pos": 5,
+        "upper_body_pos": 0.5,
+        "default_joint_pos": 0.5,
+        "torques": -1e-5,
+        "dof_vel": -5e-4,
+        "dof_acc": -1e-7,
+    }
+
+    frame_stack = 1
+    c_frame_stack = 3
+
+    # obs
+    num_single_obs = 41  # FIXME hardcode
+    num_observations = int(frame_stack * num_single_obs)
+    single_num_observations = 3 * num_actions + 6
+
+    # privileged obs
+    single_num_privileged_obs = 69  # FIXME hardcode
+    num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
+
+    def __post_init__(self):
+        self.command_ranges.wrist_max_radius = 0.25
+        self.command_ranges.l_wrist_pos_x = [-0.10, 0.25]
+        self.command_ranges.l_wrist_pos_y = [-0.10, 0.25]
+        self.command_ranges.l_wrist_pos_z = [-0.25, 0.25]
+        self.command_ranges.r_wrist_pos_x = [-0.10, 0.25]
+        self.command_ranges.r_wrist_pos_y = [-0.25, 0.10]
+        self.command_ranges.r_wrist_pos_z = [-0.25, 0.25]

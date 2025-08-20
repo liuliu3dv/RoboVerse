@@ -25,17 +25,41 @@ class RslRlWrapper(VecEnv):
         super().__init__()
 
 
-        if SimType(scenario.sim) not in [SimType.ISAACGYM,SimType.ISAACLAB, SimType.GENESIS]:
+        if SimType(scenario.simulator) not in [SimType.ISAACSIM, SimType.ISAACGYM,SimType.ISAACLAB, SimType.GENESIS]:
             raise NotImplementedError(
                 f"RslRlWrapper in Roboverse now only supports {SimType.ISAACGYM}, but got {scenario.sim}"
             )
         self.device = torch.device("cuda" if torch.cuda.is_available else "cpu")
         log.info(f"using device {self.device}")
+        self._parse_cfg(scenario)
 
         # load simulator handler
-        self.env = get_sim_handler_class(SimType(scenario.sim))
-        self._parse_cfg(scenario)
+        env_class = get_sim_handler_class(SimType(scenario.simulator))
+        env = env_class(scenario)
+        env.launch()
         self._get_init_states(scenario)
+        env.set_states(self.init_states)
+        self.env = env
+
+        # Initialize observation buffers
+        self._init_buffers()
+
+
+    def _init_buffers(self):
+        """Initialize buffers for rsl_rl compatibility."""
+        # Initialize observation buffers
+        self.obs_buf = torch.zeros((self.num_envs, self.num_obs), device=self.device, dtype=torch.float32)
+        self.privileged_obs_buf = torch.zeros((self.num_envs, self.num_privileged_obs), device=self.device, dtype=torch.float32)
+        self.extra_obs_buf = {
+            "observations": {
+                "critic": self.privileged_obs_buf,  # For PPO training
+                # Add other observation types as needed
+            }
+        }
+        self._episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
+        self.rew_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.float)
+        self.reset_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
+
 
     def _parse_cfg(self, scenario: ScenarioCfg):
         # loading task-specific configuration
@@ -69,14 +93,14 @@ class RslRlWrapper(VecEnv):
 
         self.init_states = init_states_list
 
-        if scenario.sim == SimType.ISAACGYM:
+        if scenario.simulator == SimType.ISAACGYM:
             #tensorize the initial states as TensorState, now we only support IsaacGym
             self.init_states = list_state_to_tensor(self.env.handler, init_states_list, device=self.device)
 
 
     def get_observations(self):
         """design from config"""
-        return self.obs_buf
+        return self.obs_buf, self.extra_obs_buf
 
     def get_privileged_observations(self):
         """design from config"""

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Literal
 
 import rootutils
@@ -13,19 +12,20 @@ from rich.logging import RichHandler
 
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
-from get_started.utils import ObsSaver
-from metasim.constants import PhysicStateType, SimType
-from metasim.scenario.cameras import PinholeCameraCfg
+from metasim.constants import PhysicStateType
+
+# from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.scenario.lights import DiskLightCfg, DistantLightCfg, DomeLightCfg
 from metasim.scenario.objects import PrimitiveCubeCfg, PrimitiveSphereCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.utils import configclass
-from metasim.utils.setup_util import get_sim_handler_class
 
 decimation = 3
 
-
 from rsl_rl.runners.on_policy_runner import OnPolicyRunner
+
+from active_vision.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
+from active_vision.wrapper.active_vision_wrapper import ActiveVisionWrapper
 
 if __name__ == "__main__":
 
@@ -79,8 +79,8 @@ if __name__ == "__main__":
     ]
 
     # add cameras
-    scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
-
+    # scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
+    scenario.cameras = []
     # add objects
     scenario.objects = [
         PrimitiveCubeCfg(
@@ -97,84 +97,19 @@ if __name__ == "__main__":
         ),
     ]
 
+    task_cfg = BaseTableHumanoidTaskCfg()
+    scenario.task = task_cfg
+
     log.info(f"Using simulator: {args.sim}")
-    env_class = get_sim_handler_class(SimType(args.sim))
-    env = env_class(scenario)
-
-    init_states = [
-        {
-            "objects": {},
-            "robots": {
-                "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.735]),
-                    "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-                    "dof_pos": {
-                        "left_hip_pitch": -0.4,
-                        "left_hip_roll": 0,
-                        "left_hip_yaw": 0.0,
-                        "left_knee": 0.8,
-                        "left_ankle_pitch": -0.4,
-                        "left_ankle_roll": 0,
-                        "right_hip_pitch": -0.4,
-                        "right_hip_roll": 0,
-                        "right_hip_yaw": 0.0,
-                        "right_knee": 0.8,
-                        "right_ankle_pitch": -0.4,
-                        "right_ankle_roll": 0,
-                        "waist_yaw": 0.0,
-                        "left_shoulder_pitch": 0.0,
-                        "left_shoulder_roll": 0.0,
-                        "left_shoulder_yaw": 0.0,
-                        "left_elbow": 0.0,
-                        "right_shoulder_pitch": 0.0,
-                        "right_shoulder_roll": 0.0,
-                        "right_shoulder_yaw": 0.0,
-                        "right_elbow": 0.0,
-                    },
-                },
-            },
-        }
-    ]
-    env.launch()
-    env.set_states(init_states * scenario.num_envs)
-    os.makedirs("get_started/output", exist_ok=True)
-
-    obs = env.get_states(mode="dict")
-    ## Main loop
-    obs_saver = ObsSaver(video_path=f"get_started/output/1_move_robot_{args.sim}.mp4")
-    obs_saver.add(obs)
-
-    num_dof = len(env.get_joint_names(env.robots[0].name))
-
-    lower_body_joints_names = {
-        "left_hip_pitch",
-        "left_hip_roll",
-        "left_hip_yaw",
-        "left_knee",
-        "left_ankle_pitch",
-        "left_ankle_roll",
-        "right_hip_pitch",
-        "right_hip_roll",
-        "right_hip_yaw",
-        "right_knee",
-        "right_ankle_pitch",
-        "right_ankle_roll",
-        "waist_yaw",
-    }
-    sorted_joint_names = env.get_joint_names(env.robots[0].name, sort=True)
-    # lower_body_joints_indexes = [sorted_joint_names.index(joint_name) for joint_name in lower_body_joints_names]
-
-    step = 0
-    robot = scenario.robots[0]
+    env = ActiveVisionWrapper(scenario)
     device = torch.device("cuda")
-
-    while True:
-        ppo_runner = OnPolicyRunner(
-            env=env,
-            train_cfg=env.train_cfg,
-            device=device,
-            log_dir=log_dir,
-            wandb=use_wandb,
-            args=args,
-        )
-        ppo_runner.learn(num_learning_iterations=args.learning_iterations)
+    log_dir = "outputs/active_vision"
+    use_wandb = False
+    learning_iterations = 1000
+    ppo_runner = OnPolicyRunner(
+        env=env,
+        train_cfg=env.train_cfg,
+        device=device,
+        log_dir=log_dir,
+    )
+    ppo_runner.learn(num_learning_iterations=learning_iterations)
