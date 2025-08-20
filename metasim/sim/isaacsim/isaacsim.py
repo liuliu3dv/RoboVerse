@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from copy import deepcopy
+from typing import Any, Optional
 
+import numpy as np
 import torch
 from loguru import logger as log
 
@@ -112,9 +115,11 @@ class IsaacsimHandler(BaseSimHandler):
                 # set look at position using isaaclab's api
                 if camera.mount_to is None:
                     camera_inst = self.scene.sensors[camera.name]
-                    position_tensor = torch.tensor(camera.pos, device=self.device).unsqueeze(0)
+                    position_tensor = torch.tensor(camera.pos, device=self.device, dtype=torch.float32).unsqueeze(0)
                     position_tensor = position_tensor.repeat(self.num_envs, 1)
-                    camera_lookat_tensor = torch.tensor(camera.look_at, device=self.device).unsqueeze(0)
+                    camera_lookat_tensor = torch.tensor(
+                        camera.look_at, device=self.device, dtype=torch.float32
+                    ).unsqueeze(0)
                     camera_lookat_tensor = camera_lookat_tensor.repeat(self.num_envs, 1)
                     camera_inst.set_world_poses_from_view(position_tensor, camera_lookat_tensor)
                     # log.debug(f"Updated camera {camera.name} pose: pos={camera.pos}, look_at={camera.look_at}")
@@ -385,6 +390,14 @@ class IsaacsimHandler(BaseSimHandler):
         from isaaclab.assets import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
 
         assert isinstance(obj, BaseObjCfg)
+
+        # Assert that this object should not already exist - if it does, there's a logic bug
+        if obj.name in self.scene.rigid_objects or obj.name in self.scene.articulations:
+            raise RuntimeError(
+                f"Logic error: Attempting to add object '{obj.name}' that already exists in scene. "
+                "This indicates a bug in the object update logic."
+            )
+
         prim_path = f"/World/envs/env_.*/{obj.name}"
 
         ## Articulation object
@@ -589,13 +602,19 @@ class IsaacsimHandler(BaseSimHandler):
         import isaaclab.sim as sim_utils
         from isaaclab.sim.spawners import spawn_light
 
-        light_name = f"/World/DistantLight_{light_index}"
+        # Ensure we have a valid light name
+        base_name = light_cfg.name if light_cfg.name else f"distant_light_{light_index}"
+        light_name = f"/World/{base_name}"
 
-        # Create Isaac Lab distant light configuration
+        # Create Isaac Lab distant light configuration with all supported properties
         isaac_light_cfg = sim_utils.DistantLightCfg(
             intensity=light_cfg.intensity,
-            angle=0.53,  # Default angle, could be made configurable
+            angle=getattr(light_cfg, "angle", 0.53),  # Use configured angle or default
             color=light_cfg.color,
+            exposure=getattr(light_cfg, "exposure", 0.0),
+            normalize=getattr(light_cfg, "normalize", False),
+            enable_color_temperature=getattr(light_cfg, "enable_color_temperature", False),
+            color_temperature=getattr(light_cfg, "color_temperature", 6500.0),
         )
 
         # Use the quaternion from light configuration
@@ -610,7 +629,7 @@ class IsaacsimHandler(BaseSimHandler):
 
         log.debug(
             f"Added distant light {light_name} with intensity {light_cfg.intensity}, "
-            f"polar={light_cfg.polar}°, azimuth={light_cfg.azimuth}°"
+            f"angle={getattr(light_cfg, 'angle', 0.53)}°, polar={light_cfg.polar}°, azimuth={light_cfg.azimuth}°"
         )
 
     def _add_cylinder_light(self, light_cfg, light_index: int) -> None:
@@ -618,11 +637,21 @@ class IsaacsimHandler(BaseSimHandler):
         import isaaclab.sim as sim_utils
         from isaaclab.sim.spawners import spawn_light
 
-        light_name = f"/World/CylinderLight_{light_index}"
+        # Ensure we have a valid light name
+        base_name = light_cfg.name if light_cfg.name else f"cylinder_light_{light_index}"
+        light_name = f"/World/{base_name}"
 
-        # Create Isaac Lab cylinder light configuration
+        # Create Isaac Lab cylinder light configuration with all supported properties
         isaac_light_cfg = sim_utils.CylinderLightCfg(
-            intensity=light_cfg.intensity, radius=light_cfg.radius, length=light_cfg.length, color=light_cfg.color
+            intensity=light_cfg.intensity,
+            radius=light_cfg.radius,
+            length=light_cfg.length,
+            color=light_cfg.color,
+            exposure=getattr(light_cfg, "exposure", 0.0),
+            normalize=getattr(light_cfg, "normalize", False),
+            enable_color_temperature=getattr(light_cfg, "enable_color_temperature", False),
+            color_temperature=getattr(light_cfg, "color_temperature", 6500.0),
+            treat_as_line=getattr(light_cfg, "treat_as_line", False),
         )
 
         spawn_light(
@@ -634,7 +663,7 @@ class IsaacsimHandler(BaseSimHandler):
 
         log.debug(
             f"Added cylinder light {light_name} with intensity {light_cfg.intensity}, "
-            f"radius={light_cfg.radius}, length={light_cfg.length}"
+            f"radius={light_cfg.radius}, length={light_cfg.length}, treat_as_line={getattr(light_cfg, 'treat_as_line', False)}"
         )
 
     def _add_dome_light(self, light_cfg, light_index: int) -> None:
@@ -642,17 +671,25 @@ class IsaacsimHandler(BaseSimHandler):
         import isaaclab.sim as sim_utils
         from isaaclab.sim.spawners import spawn_light
 
-        light_name = f"/World/DomeLight_{light_index}"
+        # Ensure we have a valid light name
+        base_name = light_cfg.name if light_cfg.name else f"dome_light_{light_index}"
+        light_name = f"/World/{base_name}"
 
-        # Create Isaac Lab dome light configuration
+        # Create Isaac Lab dome light configuration with all supported properties
         isaac_light_cfg = sim_utils.DomeLightCfg(
             intensity=light_cfg.intensity,
             color=light_cfg.color,
+            exposure=getattr(light_cfg, "exposure", 0.0),
+            normalize=getattr(light_cfg, "normalize", False),
+            enable_color_temperature=getattr(light_cfg, "enable_color_temperature", False),
+            color_temperature=getattr(light_cfg, "color_temperature", 6500.0),
+            visible_in_primary_ray=getattr(light_cfg, "visible_in_primary_ray", True),
         )
 
         # Add texture if specified
         if light_cfg.texture_file is not None:
             isaac_light_cfg.texture_file = light_cfg.texture_file
+            isaac_light_cfg.texture_format = getattr(light_cfg, "texture_format", "automatic")
 
         spawn_light(
             light_name,
@@ -668,14 +705,20 @@ class IsaacsimHandler(BaseSimHandler):
         import isaaclab.sim as sim_utils
         from isaaclab.sim.spawners import spawn_light
 
-        light_name = f"/World/SphereLight_{light_index}"
+        # Ensure we have a valid light name
+        base_name = light_cfg.name if light_cfg.name else f"sphere_light_{light_index}"
+        light_name = f"/World/{base_name}"
 
-        # Create Isaac Lab sphere light configuration
+        # Create Isaac Lab sphere light configuration with all supported properties
         isaac_light_cfg = sim_utils.SphereLightCfg(
             intensity=light_cfg.intensity,
             color=light_cfg.color,
             radius=light_cfg.radius,
-            normalize=light_cfg.normalize,
+            exposure=getattr(light_cfg, "exposure", 0.0),
+            normalize=getattr(light_cfg, "normalize", False),
+            enable_color_temperature=getattr(light_cfg, "enable_color_temperature", False),
+            color_temperature=getattr(light_cfg, "color_temperature", 6500.0),
+            treat_as_point=getattr(light_cfg, "treat_as_point", False),
         )
 
         spawn_light(
@@ -687,7 +730,7 @@ class IsaacsimHandler(BaseSimHandler):
 
         log.debug(
             f"Added sphere light {light_name} with intensity {light_cfg.intensity}, "
-            f"radius={light_cfg.radius} at {light_cfg.pos}"
+            f"radius={light_cfg.radius}, treat_as_point={getattr(light_cfg, 'treat_as_point', False)} at {light_cfg.pos}"
         )
 
     def _add_disk_light(self, light_cfg, light_index: int) -> None:
@@ -695,14 +738,19 @@ class IsaacsimHandler(BaseSimHandler):
         import isaaclab.sim as sim_utils
         from isaaclab.sim.spawners import spawn_light
 
-        light_name = f"/World/DiskLight_{light_index}"
+        # Ensure we have a valid light name
+        base_name = light_cfg.name if light_cfg.name else f"disk_light_{light_index}"
+        light_name = f"/World/{base_name}"
 
-        # Create Isaac Lab disk light configuration
+        # Create Isaac Lab disk light configuration with all supported properties
         isaac_light_cfg = sim_utils.DiskLightCfg(
             intensity=light_cfg.intensity,
             color=light_cfg.color,
             radius=light_cfg.radius,
-            normalize=light_cfg.normalize,
+            exposure=getattr(light_cfg, "exposure", 0.0),
+            normalize=getattr(light_cfg, "normalize", False),
+            enable_color_temperature=getattr(light_cfg, "enable_color_temperature", False),
+            color_temperature=getattr(light_cfg, "color_temperature", 6500.0),
         )
 
         spawn_light(
@@ -872,3 +920,788 @@ class IsaacsimHandler(BaseSimHandler):
         for sensor in self.scene.sensors.values():
             sensor.update(dt=0)
         self.sim.render()
+
+    def update_scene_from_scenario(self, new_scenario_cfg: ScenarioCfg) -> None:
+        """
+        Update the current scene to match a new scenario configuration.
+        This allows dynamic addition/removal of objects, lights, and cameras.
+        """
+        log.debug("Updating scene from new scenario configuration")
+
+        # 1. Update robots (check if any robot changes, though uncommon)
+        self._update_robots_from_config(new_scenario_cfg.robots)
+
+        # 2. Update objects
+        self._update_objects_from_config(new_scenario_cfg.objects)
+
+        # 3. Update lights
+        self._update_lights_from_config(getattr(new_scenario_cfg, "lights", []))
+
+        # 4. Update cameras
+        self._update_cameras_from_config(new_scenario_cfg.cameras)
+
+        # 5. Apply material assignments if they exist
+        if hasattr(new_scenario_cfg, "material_assignments") and new_scenario_cfg.material_assignments:
+            self.apply_materials(new_scenario_cfg.material_assignments)
+            log.debug("Applied material assignments to the scene")
+
+        # 6. Update scenario_cfg reference
+        self.scenario_cfg = new_scenario_cfg
+
+        # 6. Force scene update
+        self._force_scene_update()
+
+        # Verify scene consistency after update
+        self._verify_scene_consistency()
+
+        log.debug("Scene updated successfully from new scenario configuration")
+
+    def _verify_scene_consistency(self) -> None:
+        """Verify that the scene state is consistent after updates."""
+        try:
+            # Check that all objects in scenario_cfg exist in the scene
+            # Note: self.objects contains only non-robot objects, robots are separate
+            scenario_objects = {obj.name for obj in self.objects}
+            scenario_robots = {robot.name for robot in self.robots}
+            all_scenario_entities = scenario_objects | scenario_robots
+
+            scene_rigid_objects = set(self.scene.rigid_objects.keys())
+            scene_articulations = set(self.scene.articulations.keys())
+            scene_objects = scene_rigid_objects | scene_articulations
+
+            # Check objects separately from robots
+            missing_objects = scenario_objects - (scene_objects - scenario_robots)
+            missing_robots = scenario_robots - scene_objects
+            extra_objects = scene_objects - all_scenario_entities
+
+            if missing_objects:
+                log.warning(f"Objects in scenario but missing from scene: {missing_objects}")
+            if missing_robots:
+                log.warning(f"Robots in scenario but missing from scene: {missing_robots}")
+            if extra_objects:
+                log.debug(f"Extra objects in scene not in scenario: {extra_objects}")
+
+            log.debug(
+                f"Scene consistency check: scenario_objects={len(scenario_objects)}, scenario_robots={len(scenario_robots)}, scene_total={len(scene_objects)}"
+            )
+
+        except Exception as e:
+            log.warning(f"Failed to verify scene consistency: {e}")
+
+    def _update_robots_from_config(self, new_robots: list) -> None:
+        """Update robots to match new configuration. Usually robots don't change during randomization."""
+        current_robot_names = {robot.name for robot in self.robots}
+        new_robot_names = {robot.name for robot in new_robots}
+
+        # For domain randomization, robots typically don't change
+        # But we should update robot configurations if they change
+        if current_robot_names != new_robot_names:
+            log.warning("Robot configuration changed during scene update - this is unusual for domain randomization")
+
+        # Update robot poses/joint positions if they changed
+        for robot_cfg in new_robots:
+            if robot_cfg.name in current_robot_names:
+                self._update_existing_robot(robot_cfg)
+
+        # Update robots list and dependent structures
+        self.robots = new_robots
+
+        # Update robot-dependent caches
+        self._robot_names = {robot.name for robot in self.robots}
+        self._robot_init_pos = {robot.name: robot.default_position for robot in self.robots}
+        self._robot_init_quat = {robot.name: robot.default_orientation for robot in self.robots}
+
+        # Rebuild object_dict to include updated robots
+        self.object_dict = {obj.name: obj for obj in self.objects + self.robots}
+
+        log.debug(f"Robots updated: {len(new_robots)} robots configured")
+
+    def _update_existing_robot(self, robot_cfg: Any) -> None:
+        """Update properties of an existing robot."""
+        try:
+            robot_name = robot_cfg.name
+
+            # Update position if robot exists and position changed
+            if robot_name in self.scene.articulations:
+                # Get current pose
+                current_pos, current_rot = self._get_pose(robot_name)
+
+                # Update to new default position/orientation
+                new_pos = torch.tensor(robot_cfg.default_position, device=self.device).unsqueeze(0)
+                new_rot = torch.tensor(robot_cfg.default_orientation, device=self.device).unsqueeze(0)
+
+                # Only update if position/orientation changed significantly
+                pos_diff = torch.norm(new_pos - current_pos).item()
+                if pos_diff > 0.01:  # 1cm threshold
+                    self._set_object_pose(robot_cfg, new_pos, new_rot)
+                    log.debug(f"Updated pose for robot {robot_name}")
+
+        except Exception as e:
+            log.warning(f"Failed to update existing robot {robot_cfg.name}: {e}")
+
+    def _update_objects_from_config(self, new_objects: list) -> None:
+        """Update objects to match new configuration."""
+        current_object_names = {obj.name for obj in self.objects}
+        new_object_names = {obj.name for obj in new_objects}
+
+        # Remove objects that are no longer needed
+        to_remove = current_object_names - new_object_names
+
+        for obj_name in to_remove:
+            self._remove_object(obj_name)
+            log.debug(f"Successfully removed object: {obj_name}")
+
+        log.debug(f"Removed {len(to_remove)} objects: {to_remove}")
+
+        # Add new objects - these should never conflict since we just removed old ones
+        to_add = new_object_names - current_object_names
+        for obj_cfg in new_objects:
+            if obj_cfg.name in to_add:
+                self._add_object(obj_cfg)
+                log.debug(f"Successfully added new object: {obj_cfg.name}")
+
+        log.debug(f"Added {len(to_add)} new objects: {to_add}")
+
+        self._force_scene_update()
+
+        # Update existing objects (position, properties, etc.)
+        for obj_cfg in new_objects:
+            if obj_cfg.name in current_object_names:
+                self._update_existing_object(obj_cfg)
+
+        # Update the objects list
+        self.objects = new_objects
+
+        # Rebuild object_dict to include updated objects
+        self.object_dict = {obj.name: obj for obj in self.objects + self.robots}
+
+        log.debug(f"Objects updated: removed {len(to_remove)}, added {len(to_add)}")
+
+    def _update_lights_from_config(self, new_lights: list) -> None:
+        """Update lights to match new configuration."""
+        # Use the same precise update logic as objects
+        current_lights = getattr(self, "lights", [])
+
+        # Ensure all lights have names for consistent tracking (only if they don't have names already)
+        for i, light in enumerate(current_lights):
+            if not hasattr(light, "name") or not light.name:
+                light.name = f"baseline_light_{i}"
+
+        # For new lights, only assign names if they don't have them
+        # Don't overwrite existing names as they might come from previous randomizations
+        for i, light in enumerate(new_lights):
+            if not hasattr(light, "name") or not light.name:
+                light.name = f"light_{i}"
+
+        current_light_names = {light.name for light in current_lights}
+        new_light_names = {light.name for light in new_lights}
+
+        # Remove lights that are no longer needed
+        to_remove = current_light_names - new_light_names
+        for light_name in to_remove:
+            self._remove_light(light_name)
+            log.debug(f"Successfully removed light: {light_name}")
+
+        log.debug(f"Removed {len(to_remove)} lights: {to_remove}")
+
+        # Add new lights - these should never conflict since we just removed old ones
+        to_add = new_light_names - current_light_names
+        for light_cfg in new_lights:
+            if light_cfg.name in to_add:
+                # Find the index for this light in new_lights
+                light_index = next(i for i, l in enumerate(new_lights) if l.name == light_cfg.name)
+                self._add_light(light_cfg, light_index=light_index)
+                log.debug(f"Successfully added new light: {light_cfg.name}")
+
+        log.debug(f"Added {len(to_add)} new lights: {to_add}")
+
+        self._force_scene_update()
+
+        # Update existing lights (properties, intensity, etc.)
+        for light_cfg in new_lights:
+            if light_cfg.name in current_light_names:
+                self._update_existing_light(light_cfg)
+
+        # Update the lights list in both scenario_cfg and self
+        if hasattr(self.scenario_cfg, "lights"):
+            self.scenario_cfg.lights = new_lights
+        else:
+            self.scenario_cfg.lights = new_lights
+
+        # Update self.lights as well (inherited from base class)
+        self.lights = new_lights
+
+        log.debug(f"Lights updated: {len(new_lights)} lights configured")
+
+    def _update_cameras_from_config(self, new_cameras: list) -> None:
+        """Update cameras to match new configuration."""
+        # For cameras, we mainly update poses since they're usually not added/removed dynamically
+        for camera_cfg in new_cameras:
+            if camera_cfg.name in self.scene.sensors:
+                # Update existing camera pose
+                self._update_camera_pose_for_camera(camera_cfg)
+
+        # Update the cameras list
+        self.cameras = new_cameras
+        log.debug(f"Cameras updated: {len(new_cameras)} cameras configured")
+
+    def apply_materials(self, material_assignments: dict) -> None:
+        """Apply material assignments to objects."""
+        log.debug("Applying materials from randomizer")
+
+        # Apply object materials
+        object_materials = material_assignments.get("object_materials", [])
+        for assignment in object_materials:
+            self._apply_material_to_object(assignment["object"], assignment["material_config"], assignment["category"])
+
+        # Apply environment materials
+        environment_materials = material_assignments.get("environment_materials", [])
+        for assignment in environment_materials:
+            self._apply_material_to_object(assignment["object"], assignment["material_config"], assignment["category"])
+
+        # Apply robot materials
+        robot_materials = material_assignments.get("robot_materials", [])
+        for assignment in robot_materials:
+            self._apply_material_to_object(assignment["object"], assignment["material_config"], assignment["category"])
+
+        # Apply physics materials
+        physics_materials = material_assignments.get("physics_materials", [])
+        for assignment in physics_materials:
+            self._apply_physics_material_to_object(assignment["object"], assignment["material_config"])
+
+        log.debug(
+            f"Applied {len(object_materials)} object materials, "
+            f"{len(environment_materials)} environment materials, "
+            f"{len(robot_materials)} robot materials, "
+            f"{len(physics_materials)} physics materials"
+        )
+
+    def _apply_material_to_object(self, obj: Any, material_config: dict, category: str) -> bool:
+        """Apply a material configuration to an object."""
+        try:
+            material_type = material_config.get("type", "pbr")
+
+            if material_type == "mdl":
+                return self._apply_mdl_material(obj, material_config)
+            elif material_type in ["pbr", "preview_surface"]:
+                return self._apply_pbr_material(obj, material_config)
+            else:
+                log.warning(f"Unknown material type: {material_type}")
+                return False
+
+        except Exception as e:
+            log.warning(f"Failed to apply material to {category} object {getattr(obj, 'name', 'unnamed')}: {e}")
+            # Fallback: simple color randomization
+            return self._apply_simple_color_randomization(obj)
+
+    def _apply_mdl_material(self, obj: Any, material_config: dict) -> bool:
+        """Apply an MDL material to an object."""
+        try:
+            # Get object's USD prim path
+            prim_path = self._get_object_prim_path(obj)
+            if not prim_path:
+                return False
+
+            mdl_path = material_config["mdl_path"]
+
+            # Expand relative paths
+            if not mdl_path.startswith("/"):
+                full_mdl_path = f"/home/xinying/RoboVerse/{mdl_path}"
+            else:
+                full_mdl_path = mdl_path
+
+            # Check if file exists, and try to download if not
+            if not os.path.exists(full_mdl_path):
+                log.info(f"MDL file not found: {full_mdl_path}, attempting to download...")
+                try:
+                    # Try to download the file using the same system as IsaacLab
+                    from metasim.utils.hf_util import check_and_download_single
+
+                    check_and_download_single(full_mdl_path)
+                    log.info(f"Downloaded MDL file: {full_mdl_path}")
+                except Exception as download_error:
+                    log.error(f"Failed to download MDL file {full_mdl_path}: {download_error}")
+                    # Fallback to PBR
+                    return self._apply_pbr_material(obj, material_config)
+
+            # Also download associated texture files referenced in the MDL
+            try:
+                # Get the directory containing the MDL file
+                mdl_dir = os.path.dirname(full_mdl_path)
+                texture_dir = os.path.join(mdl_dir, "textures")
+
+                # Read MDL file to find texture references
+                if os.path.exists(full_mdl_path):
+                    with open(full_mdl_path, encoding="utf-8", errors="ignore") as f:
+                        mdl_content = f.read()
+
+                    # Extract texture file references from MDL content
+                    # Look for patterns like: texture_2d("./textures/filename.jpg")
+                    texture_patterns = [
+                        r'texture_2d\s*\(\s*["\']([^"\']+)["\']',
+                        r'file\s*:\s*["\']([^"\']+\.(?:jpg|png|tif|tiff|exr|hdr))["\']',
+                        r'["\']([^"\']*textures[^"\']*\.(?:jpg|png|tif|tiff|exr|hdr))["\']',
+                    ]
+
+                    from metasim.utils.hf_util import check_and_download_single
+
+                    texture_files = set()
+
+                    for pattern in texture_patterns:
+                        matches = re.findall(pattern, mdl_content, re.IGNORECASE)
+                        for match in matches:
+                            # Convert relative paths to absolute
+                            if match.startswith("./"):
+                                texture_path = os.path.join(mdl_dir, match[2:])
+                            elif not os.path.isabs(match):
+                                texture_path = os.path.join(mdl_dir, match)
+                            else:
+                                texture_path = match
+                            texture_files.add(texture_path)
+
+                    # Download each texture file
+                    for texture_path in texture_files:
+                        if not os.path.exists(texture_path):
+                            try:
+                                check_and_download_single(texture_path)
+                                log.debug(f"Downloaded texture: {texture_path}")
+                            except Exception as tex_error:
+                                log.debug(f"Could not download texture {texture_path}: {tex_error}")
+
+            except Exception as e:
+                log.debug(f"Could not download textures for {full_mdl_path}: {e}")
+
+            # Apply MDL material using utility
+            from metasim.sim.isaaclab.utils.material_util import apply_mdl_to_prim
+
+            apply_mdl_to_prim(full_mdl_path, prim_path)
+            material_name = material_config.get("name", "unknown_mdl")
+            log.debug(f"Applied MDL material '{material_name}' ({full_mdl_path}) to {getattr(obj, 'name', 'unnamed')}")
+            return True
+
+        except Exception as e:
+            log.warning(f"Failed to apply MDL material: {e}")
+            # Fallback to PBR
+            return self._apply_pbr_material(obj, material_config)
+
+    def _apply_pbr_material(self, obj: Any, material_config: dict) -> bool:
+        """Apply a PBR material to an object."""
+        try:
+            # Apply diffuse color with variation
+            if "diffuse_color" in material_config and hasattr(obj, "color"):
+                base_color = material_config["diffuse_color"]
+                color_var = 0.1
+                color = []
+                for c in base_color:
+                    noise = np.random.uniform(-color_var, color_var)
+                    color.append(float(np.clip(c + noise, 0.0, 1.0)))
+                obj.color = color
+
+            # Apply PBR properties if supported by the object
+            pbr_properties = ["metallic", "roughness", "specular", "opacity", "clearcoat"]
+
+            for prop in pbr_properties:
+                if prop in material_config and hasattr(obj, prop):
+                    value = float(material_config[prop])
+                    # Add small variation
+                    variation = np.random.uniform(-0.05, 0.05)
+                    final_value = np.clip(value + variation, 0.0, 1.0)
+                    setattr(obj, prop, final_value)
+
+            # Handle special properties
+            if "emission_intensity" in material_config and hasattr(obj, "emission_intensity"):
+                obj.emission_intensity = float(material_config["emission_intensity"])
+
+            if "emissive_color" in material_config and hasattr(obj, "emissive_color"):
+                obj.emissive_color = material_config["emissive_color"]
+
+            material_name = material_config.get("name", "unknown_pbr")
+            log.debug(f"Applied PBR material '{material_name}' to {getattr(obj, 'name', 'unnamed')}")
+            return True
+
+        except Exception as e:
+            log.warning(f"Failed to apply PBR material: {e}")
+            return False
+
+    def _apply_physics_material_to_object(self, obj: Any, physics_config: dict) -> bool:
+        """Apply a physics material to an object."""
+        try:
+            # Get object's USD prim path
+            prim_path = self._get_object_prim_path(obj)
+            if not prim_path:
+                return False
+
+            # Create physics material using Isaac Lab
+            import isaaclab.sim.utils as sim_utils
+            from isaaclab.sim.spawners import materials as isaac_materials
+
+            physics_cfg = isaac_materials.RigidBodyMaterialCfg(
+                static_friction=float(physics_config.get("static_friction", 0.5)),
+                dynamic_friction=float(physics_config.get("dynamic_friction", 0.5)),
+                restitution=float(physics_config.get("restitution", 0.0)),
+                friction_combine_mode=physics_config.get("friction_combine_mode", "average"),
+                restitution_combine_mode=physics_config.get("restitution_combine_mode", "average"),
+            )
+
+            # Apply physics material
+            material_name = physics_config.get("name", "physics_material")
+            material_path = f"/World/PhysicsMaterials/{material_name}_{id(obj)}"
+            physics_cfg.func(material_path, physics_cfg)
+            sim_utils.bind_physics_material(prim_path, material_path)
+
+            material_name = physics_config.get("name", "physics_material")
+            log.debug(f"Applied physics material '{material_name}' to {getattr(obj, 'name', 'unnamed')}")
+            return True
+
+        except Exception as e:
+            log.warning(f"Failed to apply physics material: {e}")
+            return False
+
+    def _get_object_prim_path(self, obj: Any) -> Optional[str]:
+        """Get the USD prim path for an object."""
+        # Try different ways to get the prim path
+        if hasattr(obj, "prim_path"):
+            return str(obj.prim_path)
+        elif hasattr(obj, "cfg") and hasattr(obj.cfg, "prim_path"):
+            return str(obj.cfg.prim_path)
+        elif hasattr(obj, "_prim_path"):
+            return str(obj._prim_path)
+        elif hasattr(obj, "name"):
+            # Construct path from name
+            return f"/World/envs/env_0/{obj.name}"
+        else:
+            log.warning("Could not determine prim path for object")
+            return None
+
+    def _apply_simple_color_randomization(self, obj: Any) -> bool:
+        """Apply simple color randomization as fallback."""
+        try:
+            if hasattr(obj, "color"):
+                # Generate random color
+                new_color = [
+                    float(np.random.uniform(0.1, 1.0)),
+                    float(np.random.uniform(0.1, 1.0)),
+                    float(np.random.uniform(0.1, 1.0)),
+                ]
+                obj.color = new_color
+                log.debug(f"Applied simple color randomization to {getattr(obj, 'name', 'unnamed')}")
+                return True
+        except Exception as e:
+            log.warning(f"Failed to apply simple color randomization: {e}")
+
+        return False
+
+    def _remove_object(self, obj_name: str) -> None:
+        """Remove an object from the scene."""
+        try:
+            # First, try to remove the USD prim from the stage
+            import omni.usd
+
+            stage = omni.usd.get_context().get_stage()
+            if stage:
+                # Try to find and remove the prim at the expected path
+                for env_idx in range(self.num_envs):
+                    prim_path = f"/World/envs/env_{env_idx}/{obj_name}"
+                    prim = stage.GetPrimAtPath(prim_path)
+                    if prim.IsValid():
+                        stage.RemovePrim(prim_path)
+                        log.debug(f"Removed USD prim: {prim_path}")
+
+            # Then remove from Isaac Lab data structures
+            if obj_name in self.scene.rigid_objects:
+                del self.scene.rigid_objects[obj_name]
+                log.debug(f"Removed rigid object: {obj_name}")
+            elif obj_name in self.scene.articulations:
+                del self.scene.articulations[obj_name]
+                log.debug(f"Removed articulation: {obj_name}")
+            else:
+                log.warning(f"Object {obj_name} not found in scene for removal")
+        except Exception as e:
+            log.warning(f"Failed to remove object {obj_name}: {e}")
+
+    def _remove_light(self, light_name: str) -> None:
+        """Remove a light from the scene."""
+        try:
+            # Remove the USD prim from the stage
+            import omni.usd
+
+            stage = omni.usd.get_context().get_stage()
+            if stage:
+                # Try to find and remove the prim at the expected path
+                light_path = f"/World/{light_name}"
+                prim = stage.GetPrimAtPath(light_path)
+                if prim.IsValid():
+                    stage.RemovePrim(light_path)
+                    log.debug(f"Removed USD light prim: {light_path}")
+                else:
+                    log.debug(f"Light prim not found at: {light_path}")
+
+        except Exception as e:
+            log.warning(f"Failed to remove light {light_name}: {e}")
+
+    def _update_existing_object(self, obj_cfg: Any) -> None:
+        """Update properties of an existing object."""
+        try:
+            obj_name = obj_cfg.name
+
+            # Update position if object exists
+            if obj_name in self.scene.rigid_objects or obj_name in self.scene.articulations:
+                # Get current pose
+                current_pos, current_rot = self._get_pose(obj_name)
+
+                # Update to new default position/orientation
+                new_pos = torch.tensor(obj_cfg.default_position, device=self.device).unsqueeze(0)
+                new_rot = torch.tensor(obj_cfg.default_orientation, device=self.device).unsqueeze(0)
+
+                # Only update if position/orientation changed significantly
+                pos_diff = torch.norm(new_pos - current_pos).item()
+                if pos_diff > 0.01:  # 1cm threshold
+                    self._set_object_pose(obj_cfg, new_pos, new_rot)
+                    log.debug(f"Updated pose for object {obj_name}")
+
+                # Update other properties like color, material if changed
+                self._update_object_properties(obj_cfg)
+
+        except Exception as e:
+            log.warning(f"Failed to update existing object {obj_cfg.name}: {e}")
+
+    def _update_existing_light(self, light_cfg: Any) -> None:
+        """Update properties of an existing light."""
+        try:
+            light_name = light_cfg.name
+
+            # Update light properties like intensity, color, position
+            light_path = f"/World/{light_name}"
+            import omni.usd
+
+            stage = omni.usd.get_context().get_stage()
+
+            if stage:
+                prim = stage.GetPrimAtPath(light_path)
+                if prim.IsValid():
+                    # Update light properties based on type
+                    self._update_light_properties(light_cfg, prim)
+                    log.debug(f"Updated properties for light {light_name}")
+                else:
+                    log.warning(f"Light prim not found at {light_path} for update")
+
+        except Exception as e:
+            log.warning(f"Failed to update existing light {light_cfg.name}: {e}")
+
+    def _update_light_properties(self, light_cfg: Any, prim: Any) -> None:
+        """Update visual/physical properties of a light."""
+        try:
+            from pxr import UsdLux
+
+            # Get the light API based on prim type
+            light_api = UsdLux.LightAPI(prim)
+            if not light_api:
+                log.warning(f"Could not get light API for prim {prim.GetPath()}")
+                return
+
+            # Update common light properties
+            if hasattr(light_cfg, "intensity"):
+                light_api.CreateIntensityAttr(light_cfg.intensity)
+
+            if hasattr(light_cfg, "color"):
+                light_api.CreateColorAttr(light_cfg.color)
+
+            if hasattr(light_cfg, "exposure"):
+                light_api.CreateExposureAttr(light_cfg.exposure)
+
+            if hasattr(light_cfg, "normalize"):
+                light_api.CreateNormalizeAttr(bool(light_cfg.normalize))
+
+            # Update color temperature properties
+            if hasattr(light_cfg, "enable_color_temperature"):
+                light_api.CreateEnableColorTemperatureAttr(bool(light_cfg.enable_color_temperature))
+                if light_cfg.enable_color_temperature and hasattr(light_cfg, "color_temperature"):
+                    light_api.CreateColorTemperatureAttr(light_cfg.color_temperature)
+
+            # Update type-specific properties
+            prim_type = prim.GetTypeName()
+
+            if prim_type == "DistantLight":
+                distant_light = UsdLux.DistantLight(prim)
+                if hasattr(light_cfg, "angle"):
+                    distant_light.CreateAngleAttr(light_cfg.angle)
+
+            elif prim_type == "SphereLight":
+                sphere_light = UsdLux.SphereLight(prim)
+                if hasattr(light_cfg, "radius"):
+                    sphere_light.CreateRadiusAttr(light_cfg.radius)
+                if hasattr(light_cfg, "treat_as_point"):
+                    sphere_light.CreateTreatAsPointAttr(bool(light_cfg.treat_as_point))
+
+            elif prim_type == "DiskLight":
+                disk_light = UsdLux.DiskLight(prim)
+                if hasattr(light_cfg, "radius"):
+                    disk_light.CreateRadiusAttr(light_cfg.radius)
+
+            elif prim_type == "CylinderLight":
+                cylinder_light = UsdLux.CylinderLight(prim)
+                if hasattr(light_cfg, "radius"):
+                    cylinder_light.CreateRadiusAttr(light_cfg.radius)
+                if hasattr(light_cfg, "length"):
+                    cylinder_light.CreateLengthAttr(light_cfg.length)
+                if hasattr(light_cfg, "treat_as_line"):
+                    cylinder_light.CreateTreatAsLineAttr(bool(light_cfg.treat_as_line))
+
+            elif prim_type == "DomeLight":
+                dome_light = UsdLux.DomeLight(prim)
+                if hasattr(light_cfg, "texture_file") and light_cfg.texture_file:
+                    dome_light.CreateTextureFileAttr(light_cfg.texture_file)
+                if hasattr(light_cfg, "visible_in_primary_ray"):
+                    # This is a special case that doesn't go through inputs:
+                    prim.CreateAttribute(
+                        "primvars:arnold:visibility:primary",
+                        bool(light_cfg.visible_in_primary_ray),
+                        variability=UsdGeom.Tokens.varying,
+                    )
+
+            # Update position for positional lights
+            if hasattr(light_cfg, "pos"):
+                from pxr import Gf, UsdGeom
+
+                xform = UsdGeom.Xform(prim)
+                if xform:
+                    # Set translation
+                    translate_op = xform.AddTranslateOp()
+                    translate_op.Set(Gf.Vec3d(*light_cfg.pos))
+
+            # Update rotation for lights that have rotation
+            if hasattr(light_cfg, "rot"):
+                from pxr import Gf, UsdGeom
+
+                xform = UsdGeom.Xform(prim)
+                if xform:
+                    # Set rotation (quaternion to rotation)
+                    quat = Gf.Quatd(*light_cfg.rot)  # w, x, y, z
+                    rotation = quat.GetNormalized().GetInverse().GetMatrix().ExtractRotation()
+                    rotate_op = xform.AddRotateXYZOp()
+                    rotate_op.Set(rotation.Decompose()[0])  # Extract Euler angles
+
+            log.debug(f"Updated light properties for {light_cfg.name}")
+
+        except Exception as e:
+            log.warning(f"Failed to update light properties for {light_cfg.name}: {e}")
+
+    def _update_object_properties(self, obj_cfg: Any) -> None:
+        """Update visual properties of an object."""
+        # This is a placeholder for updating object properties like color, material
+        # The actual implementation would depend on how Isaac Lab handles material updates
+        pass
+
+    def _clear_all_lights(self) -> None:
+        """Remove all dynamic lights from the scene."""
+        try:
+            # Isaac Lab doesn't have a direct way to remove lights, but we can try
+            # to delete the prims if they exist
+            import omni.usd
+
+            stage = omni.usd.get_context().get_stage()
+            if stage:
+                # Try to remove all lights that were dynamically added
+                light_types = ["DistantLight", "SphereLight", "CylinderLight", "DomeLight", "DiskLight"]
+                for light_type in light_types:
+                    # Look for lights with our naming pattern
+                    for i in range(10):  # reasonable upper bound
+                        light_path = f"/World/{light_type}_{i}"
+                        prim = stage.GetPrimAtPath(light_path)
+                        if prim.IsValid():
+                            stage.RemovePrim(light_path)
+                            log.debug(f"Removed light: {light_path}")
+
+            log.debug("Cleared existing dynamic lights")
+        except Exception as e:
+            log.debug(f"Could not clear lights dynamically, using placeholder: {e}")
+            # Fallback: just clear the lights list
+            if hasattr(self.scenario_cfg, "lights"):
+                self.scenario_cfg.lights = []
+            self.lights = []
+
+    def _add_light(self, light_cfg: Any, light_index: Optional[int] = None) -> None:
+        """Add a light to the scene."""
+        # Assert that this light should not already exist - if it does, there's a logic bug
+        if hasattr(light_cfg, "name"):
+            light_path = f"/World/{light_cfg.name}"
+            import omni.usd
+
+            stage = omni.usd.get_context().get_stage()
+            if stage and stage.GetPrimAtPath(light_path).IsValid():
+                raise RuntimeError(
+                    f"Logic error: Attempting to add light '{light_cfg.name}' that already exists in scene. "
+                    "This indicates a bug in the light update logic."
+                )
+
+        try:
+            # Use existing light addition logic but for dynamic addition
+            from metasim.scenario.lights import (
+                CylinderLightCfg,
+                DiskLightCfg,
+                DistantLightCfg,
+                DomeLightCfg,
+                SphereLightCfg,
+            )
+
+            # Use provided index or generate one based on current lights
+            if light_index is None:
+                light_index = len(getattr(self.scenario_cfg, "lights", []))
+
+            if isinstance(light_cfg, DistantLightCfg):
+                self._add_distant_light(light_cfg, light_index)
+            elif isinstance(light_cfg, CylinderLightCfg):
+                self._add_cylinder_light(light_cfg, light_index)
+            elif isinstance(light_cfg, DomeLightCfg):
+                self._add_dome_light(light_cfg, light_index)
+            elif isinstance(light_cfg, SphereLightCfg):
+                self._add_sphere_light(light_cfg, light_index)
+            elif isinstance(light_cfg, DiskLightCfg):
+                self._add_disk_light(light_cfg, light_index)
+            else:
+                log.warning(f"Unknown light type for dynamic addition: {type(light_cfg)}")
+
+        except Exception as e:
+            log.warning(f"Failed to add light dynamically: {e}")
+
+    def _update_camera_pose_for_camera(self, camera_cfg: Any) -> None:
+        """Update pose for a specific camera."""
+        try:
+            if isinstance(camera_cfg, PinholeCameraCfg):
+                if camera_cfg.mount_to is None and camera_cfg.name in self.scene.sensors:
+                    camera_inst = self.scene.sensors[camera_cfg.name]
+                    position_tensor = torch.tensor(camera_cfg.pos, device=self.device, dtype=torch.float32).unsqueeze(0)
+                    position_tensor = position_tensor.repeat(self.num_envs, 1)
+                    camera_lookat_tensor = torch.tensor(
+                        camera_cfg.look_at, device=self.device, dtype=torch.float32
+                    ).unsqueeze(0)
+                    camera_lookat_tensor = camera_lookat_tensor.repeat(self.num_envs, 1)
+                    camera_inst.set_world_poses_from_view(position_tensor, camera_lookat_tensor)
+                    log.debug(
+                        f"Updated camera {camera_cfg.name} pose: pos={camera_cfg.pos}, look_at={camera_cfg.look_at}"
+                    )
+        except Exception as e:
+            log.warning(f"Failed to update camera {camera_cfg.name}: {e}")
+
+    def _force_scene_update(self) -> None:
+        """Force the scene to update after dynamic changes."""
+        try:
+            # Update camera poses
+            self._update_camera_pose()
+
+            self.sim.reset()
+            indices = torch.arange(self.num_envs, dtype=torch.long, device=self.device)
+            self.scene.reset(indices)
+            self.scene.write_data_to_sim()
+
+            # Force a simulation step to apply changes
+            self.sim.step(render=False)
+            self.scene.update(dt=self.dt)
+
+            # Update sensors
+            for sensor in self.scene.sensors.values():
+                sensor.update(dt=0)
+
+            log.debug("Forced scene update completed")
+        except Exception as e:
+            log.warning(f"Failed to force scene update: {e}")

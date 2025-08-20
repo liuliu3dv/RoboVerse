@@ -47,6 +47,7 @@ from metasim.utils.camera_util import get_cam_params
 from metasim.utils.kinematics_utils import get_curobo_models
 from metasim.utils.setup_util import get_sim_handler_class
 
+
 @configclass
 class Args:
     """Arguments for the static scene."""

@@ -1,0 +1,543 @@
+# Enhanced Material configurations for domain randomization
+# Supports PBR materials, MDL materials, and environment materials
+
+# Environment Materials - for backgrounds, ground, walls, sky
+environment_materials:
+  ground:
+    # MDL materials from isaac lab library
+    mdl_library:
+      train:
+        - name: "wood_ash_planks"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/arnold/Wood/Ash_Planks.mdl"
+          albedo_brightness: [0.8, 1.2]
+          texture_scale: [[0.5, 0.5], [2.0, 2.0]]
+
+        - name: "oak_planks"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/arnold/Wood/Oak_Planks.mdl"
+          albedo_brightness: [0.9, 1.1]
+          texture_scale: [[1.0, 1.0], [1.5, 1.5]]
+
+        - name: "concrete_polished"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Concrete/Concrete_Polished.mdl"
+          albedo_brightness: [0.7, 1.3]
+
+        - name: "carpet_beige"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/arnold/Carpet/Carpet_Beige.mdl"
+          texture_scale: [[0.8, 0.8], [1.2, 1.2]]
+
+        - name: "steel_brushed"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Metal/Stainless_Steel_Brushed.mdl"
+          albedo_brightness: [0.9, 1.1]
+
+      val:
+        - name: "walnut_planks"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/arnold/Wood/Walnut_Planks.mdl"
+          albedo_brightness: [0.9, 1.1]
+
+        - name: "carpet_squares"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/arnold/Carpet/Carpet_Pattern_Squares_Multi.mdl"
+
+      test:
+        - name: "walnut_planks"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/arnold/Wood/Walnut_Planks.mdl"
+          albedo_brightness: [0.9, 1.1]
+
+        - name: "carpet_squares"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/arnold/Carpet/Carpet_Pattern_Squares_Multi.mdl"
+
+    # Fallback PBR materials if MDL not available
+    pbr_fallback:
+      - name: "concrete_gray"
+        type: "pbr"
+        diffuse_color: [0.6, 0.6, 0.6]
+        metallic: 0.0
+        roughness: 0.8
+
+      - name: "wood_brown"
+        type: "pbr"
+        diffuse_color: [0.6, 0.4, 0.2]
+        metallic: 0.0
+        roughness: 0.7
+
+      - name: "carpet_blue"
+        type: "pbr"
+        diffuse_color: [0.2, 0.3, 0.7]
+        metallic: 0.0
+        roughness: 0.9
+
+  walls:
+    mdl_library:
+      train:
+        - name: "plaster_wall"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Plaster/Plaster_Wall.mdl"
+          albedo_brightness: [0.8, 1.2]
+
+        - name: "brick_red"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Masonry/Facade_Brick_Red_Clinker.mdl"
+
+        - name: "concrete_wall"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Concrete/Concrete_Wall_Even.mdl"
+          albedo_brightness: [0.9, 1.1]
+
+      val:
+        - name: "glass_optical"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Glass/Glass_Optical.mdl"
+
+      test:
+        - name: "glass_optical"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Glass/Glass_Optical.mdl"
+
+    pbr_fallback:
+      - name: "white_wall"
+        type: "pbr"
+        diffuse_color: [0.9, 0.9, 0.9]
+        metallic: 0.0
+        roughness: 0.6
+
+      - name: "brick_wall"
+        type: "pbr"
+        diffuse_color: [0.7, 0.4, 0.3]
+        metallic: 0.0
+        roughness: 0.8
+
+  tables:
+    mdl_library:
+      train:
+        - name: "wood_oak"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Wood/Wood_Tiles_Oak_Mountain.mdl"
+          albedo_brightness: [0.9, 1.1]
+
+        - name: "aluminum_brushed"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Metal/Aluminum_Brushed.mdl"
+
+        - name: "glass_clear"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Glass/Glass_Clear.mdl"
+
+      val:
+        - name: "steel_stainless"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Metal/Stainless_Steel.mdl"
+
+      test:
+        - name: "steel_stainless"
+          type: "mdl"
+          mdl_path: "roboverse_data/materials/vMaterials_2/Metal/Stainless_Steel.mdl"
+
+# Object Materials - for primitive and complex objects
+object_materials:
+  # Basic color materials for primitives
+  basic_colors:
+    - name: "matte_red"
+      type: "pbr"
+      diffuse_color: [0.8, 0.1, 0.1]
+      metallic: 0.0
+      roughness: 0.8
+      specular: 0.2
+
+    - name: "matte_blue"
+      type: "pbr"
+      diffuse_color: [0.1, 0.1, 0.8]
+      metallic: 0.0
+      roughness: 0.8
+      specular: 0.2
+
+    - name: "matte_green"
+      type: "pbr"
+      diffuse_color: [0.1, 0.8, 0.1]
+      metallic: 0.0
+      roughness: 0.8
+      specular: 0.2
+
+    - name: "matte_yellow"
+      type: "pbr"
+      diffuse_color: [0.9, 0.9, 0.1]
+      metallic: 0.0
+      roughness: 0.7
+      specular: 0.3
+
+    - name: "matte_orange"
+      type: "pbr"
+      diffuse_color: [1.0, 0.5, 0.1]
+      metallic: 0.0
+      roughness: 0.75
+      specular: 0.25
+
+    - name: "matte_purple"
+      type: "pbr"
+      diffuse_color: [0.6, 0.1, 0.8]
+      metallic: 0.0
+      roughness: 0.8
+      specular: 0.2
+
+  # Metallic materials
+  metals:
+    - name: "brushed_aluminum"
+      type: "pbr"
+      diffuse_color: [0.8, 0.8, 0.85]
+      metallic: 0.9
+      roughness: 0.3
+      specular: 0.9
+
+    - name: "polished_steel"
+      type: "pbr"
+      diffuse_color: [0.7, 0.7, 0.75]
+      metallic: 1.0
+      roughness: 0.1
+      specular: 1.0
+
+    - name: "copper"
+      type: "pbr"
+      diffuse_color: [0.95, 0.6, 0.4]
+      metallic: 0.95
+      roughness: 0.2
+      specular: 0.9
+
+    - name: "brass"
+      type: "pbr"
+      diffuse_color: [0.9, 0.8, 0.4]
+      metallic: 0.9
+      roughness: 0.25
+      specular: 0.85
+
+    - name: "gold"
+      type: "pbr"
+      diffuse_color: [1.0, 0.8, 0.3]
+      metallic: 1.0
+      roughness: 0.15
+      specular: 0.95
+
+    - name: "chrome"
+      type: "pbr"
+      diffuse_color: [0.9, 0.9, 0.95]
+      metallic: 1.0
+      roughness: 0.05
+      specular: 1.0
+
+  # Plastic materials
+  plastics:
+    - name: "glossy_red_plastic"
+      type: "pbr"
+      diffuse_color: [0.9, 0.1, 0.1]
+      metallic: 0.0
+      roughness: 0.2
+      specular: 0.8
+
+    - name: "glossy_blue_plastic"
+      type: "pbr"
+      diffuse_color: [0.1, 0.1, 0.9]
+      metallic: 0.0
+      roughness: 0.2
+      specular: 0.8
+
+    - name: "glossy_white_plastic"
+      type: "pbr"
+      diffuse_color: [0.95, 0.95, 0.95]
+      metallic: 0.0
+      roughness: 0.15
+      specular: 0.9
+
+    - name: "glossy_black_plastic"
+      type: "pbr"
+      diffuse_color: [0.05, 0.05, 0.05]
+      metallic: 0.0
+      roughness: 0.1
+      specular: 0.95
+
+    - name: "satin_gray_plastic"
+      type: "pbr"
+      diffuse_color: [0.5, 0.5, 0.5]
+      metallic: 0.0
+      roughness: 0.4
+      specular: 0.6
+
+  # Glass and transparent materials
+  glass:
+    - name: "clear_glass"
+      type: "pbr"
+      diffuse_color: [0.95, 0.95, 0.95]
+      metallic: 0.0
+      roughness: 0.0
+      specular: 1.0
+      ior: 1.5
+      transmission: 0.95
+      opacity: 0.1
+
+    - name: "tinted_glass_blue"
+      type: "pbr"
+      diffuse_color: [0.8, 0.9, 1.0]
+      metallic: 0.0
+      roughness: 0.05
+      specular: 0.95
+      ior: 1.5
+      transmission: 0.8
+      opacity: 0.2
+
+    - name: "tinted_glass_green"
+      type: "pbr"
+      diffuse_color: [0.8, 1.0, 0.9]
+      metallic: 0.0
+      roughness: 0.05
+      specular: 0.95
+      ior: 1.5
+      transmission: 0.8
+      opacity: 0.2
+
+    - name: "frosted_glass"
+      type: "pbr"
+      diffuse_color: [0.9, 0.9, 0.9]
+      metallic: 0.0
+      roughness: 0.3
+      specular: 0.7
+      ior: 1.5
+      transmission: 0.6
+      opacity: 0.4
+
+  # Rubber and soft materials
+  rubber:
+    - name: "black_rubber"
+      type: "pbr"
+      diffuse_color: [0.1, 0.1, 0.1]
+      metallic: 0.0
+      roughness: 0.9
+      specular: 0.1
+
+    - name: "red_rubber"
+      type: "pbr"
+      diffuse_color: [0.7, 0.1, 0.1]
+      metallic: 0.0
+      roughness: 0.85
+      specular: 0.15
+
+    - name: "blue_rubber"
+      type: "pbr"
+      diffuse_color: [0.1, 0.1, 0.7]
+      metallic: 0.0
+      roughness: 0.85
+      specular: 0.15
+
+  # Ceramic materials
+  ceramic:
+    - name: "white_ceramic"
+      type: "pbr"
+      diffuse_color: [0.95, 0.95, 0.95]
+      metallic: 0.0
+      roughness: 0.1
+      specular: 0.8
+
+    - name: "glazed_blue_ceramic"
+      type: "pbr"
+      diffuse_color: [0.2, 0.4, 0.8]
+      metallic: 0.0
+      roughness: 0.05
+      specular: 0.9
+
+    - name: "matte_ceramic"
+      type: "pbr"
+      diffuse_color: [0.8, 0.7, 0.6]
+      metallic: 0.0
+      roughness: 0.6
+      specular: 0.3
+
+  # Wood materials (approximated with PBR)
+  wood:
+    - name: "oak_wood"
+      type: "pbr"
+      diffuse_color: [0.6, 0.4, 0.2]
+      metallic: 0.0
+      roughness: 0.7
+      specular: 0.3
+
+    - name: "dark_walnut"
+      type: "pbr"
+      diffuse_color: [0.3, 0.2, 0.1]
+      metallic: 0.0
+      roughness: 0.6
+      specular: 0.4
+
+    - name: "pine_wood"
+      type: "pbr"
+      diffuse_color: [0.8, 0.7, 0.5]
+      metallic: 0.0
+      roughness: 0.8
+      specular: 0.2
+
+  # Emissive materials
+  emissive:
+    - name: "glowing_blue"
+      type: "pbr"
+      diffuse_color: [0.2, 0.4, 1.0]
+      metallic: 0.0
+      roughness: 0.3
+      specular: 0.7
+      emissive_color: [0.2, 0.6, 1.0]
+      emission_intensity: 0.5
+
+    - name: "glowing_red"
+      type: "pbr"
+      diffuse_color: [1.0, 0.3, 0.2]
+      metallic: 0.0
+      roughness: 0.3
+      specular: 0.7
+      emissive_color: [1.0, 0.4, 0.2]
+      emission_intensity: 0.4
+
+    - name: "glowing_green"
+      type: "pbr"
+      diffuse_color: [0.2, 1.0, 0.3]
+      metallic: 0.0
+      roughness: 0.3
+      specular: 0.7
+      emissive_color: [0.3, 1.0, 0.4]
+      emission_intensity: 0.3
+
+# Material assignment rules for different object types
+assignment_rules:
+  # Objects that should use specific material types
+  object_preferences:
+    cubes:
+      preferred_types: ["basic_colors", "plastics", "metals", "ceramic", "wood"]
+      avoid_types: ["glass", "emissive"]
+      weights:
+        basic_colors: 0.3
+        plastics: 0.25
+        metals: 0.2
+        ceramic: 0.15
+        wood: 0.1
+
+    spheres:
+      preferred_types: ["basic_colors", "metals", "glass", "rubber", "plastics"]
+      avoid_types: ["wood"]
+      weights:
+        basic_colors: 0.25
+        metals: 0.2
+        glass: 0.15
+        rubber: 0.2
+        plastics: 0.2
+
+    cylinders:
+      preferred_types: ["metals", "plastics", "wood", "ceramic", "basic_colors"]
+      avoid_types: ["glass"]
+      weights:
+        metals: 0.3
+        plastics: 0.25
+        wood: 0.2
+        ceramic: 0.15
+        basic_colors: 0.1
+
+  # Robot parts (if materials are applied to robots)
+  robot_preferences:
+    preferred_types: ["metals", "plastics"]
+    avoid_types: ["glass", "emissive", "rubber", "ceramic"]
+    weights:
+      metals: 0.6
+      plastics: 0.4
+
+  # Environment preferences
+  environment_preferences:
+    ground:
+      use_mdl_probability: 0.8  # 80% chance to use MDL materials
+      fallback_types: ["wood", "ceramic", "basic_colors"]
+
+    walls:
+      use_mdl_probability: 0.7  # 70% chance to use MDL materials
+      fallback_types: ["basic_colors", "ceramic"]
+
+    tables:
+      use_mdl_probability: 0.9  # 90% chance to use MDL materials
+      fallback_types: ["wood", "metals", "glass"]
+
+# Randomization settings
+randomization_settings:
+  # General settings
+  apply_to_objects: true
+  apply_to_environment: true
+  apply_to_robots: false
+
+  # Material change probabilities
+  object_change_probability: 0.8      # 80% chance to change object materials
+  environment_change_probability: 0.6 # 60% chance to change environment materials
+
+  # Color variation ranges for PBR materials
+  color_variation: 0.15               # ±15% color variation
+
+  # PBR property variations
+  metallic_variation: 0.1             # ±10% metallic variation
+  roughness_variation: 0.15           # ±15% roughness variation
+  specular_variation: 0.1             # ±10% specular variation
+  opacity_variation: 0.05             # ±5% opacity variation
+
+  # Emission variations (for emissive materials)
+  emission_intensity_variation: 0.3   # ±30% emission variation
+
+  # MDL material variations
+  albedo_brightness_variation: 0.2    # ±20% albedo brightness variation
+  texture_scale_variation: 0.3        # ±30% texture scale variation
+
+  # Material type selection weights (global fallback)
+  global_type_weights:
+    basic_colors: 0.25
+    metals: 0.2
+    plastics: 0.2
+    glass: 0.05
+    rubber: 0.1
+    ceramic: 0.1
+    wood: 0.08
+    emissive: 0.02
+
+# Physics materials for different scenarios
+physics_materials:
+  low_friction:
+    - name: "ice_physics"
+      type: "physics"
+      static_friction: 0.1
+      dynamic_friction: 0.05
+      restitution: 0.1
+
+    - name: "smooth_metal_physics"
+      type: "physics"
+      static_friction: 0.2
+      dynamic_friction: 0.15
+      restitution: 0.3
+
+  medium_friction:
+    - name: "wood_physics"
+      type: "physics"
+      static_friction: 0.6
+      dynamic_friction: 0.4
+      restitution: 0.2
+
+    - name: "plastic_physics"
+      type: "physics"
+      static_friction: 0.5
+      dynamic_friction: 0.4
+      restitution: 0.4
+
+  high_friction:
+    - name: "rubber_physics"
+      type: "physics"
+      static_friction: 1.2
+      dynamic_friction: 1.0
+      restitution: 0.8
+
+    - name: "sandpaper_physics"
+      type: "physics"
+      static_friction: 1.5
+      dynamic_friction: 1.2
+      restitution: 0.1

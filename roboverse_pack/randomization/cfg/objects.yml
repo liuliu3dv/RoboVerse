@@ -1,0 +1,284 @@
+# Object configurations for domain randomization
+
+# Pre-defined objects for random selection and addition
+objects:
+  train:
+    # Primitive cubes with various properties
+    cubes:
+      - name: "small_red_cube"
+        type: "cube"
+        size: [0.06, 0.06, 0.06]
+        mass_range: [0.1, 0.3]
+        color_options:
+          - [1.0, 0.0, 0.0]    # red
+          - [0.8, 0.1, 0.1]    # dark red
+          - [1.0, 0.3, 0.3]    # light red
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "medium_blue_cube"
+        type: "cube"
+        size: [0.08, 0.08, 0.08]
+        mass_range: [0.2, 0.5]
+        color_options:
+          - [0.0, 0.0, 1.0]    # blue
+          - [0.1, 0.1, 0.8]    # dark blue
+          - [0.3, 0.3, 1.0]    # light blue
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "large_green_cube"
+        type: "cube"
+        size: [0.12, 0.12, 0.12]
+        mass_range: [0.4, 0.8]
+        color_options:
+          - [0.0, 1.0, 0.0]    # green
+          - [0.1, 0.8, 0.1]    # dark green
+          - [0.3, 1.0, 0.3]    # light green
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "yellow_cube"
+        type: "cube"
+        size: [0.07, 0.07, 0.07]
+        mass_range: [0.15, 0.35]
+        color_options:
+          - [1.0, 1.0, 0.0]    # yellow
+          - [0.9, 0.9, 0.1]    # dark yellow
+          - [1.0, 1.0, 0.4]    # light yellow
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "purple_cube"
+        type: "cube"
+        size: [0.09, 0.09, 0.09]
+        mass_range: [0.25, 0.45]
+        color_options:
+          - [0.8, 0.0, 0.8]    # purple
+          - [0.6, 0.1, 0.6]    # dark purple
+          - [1.0, 0.3, 1.0]    # light purple
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+    # Primitive spheres
+    spheres:
+      - name: "small_orange_sphere"
+        type: "sphere"
+        radius_range: [0.03, 0.05]
+        mass_range: [0.1, 0.25]
+        color_options:
+          - [1.0, 0.5, 0.0]    # orange
+          - [0.9, 0.4, 0.1]    # dark orange
+          - [1.0, 0.7, 0.3]    # light orange
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "medium_cyan_sphere"
+        type: "sphere"
+        radius_range: [0.04, 0.07]
+        mass_range: [0.15, 0.4]
+        color_options:
+          - [0.0, 1.0, 1.0]    # cyan
+          - [0.1, 0.8, 0.8]    # dark cyan
+          - [0.3, 1.0, 1.0]    # light cyan
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "large_pink_sphere"
+        type: "sphere"
+        radius_range: [0.06, 0.09]
+        mass_range: [0.3, 0.6]
+        color_options:
+          - [1.0, 0.0, 0.5]    # pink
+          - [0.8, 0.1, 0.4]    # dark pink
+          - [1.0, 0.5, 0.8]    # light pink
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+    # Primitive cylinders
+    cylinders:
+      - name: "tall_brown_cylinder"
+        type: "cylinder"
+        radius_range: [0.03, 0.05]
+        height_range: [0.08, 0.12]
+        mass_range: [0.2, 0.4]
+        color_options:
+          - [0.6, 0.3, 0.1]    # brown
+          - [0.4, 0.2, 0.05]   # dark brown
+          - [0.8, 0.5, 0.3]    # light brown
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "short_gray_cylinder"
+        type: "cylinder"
+        radius_range: [0.04, 0.06]
+        height_range: [0.04, 0.06]
+        mass_range: [0.15, 0.3]
+        color_options:
+          - [0.5, 0.5, 0.5]    # gray
+          - [0.3, 0.3, 0.3]    # dark gray
+          - [0.7, 0.7, 0.7]    # light gray
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "wide_white_cylinder"
+        type: "cylinder"
+        radius_range: [0.06, 0.08]
+        height_range: [0.03, 0.05]
+        mass_range: [0.2, 0.5]
+        color_options:
+          - [1.0, 1.0, 1.0]    # white
+          - [0.9, 0.9, 0.9]    # off-white
+          - [0.95, 0.95, 1.0]  # bluish white
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+    # File-based rigid objects (meshes, USD files)
+    rigid_objects:
+      - name: "bbq_sauce"
+        type: "rigid"
+        usd_path: "metasim/example/example_assets/bbq_sauce/usd/bbq_sauce.usd"  # Example path
+        scale_range: [0.8, 1.2]
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+    # Articulated objects (robots, complex mechanisms)
+    articulations:
+      - name: "box_base"
+        type: "articulation"
+        usd_path: "/home/xinying/RoboVerse/metasim/example/example_assets/box_base/usd/box_base.usd"  # USD file path
+        scale_range: [0.9, 1.1]
+        physics: "RIGIDBODY"
+        enabled_gravity: true
+        fix_base_link: false
+
+  val:
+    # Validation objects with different properties
+    cubes:
+      - name: "val_maroon_cube"
+        type: "cube"
+        size: [0.07, 0.09, 0.05]  # rectangular
+        mass_range: [0.2, 0.4]
+        color_options:
+          - [0.5, 0.0, 0.0]    # maroon
+          - [0.6, 0.1, 0.1]    # dark maroon
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+    spheres:
+      - name: "val_gold_sphere"
+        type: "sphere"
+        radius_range: [0.05, 0.08]
+        mass_range: [0.3, 0.7]
+        color_options:
+          - [1.0, 0.8, 0.0]    # gold
+          - [0.8, 0.6, 0.1]    # dark gold
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+  test:
+    # Test objects with challenging properties
+    cubes:
+      - name: "test_tiny_cube"
+        type: "cube"
+        size: [0.03, 0.03, 0.03]
+        mass_range: [0.05, 0.1]
+        color_options:
+          - [0.2, 0.2, 0.2]    # very dark
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+      - name: "test_large_cube"
+        type: "cube"
+        size: [0.15, 0.15, 0.15]
+        mass_range: [0.8, 1.5]
+        color_options:
+          - [0.1, 0.1, 0.1]    # almost black
+        physics: "RIGIDBODY"
+        collision_enabled: true
+        enabled_gravity: true
+        fix_base_link: false
+
+# Spawn area definitions
+spawn_areas:
+  # Main workspace area
+  workspace:
+    x_range: [0.2, 0.8]
+    y_range: [-0.3, 0.3]
+    z_range: [0.5, 0.6]
+    description: "Main manipulation workspace"
+
+  # Extended area for additional objects
+  extended:
+    x_range: [0.1, 0.9]
+    y_range: [-0.5, 0.5]
+    z_range: [0.5, 0.8]
+    description: "Extended area around workspace"
+
+  # Side areas for scattered objects
+  left_side:
+    x_range: [0.0, 0.3]
+    y_range: [-0.6, -0.2]
+    z_range: [0.5, 0.7]
+    description: "Left side area"
+
+  right_side:
+    x_range: [0.0, 0.3]
+    y_range: [0.2, 0.6]
+    z_range: [0.5, 0.7]
+    description: "Right side area"
+
+  # Background area for decorative objects
+  background:
+    x_range: [-0.2, 0.2]
+    y_range: [-0.8, 0.8]
+    z_range: [0.5, 1.0]
+    description: "Background area for decorative objects"
+
+# Randomization settings
+randomization_settings:
+  # Position and orientation noise for existing objects
+  position_noise: 0.05        # ±5cm noise for existing objects
+  rotation_noise: 0.15        # ±8.6 degrees rotation noise
+
+  # Scale and mass variation
+  scale_variation: 0.1        # ±10% scale variation
+  mass_variation: 0.2         # ±20% mass variation
+
+  # Selection probabilities
+  add_objects_probability: 0.7  # 70% chance to add objects
+  max_additional_objects: 3     # Maximum objects to add
+
+  # Collision avoidance
+  min_distance_between_objects: 0.08  # 8cm minimum distance
+  max_placement_attempts: 20          # Max attempts to find valid position

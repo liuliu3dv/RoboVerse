@@ -1,0 +1,440 @@
+# Lighting configurations for domain randomization
+
+# Pre-defined lighting presets for random selection
+lighting_presets:
+  train:
+    # Office environment lighting
+    - name: "office_warm"
+      description: "Warm office lighting with main overhead and side fill"
+      lights:
+        - type: "distant"
+          intensity: 1800.0
+          color: [1.0, 0.95, 0.85]
+          polar: 45.0
+          azimuth: 135.0
+        - type: "sphere"
+          intensity: 600.0
+          color: [0.95, 0.95, 1.0]
+          radius: 0.2
+          position: [1.5, 1.5, 2.0]
+          normalize: true
+
+    - name: "office_cool"
+      description: "Cool office lighting with bright overhead"
+      lights:
+        - type: "distant"
+          intensity: 2200.0
+          color: [0.9, 0.95, 1.0]
+          polar: 60.0
+          azimuth: 90.0
+        - type: "sphere"
+          intensity: 800.0
+          color: [0.95, 0.98, 1.0]
+          radius: 0.25
+          position: [-1.0, 1.0, 2.5]
+          normalize: true
+
+    # Lab environment lighting
+    - name: "lab_bright"
+      description: "Bright laboratory lighting"
+      lights:
+        - type: "distant"
+          intensity: 2500.0
+          color: [0.98, 0.98, 1.0]
+          polar: 30.0
+          azimuth: 45.0
+        - type: "sphere"
+          intensity: 1000.0
+          color: [1.0, 1.0, 1.0]
+          radius: 0.3
+          position: [0.0, 0.0, 3.0]
+          normalize: true
+        - type: "sphere"
+          intensity: 500.0
+          color: [0.9, 0.95, 1.0]
+          radius: 0.15
+          position: [2.0, -1.0, 1.8]
+          normalize: true
+
+    - name: "lab_dramatic"
+      description: "Dramatic lab lighting with strong shadows"
+      lights:
+        - type: "distant"
+          intensity: 3000.0
+          color: [1.0, 0.9, 0.8]
+          polar: 70.0
+          azimuth: 180.0
+        - type: "sphere"
+          intensity: 400.0
+          color: [0.8, 0.9, 1.0]
+          radius: 0.1
+          position: [-1.5, -1.5, 1.5]
+          normalize: true
+
+    # Workshop environment lighting
+    - name: "workshop_warm"
+      description: "Warm workshop with multiple sources"
+      lights:
+        - type: "distant"
+          intensity: 1600.0
+          color: [1.0, 0.9, 0.7]
+          polar: 50.0
+          azimuth: 270.0
+        - type: "sphere"
+          intensity: 700.0
+          color: [1.0, 0.85, 0.6]
+          radius: 0.4
+          position: [1.0, 2.0, 2.2]
+          normalize: true
+        - type: "sphere"
+          intensity: 300.0
+          color: [0.9, 0.9, 0.95]
+          radius: 0.2
+          position: [-0.5, -1.0, 1.6]
+          normalize: true
+
+    - name: "workshop_industrial"
+      description: "Industrial workshop lighting"
+      lights:
+        - type: "distant"
+          intensity: 2000.0
+          color: [0.95, 0.95, 0.95]
+          polar: 40.0
+          azimuth: 0.0
+        - type: "cylinder"
+          intensity: 800.0
+          color: [1.0, 1.0, 1.0]
+          radius: 0.3
+          length: 1.0
+          position: [0.5, 0.0, 2.8]
+          rotation: [1.0, 0.0, 0.0, 0.0]
+
+  val:
+    # Validation lighting scenarios
+    - name: "val_sunset"
+      description: "Warm sunset lighting"
+      lights:
+        - type: "distant"
+          intensity: 1200.0
+          color: [1.0, 0.8, 0.6]
+          polar: 80.0
+          azimuth: 225.0
+        - type: "sphere"
+          intensity: 400.0
+          color: [0.9, 0.9, 1.0]
+          radius: 0.2
+          position: [1.8, 0.8, 1.8]
+          normalize: true
+
+    - name: "val_overcast"
+      description: "Soft overcast lighting"
+      lights:
+        - type: "dome"
+          intensity: 800.0
+          color: [0.9, 0.9, 0.9]
+          texture_file: null
+        - type: "sphere"
+          intensity: 200.0
+          color: [0.95, 0.95, 1.0]
+          radius: 0.5
+          position: [0.0, 0.0, 4.0]
+          normalize: true
+
+  test:
+    # Test lighting scenarios - each tests specific new attributes
+    - name: "test_distant_light_features"
+      description: "Test distant light with angle, exposure, color temperature"
+      lights:
+        - type: "distant"
+          intensity: 2000.0
+          color: [1.0, 1.0, 1.0]
+          polar: 45.0
+          azimuth: 135.0
+          angle: 2.0              # Test angular size
+          exposure: 1.0           # Test exposure
+          enable_color_temperature: true
+          color_temperature: 3200.0  # Test color temperature (warm)
+          normalize: true
+
+    - name: "test_sphere_light_features"
+      description: "Test sphere light with treat_as_point and exposure"
+      lights:
+        - type: "sphere"
+          intensity: 1000.0
+          color: [0.9, 0.95, 1.0]
+          radius: 0.2
+          position: [1.0, 1.0, 2.0]
+          treat_as_point: true    # Test treat as point source
+          exposure: -0.5          # Test negative exposure
+          normalize: false
+        - type: "sphere"
+          intensity: 800.0
+          color: [1.0, 0.9, 0.8]
+          radius: 0.3
+          position: [-1.0, -1.0, 2.0]
+          treat_as_point: false   # Test normal sphere
+          exposure: 0.5           # Test positive exposure
+          normalize: true
+
+    - name: "test_cylinder_light_features"
+      description: "Test cylinder light with treat_as_line and color temperature"
+      lights:
+        - type: "cylinder"
+          intensity: 1200.0
+          color: [1.0, 1.0, 1.0]
+          radius: 0.1
+          length: 1.5
+          position: [0.0, 0.0, 2.5]
+          rotation: [1.0, 0.0, 0.0, 0.0]
+          treat_as_line: true     # Test treat as line source
+          exposure: 0.0
+          enable_color_temperature: true
+          color_temperature: 5600.0  # Test daylight color temp
+          normalize: true
+        - type: "cylinder"
+          intensity: 900.0
+          color: [0.95, 0.98, 1.0]
+          radius: 0.2
+          length: 1.0
+          position: [1.5, 0.0, 2.0]
+          rotation: [0.7071, 0.0, 0.7071, 0.0]  # Horizontal
+          treat_as_line: false    # Test normal cylinder
+          exposure: -0.3
+          normalize: false
+
+    - name: "test_disk_light_features"
+      description: "Test disk light with various orientations and exposure"
+      lights:
+        - type: "disk"
+          intensity: 1500.0
+          color: [1.0, 0.95, 0.9]
+          radius: 0.25
+          position: [0.0, 1.0, 2.5]
+          rotation: [0.7071, -0.7071, 0.0, 0.0]  # Angled down
+          exposure: 1.5           # Test high exposure
+          normalize: true
+        - type: "disk"
+          intensity: 1000.0
+          color: [0.9, 1.0, 0.95]
+          radius: 0.15
+          position: [2.0, 0.0, 2.0]
+          rotation: [0.5, -0.5, -0.5, 0.5]  # Side lighting
+          exposure: -1.0          # Test low exposure
+          normalize: false
+
+    - name: "test_dome_light_features"
+      description: "Test dome light with visibility and texture options"
+      lights:
+        - type: "dome"
+          intensity: 400.0
+          color: [0.85, 0.9, 0.95]
+          visible_in_primary_ray: true   # Test visibility
+          exposure: 0.3
+          normalize: true
+        - type: "dome"
+          intensity: 300.0
+          color: [1.0, 0.95, 0.85]
+          visible_in_primary_ray: false  # Test hidden dome
+          exposure: -0.5
+          normalize: false
+
+    - name: "test_mixed_color_temperature"
+      description: "Test color temperature on multiple light types"
+      lights:
+        - type: "distant"
+          intensity: 1800.0
+          color: [1.0, 1.0, 1.0]
+          polar: 60.0
+          azimuth: 90.0
+          enable_color_temperature: true
+          color_temperature: 2700.0  # Warm incandescent
+          exposure: 0.2
+        - type: "sphere"
+          intensity: 600.0
+          color: [1.0, 1.0, 1.0]
+          radius: 0.2
+          position: [1.0, 0.0, 2.0]
+          enable_color_temperature: true
+          color_temperature: 6500.0  # Cool daylight
+          exposure: -0.2
+        - type: "cylinder"
+          intensity: 800.0
+          color: [1.0, 1.0, 1.0]
+          radius: 0.15
+          length: 0.8
+          position: [-1.0, 0.0, 2.2]
+          rotation: [1.0, 0.0, 0.0, 0.0]
+          enable_color_temperature: true
+          color_temperature: 4000.0  # Neutral white
+          exposure: 0.0
+
+    - name: "test_extreme_exposure_values"
+      description: "Test extreme exposure values for dramatic effects"
+      lights:
+        - type: "sphere"
+          intensity: 500.0
+          color: [1.0, 0.8, 0.6]
+          radius: 0.1
+          position: [0.5, 0.5, 1.8]
+          exposure: 3.0           # Very high exposure
+          normalize: true
+        - type: "disk"
+          intensity: 2000.0
+          color: [0.8, 0.9, 1.0]
+          radius: 0.3
+          position: [-0.5, -0.5, 2.5]
+          rotation: [0.8660, -0.5, 0.0, 0.0]
+          exposure: -2.0          # Very low exposure
+          normalize: false
+
+# Individual light configurations for random addition
+additional_lights:
+  # Sphere lights
+  sphere_lights:
+    - intensity_range: [300, 800]
+      color_options:
+        - [1.0, 1.0, 1.0]    # white
+        - [1.0, 0.95, 0.8]   # warm white
+        - [0.9, 0.95, 1.0]   # cool white
+        - [1.0, 0.9, 0.7]    # warm yellow
+        - [1.0, 0.8, 0.6]    # warm orange
+        - [0.8, 0.9, 1.0]    # cool blue
+      radius_range: [0.1, 0.4]
+      exposure_range: [-1.0, 2.0]
+      normalize: [true, false]
+      treat_as_point: [false, true]  # 50% chance each
+      positions:
+        - [1.5, 1.5, 2.0]
+        - [-1.5, 1.5, 2.0]
+        - [1.5, -1.5, 2.0]
+        - [-1.5, -1.5, 2.0]
+        - [0.0, 2.0, 2.5]
+        - [2.0, 0.0, 2.5]
+        - [0.0, 0.0, 3.0]
+        - [1.0, 0.0, 1.8]
+        - [-1.0, 0.0, 1.8]
+        - [0.0, 1.0, 2.2]
+
+  # Distant lights
+  distant_lights:
+    - intensity_range: [1000, 3000]
+      color_options:
+        - [1.0, 1.0, 1.0]      # neutral white
+        - [1.0, 0.9, 0.8]      # warm sunlight
+        - [0.9, 0.95, 1.0]     # cool daylight
+        - [1.0, 0.95, 0.85]    # soft warm
+        - [1.0, 0.8, 0.6]      # sunset
+        - [0.8, 0.85, 1.0]     # cool shadow
+      polar_range: [20, 80]
+      azimuth_range: [0, 360]
+      angle_range: [0.3, 2.0]     # Angular size variation
+      exposure_range: [-1.0, 1.5]
+      color_temperature_range: [2700, 6500]  # K
+      enable_color_temperature_probability: 0.4
+
+  # Disk lights
+  disk_lights:
+    - intensity_range: [500, 1500]
+      color_options:
+        - [1.0, 1.0, 1.0]      # white
+        - [1.0, 0.95, 0.9]     # warm white
+        - [0.95, 0.95, 1.0]    # cool white
+        - [1.0, 0.9, 0.8]      # warm
+        - [0.9, 1.0, 0.9]      # green tint
+      radius_range: [0.15, 0.35]
+      exposure_range: [-0.5, 1.0]
+      normalize: [true, false]
+      positions:
+        - [1.0, 1.0, 2.5]
+        - [-1.0, 1.0, 2.5]
+        - [1.0, -1.0, 2.5]
+        - [0.0, 0.0, 3.5]
+        - [1.5, 0.0, 3.0]
+        - [-1.5, 0.0, 3.0]
+      # Common orientations for disk lights
+      rotations:
+        - [1.0, 0.0, 0.0, 0.0]           # pointing down
+        - [0.7071, -0.7071, 0.0, 0.0]   # angled 45 degrees
+        - [0.5, -0.5, -0.5, 0.5]        # side lighting
+        - [0.8660, -0.5, 0.0, 0.0]      # 30 degree angle
+
+  # Cylinder lights
+  cylinder_lights:
+    - intensity_range: [400, 1200]
+      color_options:
+        - [1.0, 1.0, 1.0]      # fluorescent white
+        - [0.95, 0.98, 1.0]    # cool fluorescent
+        - [1.0, 0.95, 0.9]     # warm fluorescent
+        - [0.9, 0.95, 1.0]     # LED cool
+      radius_range: [0.1, 0.3]
+      length_range: [0.5, 2.0]
+      exposure_range: [-0.5, 1.0]
+      normalize: [true, false]
+      treat_as_line: [false, true]  # 50% chance each
+      positions:
+        - [0.0, 0.0, 2.8]      # overhead
+        - [1.5, 0.0, 2.5]      # side
+        - [-1.5, 0.0, 2.5]     # opposite side
+        - [0.0, 1.5, 2.2]      # front
+        - [0.0, -1.5, 2.2]     # back
+      rotations:
+        - [1.0, 0.0, 0.0, 0.0]           # vertical
+        - [0.7071, 0.0, 0.7071, 0.0]     # horizontal X
+        - [0.7071, 0.7071, 0.0, 0.0]     # horizontal Y
+
+  # Dome lights (for ambient lighting)
+  dome_lights:
+    - intensity_range: [200, 600]
+      color_options:
+        - [0.9, 0.9, 0.9]      # neutral grey
+        - [0.8, 0.85, 1.0]     # cool ambient
+        - [1.0, 0.95, 0.85]    # warm ambient
+        - [0.85, 0.9, 0.95]    # soft blue
+      exposure_range: [-1.0, 0.5]
+      visible_in_primary_ray: [true, false]  # Sometimes hide dome
+      # Note: texture_file would be set to None for pure color domes
+
+# Randomization ranges for parametric light generation
+randomization_ranges:
+  # Intensity ranges for different light types
+  intensity_ranges:
+    distant: [1000.0, 3000.0]      # Distant lights (sun-like)
+    sphere: [200.0, 1000.0]        # Sphere lights (point lights)
+    cylinder: [300.0, 800.0]       # Cylinder lights (tube lights)
+    disk: [400.0, 1200.0]          # Disk lights (area lights)
+    dome: [100.0, 500.0]           # Dome lights (environment)
+
+  # Color variation ranges
+  color_variation: 0.2             # ±20% per RGB channel
+  warm_color_range: [0.9, 1.0, 0.7, 1.0, 0.6, 0.9]  # [r_min, r_max, g_min, g_max, b_min, b_max]
+  cool_color_range: [0.7, 0.9, 0.8, 1.0, 0.9, 1.0]  # Cool white colors
+  neutral_color_range: [0.85, 1.0, 0.85, 1.0, 0.85, 1.0]  # Neutral white
+
+  # Position ranges for positional lights
+  position_ranges:
+    x: [-2.0, 3.0]                 # X coordinate range
+    y: [-2.0, 2.0]                 # Y coordinate range
+    z: [0.5, 3.0]                  # Z coordinate range (above ground)
+
+  # Directional light angles (for distant lights)
+  polar_range: [10.0, 80.0]        # Elevation angle (degrees)
+  azimuth_range: [-180.0, 180.0]   # Rotation angle (degrees)
+
+  # Size ranges
+  radius_range: [0.1, 1.0]         # For sphere/disk lights
+  length_range: [0.5, 2.0]         # For cylinder lights
+  angle_range: [0.1, 5.0]          # Angular size for distant lights (degrees)
+
+  # Advanced properties ranges
+  exposure_range: [-2.0, 2.0]      # Exposure compensation (stops)
+  color_temperature_range: [2700.0, 6500.0]  # Color temperature (Kelvin)
+  color_temperature_probability: 0.3  # 30% chance to enable color temperature
+
+  # Special properties probabilities
+  normalize_probability: 0.3       # 30% chance to enable normalization
+  treat_as_point_probability: 0.2  # 20% chance for sphere->point conversion
+  treat_as_line_probability: 0.2   # 20% chance for cylinder->line conversion
+  visible_in_primary_ray_probability: 0.8  # 80% chance for dome visibility
+
+# Note: The enhanced LightingRandomizer supports both YAML-based selection
+# (presets, additional_lights) and parametric generation using these ranges.

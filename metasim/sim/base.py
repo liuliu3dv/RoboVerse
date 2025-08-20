@@ -24,6 +24,7 @@ class BaseSimHandler(ABC):
         self.cameras = scenario.cameras
         self.objects = scenario.objects
         self.lights = scenario.lights if hasattr(scenario, "lights") else []
+
         self._num_envs = scenario.num_envs
         self.decimation = scenario.decimation
         self.headless = scenario.headless

@@ -1,0 +1,135 @@
+# Camera configurations for domain randomization
+
+# Pre-defined camera positions for random selection
+camera_positions:
+  train:
+    # Close range positions (1.5-2.2m) for detailed view
+    - position: [1.8, -0.8, 1.4]
+      look_at: [0.5, 0.0, 0.5]
+      description: "close_front_left"
+    - position: [1.8, 0.8, 1.4]
+      look_at: [0.5, 0.0, 0.5]
+      description: "close_front_right"
+    - position: [2.0, 0.0, 1.5]
+      look_at: [0.5, 0.0, 0.5]
+      description: "close_front_center"
+    - position: [1.5, -1.0, 1.3]
+      look_at: [0.5, 0.0, 0.5]
+      description: "close_left_side"
+    - position: [1.5, 1.0, 1.3]
+      look_at: [0.5, 0.0, 0.5]
+      description: "close_right_side"
+
+    # Medium range positions (2.2-2.8m) for overview
+    - position: [2.5, -1.2, 1.8]
+      look_at: [0.5, 0.0, 0.5]
+      description: "medium_front_left"
+    - position: [2.5, 1.2, 1.8]
+      look_at: [0.5, 0.0, 0.5]
+      description: "medium_front_right"
+    - position: [2.8, 0.0, 2.0]
+      look_at: [0.5, 0.0, 0.5]
+      description: "medium_front_center"
+    - position: [2.2, -1.5, 1.6]
+      look_at: [0.5, 0.0, 0.5]
+      description: "medium_left_side"
+    - position: [2.2, 1.5, 1.6]
+      look_at: [0.5, 0.0, 0.5]
+      description: "medium_right_side"
+
+    # High angle positions for top-down view
+    - position: [2.0, -0.5, 2.5]
+      look_at: [0.5, 0.0, 0.5]
+      description: "high_angle_left"
+    - position: [2.0, 0.5, 2.5]
+      look_at: [0.5, 0.0, 0.5]
+      description: "high_angle_right"
+    - position: [1.8, 0.0, 2.3]
+      look_at: [0.5, 0.0, 0.5]
+      description: "high_angle_center"
+
+  val:
+    # Validation set with different perspectives
+    - position: [2.2, -0.6, 1.7]
+      look_at: [0.4, 0.1, 0.5]
+      description: "val_diagonal_left"
+    - position: [2.2, 0.6, 1.7]
+      look_at: [0.4, -0.1, 0.5]
+      description: "val_diagonal_right"
+    - position: [2.6, 0.0, 2.2]
+      look_at: [0.5, 0.0, 0.5]
+      description: "val_overhead"
+
+  test:
+    # Test set with challenging viewpoints
+    - position: [1.6, -1.3, 1.2]
+      look_at: [0.6, 0.2, 0.5]
+      description: "test_low_angle"
+    - position: [2.4, 1.4, 1.9]
+      look_at: [0.4, -0.2, 0.5]
+      description: "test_side_high"
+
+# Camera intrinsic parameters for random selection
+camera_intrinsics:
+  # Wide angle configurations
+  - focal_length: 18.0
+    horizontal_aperture: 36.0
+    description: "ultra_wide_18mm"
+  - focal_length: 24.0
+    horizontal_aperture: 36.0
+    description: "wide_24mm"
+
+  # Standard configurations
+  - focal_length: 35.0
+    horizontal_aperture: 20.955
+    description: "standard_35mm"
+  - focal_length: 50.0
+    horizontal_aperture: 20.955
+    description: "standard_50mm"
+
+  # Telephoto configurations
+  - focal_length: 85.0
+    horizontal_aperture: 20.955
+    description: "telephoto_85mm"
+  - focal_length: 100.0
+    horizontal_aperture: 20.955
+    description: "telephoto_100mm"
+
+  # Simulation camera (like RealSense)
+  - focal_length: 1.88
+    horizontal_aperture: 4.7
+    description: "realsense_like"
+
+  # Medium configurations
+  - focal_length: 28.0
+    horizontal_aperture: 36.0
+    description: "medium_wide_28mm"
+  - focal_length: 70.0
+    horizontal_aperture: 20.955
+    description: "medium_tele_70mm"
+
+# Randomization ranges for parametric positioning (used by preset mode)
+randomization_ranges:
+  # Distance and angle ranges for preset positioning
+  distance_range: [1.5, 2.8]
+  elevation_range: [20.0, 65.0]
+  azimuth_range: [-90.0, 90.0]
+
+  # Look-at point noise for preset positioning
+  look_at_noise:
+    x: [-0.1, 0.1]     # ±10cm in x direction
+    y: [-0.1, 0.1]     # ±10cm in y direction
+    z: [-0.05, 0.05]   # ±5cm in z direction
+
+  # Intrinsic parameter variations (for preset intrinsics)
+  focal_length_variation: 0.1  # ±10% variation from base focal length
+  aperture_variation: 0.05     # ±5% variation from base aperture
+
+  # Focus and clipping range variations
+  focus_distance_variation: 0.5  # ±50% variation (200-600m range)
+  near_clipping_variation: 0.2   # ±20% variation of near plane
+  far_clipping_variation: 0.2    # ±20% variation of far plane
+
+# Note: The enhanced CameraRandomizer also supports parametric positioning
+# with configurable distance_range, elevation_range, azimuth_range parameters
+# passed directly to the randomizer constructor.
