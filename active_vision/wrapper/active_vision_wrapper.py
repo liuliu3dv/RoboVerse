@@ -28,8 +28,8 @@ class ActiveVisionWrapper(RslRlWrapper):
 
     def __init__(self, scenario: ScenarioCfg):
         super().__init__(scenario)
-        self.use_vision = scenario.task.use_vision
         self.up_axis_idx = 2
+        self._env_origins = self.env.scene.env_origins.clone()
 
         self._parse_rigid_body_indices(scenario.robots[0])
         self._parse_actuation_cfg(scenario)
@@ -476,13 +476,13 @@ class ActiveVisionWrapper(RslRlWrapper):
         )
 
     def _update_marker_viz(self):
-        pos = self.ref_wrist_pos[:, :, :3].reshape(-1, 3)
-        # 四元数全用单位(无旋转)
+        # convert to world frame
+        world_pos = self.ref_wrist_pos[:, :, :3] + self._env_origins[:, None, :3]
+        pos = world_pos.reshape(-1, 3)
         ori = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).repeat(pos.shape[0], 1)
-        # 只有一种原型 → 索引全 0
         idx = torch.zeros(pos.shape[0], dtype=torch.long, device=self.device)
-        # 推给 Visualizer
-        self.marker_viz.visualize(pos, ori, marker_indices=idx)                   
+        self.marker_viz.visualize(pos, ori, marker_indices=idx)
+        
 
     def _init_target_wp(self, tensor_state: TensorState) -> None:
         self.ori_wrist_pos = (

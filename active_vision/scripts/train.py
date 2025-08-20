@@ -91,6 +91,7 @@ if __name__ == "__main__":
     scenario.decimation = task_cfg.decimation
     scenario.render_interval = 4
     scenario.task = task_cfg
+    scenario.env_spacing = task_cfg.env_spacing
 
     log.info(f"Using simulator: {args.sim}")
     env = ActiveVisionWrapper(scenario)

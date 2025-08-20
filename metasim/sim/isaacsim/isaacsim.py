@@ -331,7 +331,7 @@ class IsaacsimHandler(BaseSimHandler):
                 # action_tensor_all[:, start_idx : start_idx + len(actionable_joint_ids)],
                 action_tensor_all,
                 # joint_ids=actionable_joint_ids,
-                joint_ids=list(range(9)),
+                joint_ids=list(range(9)), # TODO: hard code here
             )
             # start_idx += len(actionable_joint_ids)
 
