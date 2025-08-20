@@ -1,6 +1,8 @@
 """Object randomization using YAML configuration files."""
 
-from typing import Any, List, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 from loguru import logger as log
@@ -14,7 +16,7 @@ class ObjectRandomizer(BaseRandomizer):
 
     def __init__(
         self,
-        config_dir: Optional[str] = None,
+        config_dir: str | None = None,
         split: str = "train",
         modify_existing_probability: float = 0.6,
         add_yaml_objects_probability: float = 0.3,
@@ -26,7 +28,7 @@ class ObjectRandomizer(BaseRandomizer):
         mass_variation: float = 0.2,
         color_variation: float = 0.15,
         use_intelligent_placement: bool = True,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         **kwargs,
     ):
         super().__init__(seed=seed, **kwargs)
@@ -55,7 +57,8 @@ class ObjectRandomizer(BaseRandomizer):
             f"yaml_add={self.add_yaml_probability:.1%}, parametric_add={self.add_parametric_probability:.1%}"
         )
 
-    def randomize(self, scenario_cfg: Any, env_ids: Optional[List[int]] = None, **kwargs) -> None:
+    def randomize(self, scenario_cfg: Any, env_ids: list[int] | None = None, **kwargs) -> None:
+        """Apply object randomization to the scenario."""
         if not self.enabled:
             return
 
@@ -202,7 +205,7 @@ class ObjectRandomizer(BaseRandomizer):
 
         log.debug(f"Added {added_count} new objects from YAML config")
 
-    def _check_object_collision(self, pos: Tuple[float, float, float], existing_objects: List[Any]) -> bool:
+    def _check_object_collision(self, pos: tuple[float, float, float], existing_objects: list[Any]) -> bool:
         """Check if a position collides with existing objects."""
         min_distance = 0.08  # 8cm minimum distance
 
@@ -214,7 +217,7 @@ class ObjectRandomizer(BaseRandomizer):
 
         return False
 
-    def _random_quaternion(self) -> Tuple[float, float, float, float]:
+    def _random_quaternion(self) -> tuple[float, float, float, float]:
         """Generate a random quaternion for rotation."""
         angle = float(np.random.uniform(0, 2 * np.pi))
         cos_half = float(np.cos(angle / 2))
@@ -470,7 +473,7 @@ class ObjectRandomizer(BaseRandomizer):
             return 0.05
 
     def _check_intelligent_collision(
-        self, pos: Tuple[float, float, float], existing_objects: List[Any], object_radius: float, min_distance: float
+        self, pos: tuple[float, float, float], existing_objects: list[Any], object_radius: float, min_distance: float
     ) -> bool:
         """Enhanced collision checking considering object sizes."""
         for obj in existing_objects:

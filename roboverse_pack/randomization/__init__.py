@@ -1,4 +1,4 @@
-"""Simplified Domain Randomization Module for RoboVerse
+"""Simplified Domain Randomization Module for RoboVerse.
 
 This module provides simplified domain randomization functionality:
 - Lighting: intensity, color, additional lights

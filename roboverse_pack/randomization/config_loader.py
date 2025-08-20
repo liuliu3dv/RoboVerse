@@ -1,10 +1,13 @@
 """Configuration loader for domain randomization.
+
 Loads pre-defined configurations from YAML files for random selection.
 """
 
+from __future__ import annotations
+
 import os
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import yaml
@@ -17,8 +20,6 @@ from metasim.scenario.objects import PrimitiveCubeCfg, PrimitiveCylinderCfg, Pri
 
 try:
     from metasim.scenario.materials import (
-        EnvironmentMaterialCfg,
-        GlassMaterialCfg,
         MDLMaterialCfg,
         PBRMaterialCfg,
         PhysicsMaterialCfg,
@@ -34,7 +35,7 @@ except ImportError:
 class ConfigLoader:
     """Loads configurations from YAML files for domain randomization."""
 
-    def __init__(self, config_dir: Optional[str] = None):
+    def __init__(self, config_dir: str | None = None):
         if config_dir is None:
             # Default to the cfg directory relative to this file
             self.config_dir = os.path.join(os.path.dirname(__file__), "cfg")
@@ -49,7 +50,7 @@ class ConfigLoader:
 
         log.info(f"ConfigLoader initialized from {self.config_dir}")
 
-    def _load_yaml(self, filename: str) -> Dict:
+    def _load_yaml(self, filename: str) -> dict:
         """Load a YAML configuration file."""
         filepath = os.path.join(self.config_dir, filename)
         try:
@@ -63,7 +64,7 @@ class ConfigLoader:
             return {}
 
     # Camera configuration methods
-    def get_random_camera_position(self, split: str = "train") -> Optional[Dict]:
+    def get_random_camera_position(self, split: str = "train") -> dict | None:
         """Get a random camera position from the configuration."""
         positions = self.cameras_config.get("camera_positions", {}).get(split, [])
         if not positions:
@@ -72,7 +73,7 @@ class ConfigLoader:
 
         return random.choice(positions)
 
-    def get_random_camera_intrinsics(self) -> Optional[Dict]:
+    def get_random_camera_intrinsics(self) -> dict | None:
         """Get random camera intrinsics from the configuration."""
         intrinsics = self.cameras_config.get("camera_intrinsics", [])
         if not intrinsics:
@@ -124,7 +125,7 @@ class ConfigLoader:
                 camera_cfg.horizontal_aperture *= 1 + variation
 
     # Lighting configuration methods
-    def get_random_lighting_preset(self, split: str = "train") -> Optional[Dict]:
+    def get_random_lighting_preset(self, split: str = "train") -> dict | None:
         """Get a random lighting preset from the configuration."""
         presets = self.lights_config.get("lighting_presets", {}).get(split, [])
         if not presets:
@@ -133,7 +134,7 @@ class ConfigLoader:
 
         return random.choice(presets)
 
-    def create_lights_from_preset(self, preset: Dict) -> List[Any]:
+    def create_lights_from_preset(self, preset: dict) -> list[Any]:
         """Create light objects from a preset configuration."""
         lights = []
 
@@ -227,7 +228,7 @@ class ConfigLoader:
 
         return lights
 
-    def get_random_additional_light(self, light_type: str = None) -> Optional[Any]:
+    def get_random_additional_light(self, light_type: str | None = None) -> Any | None:
         """Get a random additional light for adding to the scene."""
         additional = self.lights_config.get("additional_lights", {})
 
@@ -347,7 +348,7 @@ class ConfigLoader:
         return None
 
     # Object configuration methods
-    def get_random_object(self, split: str = "train", object_type: str = None) -> Optional[Any]:
+    def get_random_object(self, split: str = "train", object_type: str | None = None) -> Any | None:
         """Get a random object from the configuration."""
         objects = self.objects_config.get("objects", {}).get(split, {})
 
@@ -365,7 +366,7 @@ class ConfigLoader:
         config = random.choice(object_configs)
         return self._create_object_from_config(config)
 
-    def _create_object_from_config(self, config: Dict) -> Optional[Any]:
+    def _create_object_from_config(self, config: dict) -> Any | None:
         """Create an object from a configuration dictionary."""
         obj_type = config["type"]
 
@@ -478,7 +479,7 @@ class ConfigLoader:
 
         return None
 
-    def get_spawn_area(self, area_name: str = None) -> Optional[Dict]:
+    def get_spawn_area(self, area_name: str | None = None) -> dict | None:
         """Get a spawn area configuration."""
         spawn_areas = self.objects_config.get("spawn_areas", {})
 
@@ -492,7 +493,9 @@ class ConfigLoader:
         return spawn_areas.get(area_name)
 
     # Material configuration methods
-    def get_random_object_material(self, for_object_type: str = None, material_type: str = None) -> Optional[Dict]:
+    def get_random_object_material(
+        self, for_object_type: str | None = None, material_type: str | None = None
+    ) -> dict | None:
         """Get a random material for objects from the configuration."""
         if not MATERIALS_AVAILABLE:
             return None
@@ -538,7 +541,7 @@ class ConfigLoader:
 
         return random.choice(materials)
 
-    def get_random_environment_material(self, env_type: str = "ground", split: str = "train") -> Optional[Dict]:
+    def get_random_environment_material(self, env_type: str = "ground", split: str = "train") -> dict | None:
         """Get a random environment material (ground, walls, tables) from the configuration."""
         if not MATERIALS_AVAILABLE:
             return None
@@ -566,7 +569,7 @@ class ConfigLoader:
         fallback_type = random.choice(fallback_types)
         return self.get_random_object_material(material_type=fallback_type)
 
-    def get_random_physics_material(self, friction_type: str = None) -> Optional[Dict]:
+    def get_random_physics_material(self, friction_type: str | None = None) -> dict | None:
         """Get a random physics material from the configuration."""
         if not MATERIALS_AVAILABLE:
             return None
@@ -586,11 +589,11 @@ class ConfigLoader:
 
         return random.choice(materials)
 
-    def get_random_material(self, material_type: str = None, for_object_type: str = None) -> Optional[Dict]:
+    def get_random_material(self, material_type: str | None = None, for_object_type: str | None = None) -> dict | None:
         """Legacy method for backward compatibility."""
         return self.get_random_object_material(for_object_type=for_object_type, material_type=material_type)
 
-    def create_material_from_config(self, config: Dict) -> Optional[Any]:
+    def create_material_from_config(self, config: dict) -> Any | None:
         """Create a material object from configuration."""
         if not MATERIALS_AVAILABLE:
             return None
@@ -610,7 +613,7 @@ class ConfigLoader:
             log.warning(f"Unknown material type: {material_type}")
             return None
 
-    def _create_pbr_material(self, config: Dict, settings: Dict) -> PBRMaterialCfg:
+    def _create_pbr_material(self, config: dict, settings: dict) -> PBRMaterialCfg:
         """Create a PBR material with randomization."""
         color_var = settings.get("color_variation", 0.15)
         metallic_var = settings.get("metallic_variation", 0.1)
@@ -666,7 +669,7 @@ class ConfigLoader:
             subsurface_color=tuple(config.get("subsurface_color", [1.0, 1.0, 1.0])),
         )
 
-    def _create_mdl_material(self, config: Dict, settings: Dict) -> MDLMaterialCfg:
+    def _create_mdl_material(self, config: dict, settings: dict) -> MDLMaterialCfg:
         """Create an MDL material with randomization."""
         albedo_var = settings.get("albedo_brightness_variation", 0.2)
         texture_scale_var = settings.get("texture_scale_variation", 0.3)
@@ -706,7 +709,7 @@ class ConfigLoader:
             texture_scale=texture_scale,
         )
 
-    def _create_physics_material(self, config: Dict, settings: Dict) -> PhysicsMaterialCfg:
+    def _create_physics_material(self, config: dict, settings: dict) -> PhysicsMaterialCfg:
         """Create a physics material (no randomization for physics properties)."""
         return PhysicsMaterialCfg(
             name=config["name"],
@@ -722,7 +725,7 @@ class ConfigLoader:
             density=config.get("density"),
         )
 
-    def _create_preview_surface_material(self, config: Dict, settings: Dict) -> PreviewSurfaceCfg:
+    def _create_preview_surface_material(self, config: dict, settings: dict) -> PreviewSurfaceCfg:
         """Create a preview surface material with randomization."""
         color_var = settings.get("color_variation", 0.15)
         metallic_var = settings.get("metallic_variation", 0.1)

@@ -1,7 +1,9 @@
 """Domain randomizer that orchestrates all randomization components."""
 
+from __future__ import annotations
+
 import copy
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from loguru import logger as log
@@ -17,13 +19,13 @@ class DomainRandomizer:
 
     def __init__(
         self,
-        config_dir: Optional[str] = None,
+        config_dir: str | None = None,
         split: str = "train",
-        lighting_config: Optional[Dict] = None,
-        camera_config: Optional[Dict] = None,
-        material_config: Optional[Dict] = None,
-        object_config: Optional[Dict] = None,
-        seed: Optional[int] = None,
+        lighting_config: dict | None = None,
+        camera_config: dict | None = None,
+        material_config: dict | None = None,
+        object_config: dict | None = None,
+        seed: int | None = None,
         **kwargs,
     ):
         self.seed = seed
@@ -120,7 +122,7 @@ class DomainRandomizer:
         log.debug("Created randomized scenario configuration")
         return scenario_cfg
 
-    def randomize_on_reset(self, sim_handler: Any, env_ids: Optional[List[int]] = None, **kwargs) -> None:
+    def randomize_on_reset(self, sim_handler: Any, env_ids: list[int] | None = None, **kwargs) -> None:
         """Apply randomization when environments are reset.
 
         This is the main entry point for domain randomization. It handles two modes:
@@ -164,7 +166,7 @@ class DomainRandomizer:
             self.current_baseline_scenario_cfg = copy.deepcopy(randomized_scenario)
             log.debug("Updated current baseline to new randomized scenario (adaptive mode)")
 
-    def get_status(self) -> Dict:
+    def get_status(self) -> dict:
         """Get the current status of all randomization components."""
         enabled_components = []
         if self.lighting_randomizer.enabled:
@@ -195,7 +197,7 @@ class DomainRandomizer:
         log.info("Disabled all randomization components")
 
     @classmethod
-    def create_default(cls, seed: Optional[int] = None, **kwargs):
+    def create_default(cls, seed: int | None = None, **kwargs):
         """Create a domain randomizer with default settings."""
         return cls(
             lighting_config={
@@ -215,7 +217,7 @@ class DomainRandomizer:
         )
 
     @classmethod
-    def create_conservative(cls, seed: Optional[int] = None, **kwargs):
+    def create_conservative(cls, seed: int | None = None, **kwargs):
         """Create a conservative domain randomizer."""
         return cls(
             lighting_config={"enable_additional_lights": False, "modify_existing_probability": 0.6},
@@ -232,7 +234,7 @@ class DomainRandomizer:
         )
 
     @classmethod
-    def create_aggressive(cls, seed: Optional[int] = None, **kwargs):
+    def create_aggressive(cls, seed: int | None = None, **kwargs):
         """Create an aggressive domain randomizer."""
         return cls(
             lighting_config={

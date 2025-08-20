@@ -1,9 +1,12 @@
 """Material randomization using YAML configuration files.
+
 Follows the same simple pattern as other randomizers.
 """
 
+from __future__ import annotations
+
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger as log
 
@@ -16,7 +19,7 @@ class MaterialRandomizer(BaseRandomizer):
 
     def __init__(
         self,
-        config_dir: Optional[str] = None,
+        config_dir: str | None = None,
         split: str = "train",
         # Object material settings
         randomize_objects: bool = True,
@@ -31,7 +34,7 @@ class MaterialRandomizer(BaseRandomizer):
         apply_physics_materials: bool = False,
         physics_change_probability: float = 0.3,
         # General settings
-        seed: Optional[int] = None,
+        seed: int | None = None,
         **kwargs,
     ):
         super().__init__(seed=seed, **kwargs)
@@ -54,7 +57,7 @@ class MaterialRandomizer(BaseRandomizer):
             f"robots={randomize_robots}, physics={apply_physics_materials}"
         )
 
-    def randomize(self, scenario_cfg: Any, env_ids: Optional[List[int]] = None, **kwargs) -> None:
+    def randomize(self, scenario_cfg: Any, env_ids: list[int] | None = None, **kwargs) -> None:
         """Apply material randomization to the scenario configuration."""
         if not self.enabled:
             return
@@ -92,7 +95,7 @@ class MaterialRandomizer(BaseRandomizer):
             f"{len(material_assignments['physics_materials'])} physics materials"
         )
 
-    def _generate_object_materials(self, scenario_cfg: Any) -> List[Dict]:
+    def _generate_object_materials(self, scenario_cfg: Any) -> list[dict]:
         """Generate material assignments for objects."""
         materials = []
 
@@ -123,7 +126,7 @@ class MaterialRandomizer(BaseRandomizer):
 
         return materials
 
-    def _generate_environment_materials(self, scenario_cfg: Any) -> List[Dict]:
+    def _generate_environment_materials(self, scenario_cfg: Any) -> list[dict]:
         """Generate material assignments for environment objects."""
         materials = []
 
@@ -157,7 +160,7 @@ class MaterialRandomizer(BaseRandomizer):
 
         return materials
 
-    def _generate_robot_materials(self, scenario_cfg: Any) -> List[Dict]:
+    def _generate_robot_materials(self, scenario_cfg: Any) -> list[dict]:
         """Generate material assignments for robots."""
         materials = []
 
@@ -180,7 +183,7 @@ class MaterialRandomizer(BaseRandomizer):
 
         return materials
 
-    def _generate_physics_materials(self, scenario_cfg: Any) -> List[Dict]:
+    def _generate_physics_materials(self, scenario_cfg: Any) -> list[dict]:
         """Generate physics material assignments for objects."""
         materials = []
 
@@ -202,7 +205,7 @@ class MaterialRandomizer(BaseRandomizer):
 
         return materials
 
-    def _classify_environment_object(self, obj: Any) -> Optional[str]:
+    def _classify_environment_object(self, obj: Any) -> str | None:
         """Classify an object as environment type based on name or properties."""
         if not hasattr(obj, "name") or not obj.name:
             return None

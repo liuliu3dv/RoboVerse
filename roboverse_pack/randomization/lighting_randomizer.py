@@ -1,6 +1,8 @@
 """Lighting randomization using YAML configuration files."""
 
-from typing import Any, List, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 from loguru import logger as log
@@ -14,13 +16,13 @@ class LightingRandomizer(BaseRandomizer):
 
     def __init__(
         self,
-        config_dir: Optional[str] = None,
+        config_dir: str | None = None,
         split: str = "train",
         preset_probability: float = 0.3,
         modify_probability: float = 0.4,
         add_only_probability: float = 0.3,
         max_additional_lights: int = 2,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         **kwargs,
     ):
         super().__init__(seed=seed, **kwargs)
@@ -40,7 +42,8 @@ class LightingRandomizer(BaseRandomizer):
             f"LightingRandomizer strategies: preset={self.preset_probability:.1%}, modify={self.modify_probability:.1%}, add_only={self.add_only_probability:.1%}"
         )
 
-    def randomize(self, scenario_cfg: Any, env_ids: Optional[List[int]] = None, **kwargs) -> None:
+    def randomize(self, scenario_cfg: Any, env_ids: list[int] | None = None, **kwargs) -> None:
+        """Apply lighting randomization to the scenario."""
         if not self.enabled:
             return
 
@@ -191,7 +194,7 @@ class LightingRandomizer(BaseRandomizer):
 
         log.debug(f"Added {num_to_add} new lights to scene")
 
-    def _generate_parametric_light(self) -> Optional[Any]:
+    def _generate_parametric_light(self) -> Any | None:
         """Generate a light using parametric ranges from lights.yml."""
         ranges = self.config_loader.lights_config.get("randomization_ranges", {})
         if not ranges:

@@ -1,7 +1,9 @@
 """Base class for domain randomization components."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -11,7 +13,7 @@ from loguru import logger as log
 class BaseRandomizer(ABC):
     """Base class for all domain randomization components."""
 
-    def __init__(self, seed: Optional[int] = None, enabled: bool = True, **kwargs):
+    def __init__(self, seed: int | None = None, enabled: bool = True, **kwargs):
         """Initialize the base randomizer.
 
         Args:
@@ -30,7 +32,7 @@ class BaseRandomizer(ABC):
         log.info(f"Initialized {self.__class__.__name__} (enabled={self.enabled})")
 
     @abstractmethod
-    def randomize(self, scenario_cfg: Any, env_ids: Optional[list] = None, **kwargs) -> None:
+    def randomize(self, scenario_cfg: Any, env_ids: list | None = None, **kwargs) -> None:
         """Apply randomization to the scenario configuration.
 
         Args:

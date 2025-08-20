@@ -134,7 +134,7 @@ def create_base_scenario(args: Args) -> ScenarioCfg:
             size=[1.0, 1.0, 0.02],
             color=[0.8, 0.6, 0.4],
             mass=10.0,
-            default_position=(0.5, 0.0, 0.41),
+            default_position=(0.5, 0.5, 0.41),
             physics=PhysicStateType.RIGIDBODY,
             fix_base_link=True,
         ),

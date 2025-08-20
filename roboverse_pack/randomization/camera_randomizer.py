@@ -1,7 +1,9 @@
 """Camera randomization with both YAML-based and parametric positioning."""
 
+from __future__ import annotations
+
 import math
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from loguru import logger as log
@@ -15,16 +17,16 @@ class CameraRandomizer(BaseRandomizer):
 
     def __init__(
         self,
-        config_dir: Optional[str] = None,
+        config_dir: str | None = None,
         split: str = "train",
-        distance_range: Tuple[float, float] = (1.5, 3.0),
-        elevation_range: Tuple[float, float] = (15.0, 75.0),
-        azimuth_range: Tuple[float, float] = (-90.0, 90.0),
+        distance_range: tuple[float, float] = (1.5, 3.0),
+        elevation_range: tuple[float, float] = (15.0, 75.0),
+        azimuth_range: tuple[float, float] = (-90.0, 90.0),
         look_at_noise: float = 0.1,
         use_preset_probability: float = 0.5,
         randomize_intrinsics: bool = True,
         randomize_focus: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         **kwargs,
     ):
         super().__init__(seed=seed, **kwargs)
@@ -46,7 +48,8 @@ class CameraRandomizer(BaseRandomizer):
             f"distance={distance_range}, elevation={elevation_range}°, azimuth={azimuth_range}°"
         )
 
-    def randomize(self, scenario_cfg: Any, env_ids: Optional[List[int]] = None, **kwargs) -> None:
+    def randomize(self, scenario_cfg: Any, env_ids: list[int] | None = None, **kwargs) -> None:
+        """Apply camera randomization to the scenario."""
         if not self.enabled:
             return
 
