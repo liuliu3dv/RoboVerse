@@ -93,6 +93,7 @@ if __name__ == "__main__":
                     "pos": torch.tensor([0.0, 0.0, 0.0]),
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
+
                         "waist_yaw": 0.0,
                         "left_shoulder_pitch": 0.0,
                         "left_shoulder_roll": 0.0,

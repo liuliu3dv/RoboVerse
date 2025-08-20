@@ -62,6 +62,7 @@ class ActiveVisionWrapper(RslRlWrapper):
 
     def _parse_cfg(self, scenario):
         super()._parse_cfg(scenario)
+        # per step dt
         self.dt = scenario.decimation * scenario.task.sim_params.dt
         self.command_ranges = scenario.task.command_ranges
         self.num_commands = scenario.task.command_dim
@@ -94,7 +95,18 @@ class ActiveVisionWrapper(RslRlWrapper):
         self._p_gains = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
         self._d_gains = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
         self._torque_limits = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
-        self._action_scale = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
+        self._action_scale = (
+            self.scenario.task.action_scale
+            * torch.ones(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
+            * self.cfg.action_scale
+        )
+        dof_names = self.env.get_joint_names(self.robot.name, sort=True)
+        for i, dof_name in enumerate(dof_names):
+            i_actuator_cfg = self.robot.actuators[dof_name]
+            self._p_gains[:, i] = i_actuator_cfg.stiffness
+            self._d_gains[:, i] = i_actuator_cfg.damping
+            torque_limit = self.robot.torque_limits[dof_name]
+            self._torque_limits[:, i] = self.scenario.task.torque_limit_scale * torque_limit
 
         # commands
         self.common_step_counter = 0
@@ -304,7 +316,7 @@ class ActiveVisionWrapper(RslRlWrapper):
         action = self._pre_physics_step(actions)
         self._physics_step(action)
         self._post_physics_step()
-        return self.obs_buf, self.rew_buf, self.reset_buf, self.extra_obs_buf
+        return self.obs_buf, self.rew_buf, self.reset_buf, self.extra_buf
 
     def reset(self, env_ids=None):
         # """"""
@@ -312,7 +324,7 @@ class ActiveVisionWrapper(RslRlWrapper):
             env_ids = list(range(self.num_envs))
         if len(env_ids) == 0:
             return
-        _, _ = self.env.set_states(self.init_states, env_ids)
+        self.env.set_states(self.init_states, env_ids)
         self._resample_commands(env_ids)
 
         # reset state buffer in the wrapper
@@ -322,15 +334,15 @@ class ActiveVisionWrapper(RslRlWrapper):
         self._last_dof_vel[env_ids] = 0.0
         self._episode_length_buf[env_ids] = 0
 
-        self.extras["episode"] = {}
+        self.extra_buf["episode"] = {}
         for key in self.episode_sums.keys():
-            self.extras["episode"]["rew_" + key] = (
+            self.extra_buf["episode"]["rew_" + key] = (
                 torch.mean(self.episode_sums[key][env_ids]) / self.cfg.max_episode_length_s
             )
             self.episode_sums[key][env_ids] = 0.0
 
         # log metrics
-        self.extras["episode_metrics"] = deepcopy(self.episode_metrics)
+        self.extra_buf["episode_metrics"] = deepcopy(self.episode_metrics)
 
         # reset env handler state buffer
         for i in range(self.obs_history.maxlen):
@@ -351,21 +363,6 @@ class ActiveVisionWrapper(RslRlWrapper):
             (len(env_ids), 1),
             device=self.device,
         ).squeeze(1)
-        if self.cfg.commands.heading_command:
-            self.commands[env_ids, 3] = torch_rand_float(
-                self.command_ranges.heading[0],
-                self.command_ranges.heading[1],
-                (len(env_ids), 1),
-                device=self.device,
-            ).squeeze(1)
-        else:
-            self.commands[env_ids, 2] = torch_rand_float(
-                self.command_ranges.ang_vel_yaw[0],
-                self.command_ranges.ang_vel_yaw[1],
-                (len(env_ids), 1),
-                device=self.device,
-            ).squeeze(1)
-
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
 

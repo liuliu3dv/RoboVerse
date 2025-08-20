@@ -85,6 +85,11 @@ if __name__ == "__main__":
     scenario.objects = []
 
     task_cfg = BaseTableHumanoidTaskCfg()
+
+    # task assign and override
+    scenario.sim_params = task_cfg.sim_params
+    scenario.decimation = task_cfg.decimation
+    scenario.render_interval = 4
     scenario.task = task_cfg
 
     log.info(f"Using simulator: {args.sim}")

@@ -22,20 +22,6 @@ class G1StaticCfg(RobotCfg):
     collapse_fixed_joints: bool = True
 
     actuators: dict[str, BaseActuatorCfg] = {
-        # fiexed
-        # "left_hip_pitch": BaseActuatorCfg(stiffness=2000, damping=50),
-        # "left_hip_roll": BaseActuatorCfg(stiffness=1500, damping=50),
-        # "left_hip_yaw": BaseActuatorCfg(stiffness=1500, damping=50),
-        # "left_knee": BaseActuatorCfg(stiffness=2000, damping=50),
-        # "left_ankle_pitch": BaseActuatorCfg(stiffness=200, damping=40),
-        # "left_ankle_roll": BaseActuatorCfg(stiffness=200, damping=40),
-        # "right_hip_pitch": BaseActuatorCfg(stiffness=2000, damping=50),
-        # "right_hip_roll": BaseActuatorCfg(stiffness=1500, damping=50),
-        # "right_hip_yaw": BaseActuatorCfg(stiffness=1500, damping=50),
-        # "right_knee": BaseActuatorCfg(stiffness=2000, damping=50),
-        # "right_ankle_pitch": BaseActuatorCfg(stiffness=200, damping=40),
-        # "right_ankle_roll": BaseActuatorCfg(stiffness=200, damping=40),
-        # actioness
         "waist_yaw_joint": BaseActuatorCfg(stiffness=2000, damping=50),
         "left_shoulder_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "left_shoulder_roll_joint": BaseActuatorCfg(stiffness=40, damping=10),

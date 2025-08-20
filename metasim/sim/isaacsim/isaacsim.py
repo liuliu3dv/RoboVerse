@@ -47,11 +47,11 @@ class IsaacsimHandler(BaseSimHandler):
         self._num_envs: int = scenario_cfg.num_envs
         self._episode_length_buf = [0 for _ in range(self.num_envs)]
 
-        self.scenario_cfg = scenario_cfg
+        self.scenario_cfg: ScenarioCfg = scenario_cfg
         self.dt = self.scenario.sim_params.dt if self.scenario.sim_params.dt is not None else 0.01
         self._step_counter = 0
         self._is_closed = False
-        self.render_interval = 4  # TODO: fix hardcode
+        self._render_interval = self.scenario.render_interval
 
     def _init_scene(self) -> None:
         """
@@ -129,7 +129,7 @@ class IsaacsimHandler(BaseSimHandler):
         self._load_terrain()
         self._load_objects()
         self._load_lights()
-        self._load_render_settings()
+        # self._load_render_settings()
         self.scene.clone_environments(copy_from_source=False)
         self.scene.filter_collisions(global_prim_paths=["/World/ground"])
         self.sim.reset()
@@ -339,7 +339,7 @@ class IsaacsimHandler(BaseSimHandler):
         is_rendering = self.sim.has_gui() or self.sim.has_rtx_sensors()
         self.scene.write_data_to_sim()
         self.sim.step(render=False)
-        if self._step_counter % self.render_interval == 0 and is_rendering:
+        if self._step_counter % self._render_interval == 0 and is_rendering:
             self.sim.render()
         self.scene.update(dt=self.dt)
 
@@ -527,8 +527,6 @@ class IsaacsimHandler(BaseSimHandler):
         import carb
         import omni.replicator.core as rep
 
-        # from omni.rtx.settings.core.widgets.pt_widgets import PathTracingSettingsFrame
-
         rep.settings.set_render_rtx_realtime()  # fix noising rendered images
 
         settings = carb.settings.get_settings()
@@ -558,7 +556,6 @@ class IsaacsimHandler(BaseSimHandler):
     def _load_lights(self) -> None:
         import isaaclab.sim as sim_utils
         from isaaclab.sim.spawners import spawn_light
-
         from metasim.scenario.lights import (
             CylinderLightCfg,
             DiskLightCfg,

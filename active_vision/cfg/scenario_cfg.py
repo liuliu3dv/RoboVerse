@@ -216,7 +216,7 @@ class BaseTableHumanoidTaskCfg:
     termination_contact_indices: torch.Tensor = MISSING
     """termination contact indices for reward computation"""
     sim_params = SimParamCfg(
-        dt=0.001,
+        dt=0.005,
         contact_offset=0.01,
         num_position_iterations=4,
         num_velocity_iterations=0,
@@ -309,6 +309,11 @@ class BaseTableHumanoidTaskCfg:
     # privileged obs
     single_num_privileged_obs = 69  # FIXME hardcode
     num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
+
+
+
+    # control
+    action_scale = 0.25
 
     def __post_init__(self):
         self.command_ranges.wrist_max_radius = 0.25

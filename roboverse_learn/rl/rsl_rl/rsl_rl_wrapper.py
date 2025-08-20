@@ -50,11 +50,12 @@ class RslRlWrapper(VecEnv):
         # Initialize observation buffers
         self.obs_buf = torch.zeros((self.num_envs, self.num_obs), device=self.device, dtype=torch.float32)
         self.privileged_obs_buf = torch.zeros((self.num_envs, self.num_privileged_obs), device=self.device, dtype=torch.float32)
-        self.extra_obs_buf = {
+        self.extra_buf = {
             "observations": {
                 "critic": self.privileged_obs_buf,  # For PPO training
                 # Add other observation types as needed
             }
+            # TODO add episodic info and log
         }
         self._episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
         self.rew_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.float)
@@ -100,7 +101,7 @@ class RslRlWrapper(VecEnv):
 
     def get_observations(self):
         """design from config"""
-        return self.obs_buf, self.extra_obs_buf
+        return self.obs_buf, self.extra_buf
 
     def get_privileged_observations(self):
         """design from config"""
