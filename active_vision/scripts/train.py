@@ -82,20 +82,7 @@ if __name__ == "__main__":
     # scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
     scenario.cameras = []
     # add objects
-    scenario.objects = [
-        PrimitiveCubeCfg(
-            name="cube",
-            size=(0.1, 0.1, 0.1),
-            color=[1.0, 0.0, 0.0],
-            physics=PhysicStateType.RIGIDBODY,
-        ),
-        PrimitiveSphereCfg(
-            name="sphere",
-            radius=0.1,
-            color=[0.0, 0.0, 1.0],
-            physics=PhysicStateType.RIGIDBODY,
-        ),
-    ]
+    scenario.objects = []
 
     task_cfg = BaseTableHumanoidTaskCfg()
     scenario.task = task_cfg

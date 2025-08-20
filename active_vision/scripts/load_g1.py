@@ -79,20 +79,7 @@ if __name__ == "__main__":
     scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
 
     # add objects
-    scenario.objects = [
-        PrimitiveCubeCfg(
-            name="cube",
-            size=(0.1, 0.1, 0.1),
-            color=[1.0, 0.0, 0.0],
-            physics=PhysicStateType.RIGIDBODY,
-        ),
-        PrimitiveSphereCfg(
-            name="sphere",
-            radius=0.1,
-            color=[0.0, 0.0, 1.0],
-            physics=PhysicStateType.RIGIDBODY,
-        ),
-    ]
+    scenario.objects = [ ]
 
     log.info(f"Using simulator: {args.sim}")
     env_class = get_sim_handler_class(SimType(args.sim))
@@ -106,18 +93,6 @@ if __name__ == "__main__":
                     "pos": torch.tensor([0.0, 0.0, 0.0]),
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
-                        # "left_hip_pitch": -0.4,
-                        # "left_hip_roll": 0,
-                        # "left_hip_yaw": 0.0,
-                        # "left_knee": 0.8,
-                        # "left_ankle_pitch": -0.4,
-                        # "left_ankle_roll": 0,
-                        # "right_hip_pitch": -0.4,
-                        # "right_hip_roll": 0,
-                        # "right_hip_yaw": 0.0,
-                        # "right_knee": 0.8,
-                        # "right_ankle_pitch": -0.4,
-                        # "right_ankle_roll": 0,
                         "waist_yaw": 0.0,
                         "left_shoulder_pitch": 0.0,
                         "left_shoulder_roll": 0.0,
