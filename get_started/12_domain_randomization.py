@@ -166,7 +166,7 @@ def create_base_scenario(args: Args) -> ScenarioCfg:
     ]
 
     log.info(
-        f"📋 Created base scenario with {len(scenario.objects)} objects, "
+        f"Created base scenario with {len(scenario.objects)} objects, "
         f"{len(scenario.lights)} lights, {len(scenario.cameras)} cameras"
     )
 
@@ -342,10 +342,10 @@ def main():
 
     args = tyro.cli(Args)
 
-    log.info(f"🤖 Starting domain randomization demo with {args.sim}")
-    log.info(f"📊 Randomization mode: {args.randomization_mode}")
-    log.info(f"🎬 Will generate {args.num_scenarios} scenarios")
-    log.info(f"📋 Baseline strategy: {'original' if args.use_original_baseline else 'adaptive'}")
+    log.info(f"Starting domain randomization demo with {args.sim}")
+    log.info(f"Randomization mode: {args.randomization_mode}")
+    log.info(f"Will generate {args.num_scenarios} scenarios")
+    log.info(f"Baseline strategy: {'original' if args.use_original_baseline else 'adaptive'}")
 
     # Create base scenario and domain randomizer
     base_scenario = create_base_scenario(args)
@@ -353,25 +353,25 @@ def main():
 
     # Print randomization status
     status = domain_randomizer.get_status()
-    log.info(f"✅ Enabled components: {status['enabled_components']}")
+    log.info(f"Enabled components: {status['enabled_components']}")
 
     # Capture baseline from base scenario
     domain_randomizer.capture_baseline_from_scenario(base_scenario)
 
     # Create and launch environment once with base scenario
-    log.info(f"🚀 Initializing {args.sim} environment...")
+    log.info(f"Initializing {args.sim} environment...")
     env_class = get_sim_handler_class(SimType(args.sim))
     env = env_class(base_scenario)
     env.launch()
-    log.info("🎬 Environment launched!")
+    log.info("Environment launched!")
 
     try:
         # Generate multiple randomized scenarios
         for scenario_idx in range(args.num_scenarios):
-            log.info(f"\n🎯 Scenario {scenario_idx + 1}/{args.num_scenarios}")
+            log.info(f"\nScenario {scenario_idx + 1}/{args.num_scenarios}")
 
             baseline_type = "original" if args.use_original_baseline else "adaptive"
-            log.info(f"🎲 Applying randomization (baseline: {baseline_type})...")
+            log.info(f"Applying randomization (baseline: {baseline_type})...")
 
             # Apply domain randomization (this will automatically use dynamic scene updates)
             domain_randomizer.randomize_on_reset(env, use_original_baseline=args.use_original_baseline)
@@ -439,15 +439,15 @@ def main():
             # Save video
             if args.save_videos:
                 obs_saver.save()
-                log.info(f"📹 Saved scenario_{scenario_idx + 1:02d}_{baseline_type}.mp4")
+                log.info(f"Saved scenario_{scenario_idx + 1:02d}_{baseline_type}.mp4")
 
             # Note: Baseline update is now handled automatically in randomize_on_reset()
             # No manual baseline update needed here for adaptive mode
 
-            log.info(f"✅ Scenario {scenario_idx + 1} completed")
+            log.info(f"Scenario {scenario_idx + 1} completed")
 
-        log.info("\n🎉 Domain randomization demo completed!")
-        log.info("📊 Statistics:")
+        log.info("\nDomain randomization demo completed!")
+        log.info("Statistics:")
         log.info(f"   - Total scenarios: {args.num_scenarios}")
         log.info(f"   - Frames per scenario: {args.frames_per_scenario}")
         log.info(f"   - Randomization mode: {args.randomization_mode}")
@@ -457,12 +457,12 @@ def main():
         if args.save_videos:
             output_dir = f"get_started/output/domain_randomization_{args.randomization_mode}"
             log.info(f"   - Videos saved to: {output_dir}")
-            log.info("\n💡 Each video shows a different randomized environment!")
-            log.info("💡 Compare videos to see the diversity achieved through randomization!")
+            log.info("\nEach video shows a different randomized environment!")
+            log.info("Compare videos to see the diversity achieved through randomization!")
 
     finally:
         # Clean up - close environment only once at the end
-        log.info("🧹 Cleaning up...")
+        log.info("Cleaning up...")
         env.close()
 
 

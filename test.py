@@ -213,20 +213,22 @@ def run_simulator(sim: sim_utils.SimulationContext, scene_entities: dict):
         camera.update(dt=sim.get_physics_dt())
 
         # Print camera info
-        print(camera)
+        # log.info(camera)
         if "rgb" in camera.data.output.keys():
-            print("Received shape of rgb image        : ", camera.data.output["rgb"].shape)
+            log.info(f"Received shape of rgb image        : {camera.data.output['rgb'].shape}")
         if "distance_to_image_plane" in camera.data.output.keys():
-            print("Received shape of depth image      : ", camera.data.output["distance_to_image_plane"].shape)
+            log.info(f"Received shape of depth image      : {camera.data.output['distance_to_image_plane'].shape}")
         if "normals" in camera.data.output.keys():
-            print("Received shape of normals          : ", camera.data.output["normals"].shape)
+            log.info(f"Received shape of normals          : {camera.data.output['normals'].shape}")
         if "semantic_segmentation" in camera.data.output.keys():
-            print("Received shape of semantic segm.   : ", camera.data.output["semantic_segmentation"].shape)
+            log.info(f"Received shape of semantic segm.   : {camera.data.output['semantic_segmentation'].shape}")
         if "instance_segmentation_fast" in camera.data.output.keys():
-            print("Received shape of instance segm.   : ", camera.data.output["instance_segmentation_fast"].shape)
+            log.info(f"Received shape of instance segm.   : {camera.data.output['instance_segmentation_fast'].shape}")
         if "instance_id_segmentation_fast" in camera.data.output.keys():
-            print("Received shape of instance id segm.: ", camera.data.output["instance_id_segmentation_fast"].shape)
-        print("-------------------------------")
+            log.info(
+                f"Received shape of instance id segm.: {camera.data.output['instance_id_segmentation_fast'].shape}"
+            )
+        log.info("-------------------------------")
 
         # Extract camera data
         if args_cli.save:

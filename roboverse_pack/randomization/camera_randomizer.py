@@ -60,11 +60,11 @@ class CameraRandomizer(BaseRandomizer):
             if not hasattr(camera_cfg, "mount_to") or camera_cfg.mount_to is None:
                 if np.random.random() < self.use_preset_probability:
                     # Strategy A: Use preset from YAML
-                    log.debug(f"📷 Using preset positioning for {camera_cfg.name}")
+                    log.debug(f"Using preset positioning for {camera_cfg.name}")
                     self._apply_preset_positioning(camera_cfg)
                 else:
                     # Strategy B: Use parametric positioning
-                    log.debug(f"📷 Using parametric positioning for {camera_cfg.name}")
+                    log.debug(f"Using parametric positioning for {camera_cfg.name}")
                     self._apply_parametric_positioning(camera_cfg)
 
                 # Optionally randomize intrinsics
@@ -75,7 +75,7 @@ class CameraRandomizer(BaseRandomizer):
                 if self.randomize_focus:
                     self._randomize_focus_properties(camera_cfg)
 
-                log.debug(f"📷 Camera {camera_cfg.name}: pos={camera_cfg.pos}, look_at={camera_cfg.look_at}")
+                log.debug(f"Camera {camera_cfg.name}: pos={camera_cfg.pos}, look_at={camera_cfg.look_at}")
 
     def _apply_preset_positioning(self, camera_cfg: Any) -> None:
         """Apply preset positioning from YAML configuration."""
