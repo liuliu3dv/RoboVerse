@@ -134,7 +134,7 @@ def create_base_scenario(args: Args) -> ScenarioCfg:
             size=[1.0, 1.0, 0.02],
             color=[0.8, 0.6, 0.4],
             mass=10.0,
-            default_position=(0.5, 0.5, 0.41),
+            default_position=(0.5, 0.5, 0.01),
             physics=PhysicStateType.RIGIDBODY,
             fix_base_link=True,
         ),
@@ -388,7 +388,7 @@ def main():
                     },
                     "robots": {
                         args.robot: {
-                            "pos": torch.tensor([0.0, 0.0, 0.0]),
+                            "pos": torch.tensor([0.0, 0.0, 0.02]),
                             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                             "dof_pos": {
                                 "panda_joint1": 0.0,

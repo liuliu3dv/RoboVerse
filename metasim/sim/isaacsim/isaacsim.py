@@ -1110,6 +1110,7 @@ class IsaacsimHandler(BaseSimHandler):
         for obj_cfg in new_objects:
             if obj_cfg.name in current_object_names:
                 self._update_existing_object(obj_cfg)
+                self._force_scene_update()
 
         # Update the objects list
         self.objects = new_objects
@@ -1397,10 +1398,378 @@ class IsaacsimHandler(BaseSimHandler):
             log.warning(f"Failed to update light properties for {light_cfg.name}: {e}")
 
     def _update_object_properties(self, obj_cfg: Any) -> None:
-        """Update visual properties of an object."""
-        # This is a placeholder for updating object properties like color, material
-        # The actual implementation would depend on how Isaac Lab handles material updates
-        pass
+        """Update visual and physical properties of an existing object."""
+        try:
+            obj_name = obj_cfg.name
+
+            # Check if object exists in the scene
+            if obj_name not in self.scene.rigid_objects and obj_name not in self.scene.articulations:
+                log.debug(f"Object {obj_name} not found in scene for property update")
+                return
+
+            # Update visual properties (color) via USD prim attributes
+            self._update_object_visual_properties(obj_cfg)
+
+            # Update physical properties (mass, size)
+            self._update_object_physical_properties(obj_cfg)
+
+            log.debug(f"Updated properties for object {obj_name}")
+
+        except Exception as e:
+            log.warning(f"Failed to update object properties for {obj_cfg.name}: {e}")
+
+    def _update_object_visual_properties(self, obj_cfg: Any) -> None:
+        """Update visual properties like color for an existing object."""
+        try:
+            import omni.usd
+            from pxr import Usd, UsdGeom
+
+            stage = omni.usd.get_context().get_stage()
+            if not stage:
+                return
+
+            # Update color if the object has color attribute
+            if not (hasattr(obj_cfg, "color") and obj_cfg.color):
+                return
+
+            # Find the object's prim in all environments
+            for env_idx in range(self.num_envs):
+                prim_path = f"/World/envs/env_{env_idx}/{obj_cfg.name}"
+                root_prim = stage.GetPrimAtPath(prim_path)
+
+                if not root_prim.IsValid():
+                    continue
+
+                # Find all mesh prims under this object (including nested ones)
+                mesh_prims = []
+
+                # Check if the root prim itself is a mesh
+                if root_prim.IsA(UsdGeom.Mesh):
+                    mesh_prims.append(root_prim)
+
+                # Find all mesh descendants
+                for descendant_prim in Usd.PrimRange(root_prim):
+                    if descendant_prim.IsA(UsdGeom.Mesh):
+                        mesh_prims.append(descendant_prim)
+
+                # Update color for all found mesh prims
+                for mesh_prim in mesh_prims:
+                    self._update_prim_color(mesh_prim, obj_cfg.color)
+                    log.debug(f"Updated color for mesh prim {mesh_prim.GetPath()}")
+
+                if not mesh_prims:
+                    log.debug(f"No mesh prims found for object {obj_cfg.name} at {prim_path}")
+
+        except Exception as e:
+            log.debug(f"Failed to update visual properties for {obj_cfg.name}: {e}")
+
+    def _update_prim_color(self, prim: Any, color: list) -> None:
+        """Update the color of a USD prim using displayColor primvar."""
+        try:
+            from pxr import Gf, UsdGeom
+
+            # Try to update color via displayColor primvar (works for most primitives)
+            if prim.IsA(UsdGeom.Gprim):
+                gprim = UsdGeom.Gprim(prim)
+
+                # Set displayColor primvar
+                color_attr = gprim.GetDisplayColorAttr()
+                if not color_attr:
+                    color_attr = gprim.CreateDisplayColorAttr()
+
+                # Convert to Gf.Vec3f
+                color_vec = Gf.Vec3f(float(color[0]), float(color[1]), float(color[2]))
+                color_attr.Set([color_vec])
+
+                log.debug(f"Updated displayColor for prim {prim.GetPath()}")
+                return
+
+            # Fallback: try to find and update material
+            self._update_prim_material_color(prim, color)
+
+        except Exception as e:
+            log.debug(f"Failed to update color for prim {prim.GetPath()}: {e}")
+
+    def _update_prim_material_color(self, prim: Any, color: list) -> None:
+        """Update color by modifying the bound material."""
+        try:
+            import omni.usd
+            from pxr import Gf, Sdf, UsdShade
+
+            # Get bound material
+            if not prim.HasAPI(UsdShade.MaterialBindingAPI):
+                return
+
+            mat_binding_api = UsdShade.MaterialBindingAPI(prim)
+            bound_material = mat_binding_api.GetDirectBinding().GetMaterial()
+
+            if not bound_material:
+                return
+
+            # Find the shader
+            shader_prim = omni.usd.get_shader_from_material(bound_material, get_prim=True)
+            if not shader_prim:
+                return
+
+            shader = UsdShade.Shader(shader_prim)
+            if not shader:
+                return
+
+            # Update diffuseColor input
+            diffuse_input = shader.GetInput("diffuseColor")
+            if not diffuse_input:
+                diffuse_input = shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f)
+
+            color_vec = Gf.Vec3f(float(color[0]), float(color[1]), float(color[2]))
+            diffuse_input.Set(color_vec)
+
+            log.debug(f"Updated material color for prim {prim.GetPath()}")
+
+        except Exception as e:
+            log.debug(f"Failed to update material color for prim {prim.GetPath()}: {e}")
+
+    def _update_object_physical_properties(self, obj_cfg: Any) -> None:
+        """Update physical properties like mass and size for an existing object."""
+        try:
+            obj_name = obj_cfg.name
+
+            # Get the Isaac Lab object instance
+            obj_instance = None
+            if obj_name in self.scene.rigid_objects:
+                obj_instance = self.scene.rigid_objects[obj_name]
+            elif obj_name in self.scene.articulations:
+                obj_instance = self.scene.articulations[obj_name]
+            else:
+                return
+
+            # Update mass properties if object has mass attribute
+            if hasattr(obj_cfg, "mass"):
+                self._update_object_mass(obj_instance, obj_cfg.mass)
+
+            # Update size/scale properties via USD
+            self._update_object_size_properties(obj_cfg)
+
+        except Exception as e:
+            log.debug(f"Failed to update physical properties for {obj_cfg.name}: {e}")
+
+    def _update_object_mass(self, obj_instance: Any, new_mass: float) -> None:
+        """Update mass properties of an object."""
+        try:
+            import omni.usd
+            from pxr import UsdPhysics
+
+            stage = omni.usd.get_context().get_stage()
+            if not stage:
+                return
+
+            # Get the object's prim path
+            prim_path = obj_instance.cfg.prim_path
+
+            for env_idx in range(self.num_envs):
+                # Replace pattern with specific environment
+                env_prim_path = prim_path.replace("env_.*", f"env_{env_idx}")
+                prim = stage.GetPrimAtPath(env_prim_path)
+
+                if not prim.IsValid():
+                    continue
+
+                # Update mass via PhysX mass API
+                if prim.HasAPI(UsdPhysics.MassAPI):
+                    mass_api = UsdPhysics.MassAPI(prim)
+                    mass_api.GetMassAttr().Set(float(new_mass))
+                    log.debug(f"Updated mass to {new_mass} for {env_prim_path}")
+
+        except Exception as e:
+            log.debug(f"Failed to update mass: {e}")
+
+    def _update_object_size_properties(self, obj_cfg: Any) -> None:
+        """Update size/scale properties via USD attributes."""
+        try:
+            import omni.usd
+            from pxr import Usd, UsdGeom
+
+            stage = omni.usd.get_context().get_stage()
+            if not stage:
+                return
+
+            for env_idx in range(self.num_envs):
+                prim_path = f"/World/envs/env_{env_idx}/{obj_cfg.name}"
+                root_prim = stage.GetPrimAtPath(prim_path)
+
+                if not root_prim.IsValid():
+                    continue
+
+                # For primitives, find the actual mesh prim
+                target_prim = root_prim
+
+                # If root is not a mesh/sphere/cylinder/cube, find the mesh child
+                if not (
+                    root_prim.IsA(UsdGeom.Mesh)
+                    or root_prim.IsA(UsdGeom.Sphere)
+                    or root_prim.IsA(UsdGeom.Cylinder)
+                    or root_prim.IsA(UsdGeom.Cube)
+                ):
+                    # Find first mesh/sphere/cylinder/cube descendant
+                    for descendant_prim in Usd.PrimRange(root_prim):
+                        if (
+                            descendant_prim.IsA(UsdGeom.Mesh)
+                            or descendant_prim.IsA(UsdGeom.Sphere)
+                            or descendant_prim.IsA(UsdGeom.Cylinder)
+                            or descendant_prim.IsA(UsdGeom.Cube)
+                        ):
+                            target_prim = descendant_prim
+                            break
+
+                # Update size for primitive cubes
+                if hasattr(obj_cfg, "size") and hasattr(obj_cfg, "__class__") and "Cube" in obj_cfg.__class__.__name__:
+                    self._update_cube_size(target_prim, obj_cfg.size)
+
+                # Update radius for spheres
+                elif (
+                    hasattr(obj_cfg, "radius")
+                    and hasattr(obj_cfg, "__class__")
+                    and "Sphere" in obj_cfg.__class__.__name__
+                ):
+                    self._update_sphere_radius(target_prim, obj_cfg.radius)
+
+                # Update radius and height for cylinders
+                elif (
+                    hasattr(obj_cfg, "radius")
+                    and hasattr(obj_cfg, "height")
+                    and hasattr(obj_cfg, "__class__")
+                    and "Cylinder" in obj_cfg.__class__.__name__
+                ):
+                    self._update_cylinder_size(target_prim, obj_cfg.radius, obj_cfg.height)
+
+                # Update scale for file-based objects
+                elif hasattr(obj_cfg, "scale"):
+                    self._update_object_scale(root_prim, obj_cfg.scale)  # Use root prim for scale
+
+        except Exception as e:
+            log.debug(f"Failed to update size properties for {obj_cfg.name}: {e}")
+
+    def _update_cube_size(self, prim: Any, size: list) -> None:
+        """Update cube size via USD attributes."""
+        try:
+            # Isaac Lab creates Mesh, not USD Cube
+            # We need to calculate scale factors relative to the original size
+
+            # Get the original size from the prim attributes or calculate from bounding box
+            original_size = self._get_original_mesh_size(prim)
+            if original_size is None:
+                log.debug(f"Could not determine original size for {prim.GetPath()}, skipping size update")
+                return
+
+            # Calculate scale factors: new_size / original_size
+            scale_factors = [
+                float(size[0]) / original_size[0],
+                float(size[1]) / original_size[1],
+                float(size[2]) / original_size[2],
+            ]
+
+            log.debug(f"Updating cube from original size {original_size} to new size {size} with scale {scale_factors}")
+            self._update_object_scale(prim, scale_factors)
+
+        except Exception as e:
+            log.debug(f"Failed to update cube size: {e}")
+
+    def _get_original_mesh_size(self, prim: Any) -> list | None:
+        """Get the original size of a mesh by analyzing its bounding box."""
+        try:
+            from pxr import Gf, UsdGeom
+
+            # Get mesh points if it's a mesh
+            if prim.IsA(UsdGeom.Mesh):
+                mesh = UsdGeom.Mesh(prim)
+                points_attr = mesh.GetPointsAttr()
+                if points_attr:
+                    points = points_attr.Get()
+                    if points:
+                        # Calculate bounding box
+                        min_point = Gf.Vec3f(float("inf"))
+                        max_point = Gf.Vec3f(float("-inf"))
+
+                        for point in points:
+                            for i in range(3):
+                                min_point[i] = min(min_point[i], point[i])
+                                max_point[i] = max(max_point[i], point[i])
+
+                        # Calculate size (max - min)
+                        size = [
+                            float(max_point[0] - min_point[0]),
+                            float(max_point[1] - min_point[1]),
+                            float(max_point[2] - min_point[2]),
+                        ]
+
+                        log.debug(f"Calculated original mesh size: {size} for {prim.GetPath()}")
+                        return size
+
+            # Fallback: return None if we can't determine size
+            return None
+
+        except Exception as e:
+            log.debug(f"Failed to get original mesh size: {e}")
+            return None
+
+    def _update_sphere_radius(self, prim: Any, radius: float) -> None:
+        """Update sphere radius via USD attributes."""
+        try:
+            from pxr import UsdGeom
+
+            if prim.IsA(UsdGeom.Sphere):
+                sphere = UsdGeom.Sphere(prim)
+                sphere.GetRadiusAttr().Set(float(radius))
+                log.debug(f"Updated sphere radius to {radius} for {prim.GetPath()}")
+
+        except Exception as e:
+            log.debug(f"Failed to update sphere radius: {e}")
+
+    def _update_cylinder_size(self, prim: Any, radius: float, height: float) -> None:
+        """Update cylinder size via USD attributes."""
+        try:
+            from pxr import UsdGeom
+
+            if prim.IsA(UsdGeom.Cylinder):
+                cylinder = UsdGeom.Cylinder(prim)
+                cylinder.GetRadiusAttr().Set(float(radius))
+                cylinder.GetHeightAttr().Set(float(height))
+                log.debug(f"Updated cylinder size to radius={radius}, height={height} for {prim.GetPath()}")
+
+        except Exception as e:
+            log.debug(f"Failed to update cylinder size: {e}")
+
+    def _update_object_scale(self, prim: Any, scale: tuple | float) -> None:
+        """Update object scale via USD transform."""
+        try:
+            from pxr import Gf, UsdGeom
+
+            if isinstance(scale, (list, tuple)):
+                scale_vec = Gf.Vec3d(float(scale[0]), float(scale[1]), float(scale[2]))
+            else:
+                scale_vec = Gf.Vec3d(float(scale), float(scale), float(scale))
+
+            # Apply scale via Xform
+            if prim.IsA(UsdGeom.Xformable):
+                xformable = UsdGeom.Xformable(prim)
+
+                # Check if a scale op already exists and reuse it
+                existing_scale_ops = [
+                    op for op in xformable.GetOrderedXformOps() if op.GetOpType() == UsdGeom.XformOp.TypeScale
+                ]
+
+                if existing_scale_ops:
+                    # Use the existing scale op to maintain precision consistency
+                    scale_op = existing_scale_ops[0]
+                    scale_op.Set(scale_vec)
+                    log.debug(f"Updated existing scale to {scale_vec} for {prim.GetPath()}")
+                else:
+                    # Add new scale op only if none exists
+                    scale_op = xformable.AddScaleOp()
+                    scale_op.Set(scale_vec)
+                    log.debug(f"Added new scale {scale_vec} for {prim.GetPath()}")
+
+        except Exception as e:
+            log.debug(f"Failed to update object scale: {e}")
 
     def _clear_all_lights(self) -> None:
         """Remove all dynamic lights from the scene."""

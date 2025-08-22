@@ -95,19 +95,25 @@ class ObjectRandomizer(BaseRandomizer):
         """Randomize properties of a single object with enhanced attribute support."""
         # 1. Add noise to position
         current_pos = getattr(obj, "default_position", (0, 0, 0))
-        noise = np.random.uniform(-self.position_noise, self.position_noise, 3).astype(np.float32)
-        new_pos_array = np.array(current_pos, dtype=np.float32) + noise
+
+        if not getattr(obj, "fix_base_link", False):
+            noise = np.random.uniform(-self.position_noise, self.position_noise, 3).astype(np.float32)
+            new_pos_array = np.array(current_pos, dtype=np.float32) + noise
+            new_pos_array[2] = max(new_pos_array[2], 0.01)
         # Keep objects above ground
-        new_pos_array[2] = max(new_pos_array[2], 0.01)
+        else:
+            new_pos_array = np.array(current_pos, dtype=np.float32)
+
         new_pos = tuple(float(coord) for coord in new_pos_array)
         obj.default_position = new_pos
 
         # 2. Add noise to orientation (rotation around z-axis)
-        angle_noise = float(np.random.uniform(-self.rotation_noise, self.rotation_noise))
-        cos_half = float(np.cos(angle_noise / 2))
-        sin_half = float(np.sin(angle_noise / 2))
-        new_quat = (cos_half, 0.0, 0.0, sin_half)  # w, x, y, z
-        obj.default_orientation = new_quat
+        if not getattr(obj, "fix_base_link", False):
+            angle_noise = float(np.random.uniform(-self.rotation_noise, self.rotation_noise))
+            cos_half = float(np.cos(angle_noise / 2))
+            sin_half = float(np.sin(angle_noise / 2))
+            new_quat = (cos_half, 0.0, 0.0, sin_half)  # w, x, y, z
+            obj.default_orientation = new_quat
 
         # 3. Randomize color if available
         if hasattr(obj, "color"):
