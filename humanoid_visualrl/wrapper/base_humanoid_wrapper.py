@@ -123,7 +123,8 @@ class HumanoidBaseWrapper(RslRlWrapper):
             self.num_envs,
             1,
         ))
-        self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
+
+
         self.last_contacts = torch.zeros(
             self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False
         )
@@ -168,6 +169,11 @@ class HumanoidBaseWrapper(RslRlWrapper):
             device=self.device,
             requires_grad=False,
         )
+
+        # episode length buffer
+        self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
+        self.time_out_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
+        self.reset_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
 
         # store globally for reset update and pass to obs and privileged_obs
         self.actions = torch.zeros(
@@ -299,27 +305,29 @@ class HumanoidBaseWrapper(RslRlWrapper):
         )
         self.projected_gravity[:] = quat_rotate_inverse(self.base_quat, self.gravity_vec)
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
+        contact_forces = self.env.get_extra()
+        self.contact_forces = contact_forces["net_contact_force"]
 
     def _post_physics_step(self):
         """After physics step, compute reward, get obs and privileged_obs, resample command."""
         self.common_step_counter += 1
         self.episode_length_buf += 1
-        self.reset_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
-
-        self._post_physics_step_callback()
+        self.time_out_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
+        reset_buf = torch.any(
+            torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
+        )
+        self.reset_buf = torch.logical_or(self.time_out_buf, reset_buf)
 
         tensor_state = self.env.get_states()
-        # update refreshed tensors from simulaor
         self._update_refreshed_tensors(tensor_state)
-        # compute the reward
-        self._compute_reward(tensor_state)
-        # reset envs
-        reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
-        self.reset(reset_env_idx)
-        self._update_target_wp(reset_env_idx)
 
-        if not self.scenario.headless:
-            self._update_marker_viz()
+        reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
+        if len(reset_env_idx) > 0:
+            self._resample_commands(reset_env_idx)
+
+
+        self._compute_reward(tensor_state)
+        self.reset(reset_env_idx)
 
         # compute obs for actor,  privileged_obs for critic network
         self._compute_observations()
@@ -438,15 +446,8 @@ class HumanoidBaseWrapper(RslRlWrapper):
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
 
-    def _post_physics_step_callback(self):
-        """Callback called before computing terminations, rewards, and observations."""
-        env_ids = (
-            (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt) == 0)
-            .nonzero(as_tuple=False)
-            .flatten()
-        )
-        if len(env_ids) > 0:
-            self._resample_commands(env_ids)
+
+
 
     def _push_robots(self):
         """Randomly set robot's root velocity to simulate a push."""

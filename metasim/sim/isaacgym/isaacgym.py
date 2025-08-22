@@ -759,7 +759,7 @@ class IsaacgymHandler(BaseSimHandler):
             if not self.headless:
                 self.gym.poll_viewer_events(self.viewer)
 
-    def _set_states(self, states: list[DictEnvState], env_ids: list[int] | None = None):
+    def _set_states(self, states: list[DictEnvState] | TensorState, env_ids: list[int] | None = None):
         ## Support setting status only for specified env_ids
         if env_ids is None:
             env_ids = list(range(self.num_envs))

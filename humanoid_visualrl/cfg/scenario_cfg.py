@@ -275,9 +275,21 @@ class BaseTableHumanoidTaskCfg:
             "objects": {},
             "robots": {
                 "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.0]),
+                    "pos": torch.tensor([0.0, 0.0, 0.737]),
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
+                        "left_hip_pitch": -0.4,
+                        "left_hip_roll": 0,
+                        "left_hip_yaw": 0.0,
+                        "left_knee": 0.8,
+                        "left_ankle_pitch": -0.4,
+                        "left_ankle_roll": 0,
+                        "right_hip_pitch": -0.4,
+                        "right_hip_roll": 0,
+                        "right_hip_yaw": 0.0,
+                        "right_knee": 0.8,
+                        "right_ankle_pitch": -0.4,
+                        "right_ankle_roll": 0,
                         "waist_yaw": 0.0,
                         "left_shoulder_pitch": 0.0,
                         "left_shoulder_roll": 0.0,

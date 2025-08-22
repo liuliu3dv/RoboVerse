@@ -40,9 +40,9 @@ class RslRlWrapper(VecEnv):
         env = env_class(scenario_cfg=scenario, optional_queries=contact_force_queries)
         env.launch()
 
+        self.env = env
         self._get_init_states(scenario)
         env.set_states(self.init_states)
-        self.env = env
 
     def _init_buffers(self):
         """Initialize buffers for rsl_rl compatibility."""
@@ -93,9 +93,9 @@ class RslRlWrapper(VecEnv):
 
         self.init_states = init_states_list
 
-        if scenario.simulator == SimType.ISAACGYM:
+        if scenario.simulator == "isaacsim":
             #tensorize the initial states as TensorState, now we only support IsaacGym
-            self.init_states = list_state_to_tensor(self.env.handler, init_states_list, device=self.device)
+            self.init_states = list_state_to_tensor(self.env, init_states_list, device=self.device)
 
 
     def get_observations(self):
