@@ -4,17 +4,16 @@ from metasim.queries.base import BaseQueryType
 
 class NetContactForce(BaseQueryType):
 
-    def __init__(self, site_name: str):
+    def __init__(self):
         super().__init__()
 
     def bind_handler(self, handler, *args, **kwargs):
         """Remember the site-id once the handler is known."""
+        super().bind_handler(handler, *args, **kwargs)
         mod = handler.__class__.__module__
 
         if mod.startswith("metasim.sim.isaacsim"):
-            robot_name = handler._robot.name
-            full_name = f"{robot_name}/{self.site_name}" if "/" not in self.site_name else self.site_name
-
+            pass
         else:
             raise ValueError(f"Unsupported handler type: {type(handler)} for SitePos query")
 
@@ -25,7 +24,9 @@ class NetContactForce(BaseQueryType):
         mod = self.handler.__class__.__module__
 
         if mod.startswith("metasim.sim.isaacsim"):
-            return self.handler.contact_sensor
+            robot_name = self.handler.robots[0].name
+            reindex = self.handler.get_body_reindex(robot_name, inverse=True)
+            return self.handler.contact_sensor.data.net_forces_w[:, reindex, :]
         else:
             raise ValueError(f"Unsupported handler type: {type(self.handler)} for NetContactForce query")
         

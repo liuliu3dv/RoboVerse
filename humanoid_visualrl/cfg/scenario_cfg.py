@@ -156,6 +156,8 @@ class BaseTableHumanoidTaskCfg:
         """number of commands. linear x, linear y, angular velocity, heading"""
         resampling_time: float = 10.0
         """time before command are changed[s]."""
+        heading_command: bool = True
+        """whether to compute ang vel command from heading error."""
 
     @configclass
     class Normalization:
@@ -244,7 +246,7 @@ class BaseTableHumanoidTaskCfg:
     frame_stack = 1
     c_frame_stack = 3
 
-    command_dim = 14
+    command_dim = 3
     num_actions: int = 21
     """Number of actions."""
     num_single_obs: int = 3 * num_actions + 6 + command_dim  #
@@ -294,12 +296,42 @@ class BaseTableHumanoidTaskCfg:
     torque_limit_scale = 1.0
 
     reward_weights: dict[str, float] = {
-        "wrist_pos": 5,
+        "termination": -0.0,
+        "lin_vel_z": -0.0,
+        # "ang_vel_xy": -0.05,
+        "base_height": 0.2,
+        "feet_air_time": 1.0,
+        "collision": -1.0,
+        "feet_stumble": -0.0,
+        "stand_still": -0.0,
+        "joint_pos": 1.6,
+        "feet_clearance": 2.0,
+        "feet_contact_number": 2.4,
+        # gait
+        "foot_slip": -0.05,
+        "feet_distance": 0.2,
+        "knee_distance": 0.2,
+        # contact
+        "feet_contact_forces": -0.01,
+        # vel tracking
+        "tracking_lin_vel": 2.4,
+        "tracking_ang_vel": 2.2,
+        "vel_mismatch_exp": 0.5,
+        "low_speed": 0.2,
+        "track_vel_hard": 1.0,
+        # base pos
+        "default_joint_pos": 1.0,
         "upper_body_pos": 0.5,
-        "default_joint_pos": 0.5,
+        "orientation": 1.0,
+        "base_acc": 0.2,
+        # energy
+        "action_smoothness": -0.002,
         "torques": -1e-5,
         "dof_vel": -5e-4,
         "dof_acc": -1e-7,
+        "torque_limits": 0.001,
+        # optional
+        "action_rate": -0.0,
     }
 
     # control

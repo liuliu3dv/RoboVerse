@@ -13,6 +13,7 @@ from metasim.utils.setup_util import get_sim_handler_class
 from metasim.utils.state import list_state_to_tensor
 
 from humanoid_visualrl.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
+from metasim.sim.queries.net_contact_force import NetContactForce
 
 class RslRlWrapper(VecEnv):
     """
@@ -35,8 +36,10 @@ class RslRlWrapper(VecEnv):
 
         # load simulator handler
         env_class = get_sim_handler_class(SimType(scenario.simulator))
-        env = env_class(scenario)
+        contact_force_queries = {"net_contact_force": NetContactForce()}
+        env = env_class(scenario_cfg=scenario, optional_queries=contact_force_queries)
         env.launch()
+
         self._get_init_states(scenario)
         env.set_states(self.init_states)
         self.env = env

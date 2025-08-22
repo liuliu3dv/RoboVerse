@@ -29,8 +29,106 @@ class WalkingWrapper(HumanoidBaseWrapper):
         else:
             raise ValueError(f"Unsupported robot: {self.robot.name} for Skillblender Walking Task")
 
-    def _reward_termination(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
-        return self.reset_buf * ~self.time_out_buf
+    def _post_physics_step(self):
+        """After physics step, compute reward, get obs and privileged_obs, resample command."""
+        self.common_step_counter += 1
+        self.episode_length_buf += 1
+        self.reset_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
+
+        self._post_physics_step_callback()
+        tensor_state = self.env.get_states()
+        self._update_refreshed_tensors(tensor_state)
+        self._compute_ref_state()
+        self._compute_reward(tensor_state)
+        reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
+        self.reset(reset_env_idx)
+        self._update_target_wp(reset_env_idx)
+
+        if not self.scenario.headless:
+            self._update_marker_viz()
+
+       
+        self._compute_observations()
+        self._update_history(tensor_state)
+
+    def _compute_ref_state(self):
+        phase = self._get_phase()
+        sin_pos = torch.sin(2 * torch.pi * phase)
+        sin_pos_l = sin_pos.clone()
+        sin_pos_r = sin_pos.clone()
+        self.ref_dof_pos = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
+        scale_1 = self.cfg.reward_cfg.target_joint_pos_scale
+        scale_2 = 2 * scale_1
+        sin_pos_l[sin_pos_l > 0] = 0
+        self.ref_dof_pos[:, self.left_hip_pitch_joint_idx] = sin_pos_l * scale_1  # left_hip_pitch_joint
+        self.ref_dof_pos[:, self.left_knee_joint_idx] = sin_pos_l * scale_2  # left_knee_joint
+        self.ref_dof_pos[:, self.left_ankle_joint_idx] = sin_pos_l * scale_1  # left_ankle_joint
+        sin_pos_r[sin_pos_r < 0] = 0
+        self.ref_dof_pos[:, self.right_hip_pitch_joint_idx] = sin_pos_r * scale_1  # right_hip_pitch_joint
+        self.ref_dof_pos[:, self.right_knee_joint_idx] = sin_pos_r * scale_2  # right_knee_joint
+        self.ref_dof_pos[:, self.right_ankle_joint_idx] = sin_pos_r * scale_1  # right_ankle_joint
+        # Double support phase
+        self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = 0
+        self.ref_dof_pos = 2 * self.ref_dof_pos
+
+    def _compute_observations(self):
+        phase = self._get_phase()
+
+        sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
+        cos_pos = torch.cos(2 * torch.pi * phase).unsqueeze(1)
+
+        stance_mask = self._get_gait_phase()
+        contact_mask = self.contact_forces[:, self.feet_indices, 2] > 5
+
+        self.command_input = torch.cat((sin_pos, cos_pos, self.commands[:, :3] * self.commands_scale), dim=1)
+        self.command_input_wo_clock = self.commands[:, :3] * self.commands_scale
+
+        q = (self.dof_pos - self.default_joint_pd_target) * self.cfg.normalization.obs_scales.dof_pos
+        dq = self.dof_vel * self.cfg.normalization.obs_scales.dof_vel
+        diff = self.dof_pos - self.ref_dof_pos
+
+        self.privileged_obs_buf = torch.cat(
+            (
+                self.command_input,  # 2 + 3
+                q,  # |A|
+                dq,  # |A|
+                self.actions,  # |A|
+                diff,  # |A|
+                self.base_lin_vel * self.cfg.normalization.obs_scales.lin_vel,  # 3
+                self.base_ang_vel * self.cfg.normalization.obs_scales.ang_vel,  # 3
+                self.base_euler_xyz * self.cfg.normalization.obs_scales.quat,  # 3
+                self.rand_push_force[:, :2],  # 3
+                self.rand_push_torque,  # 3
+                stance_mask,  # 2
+                contact_mask,  # 2
+            ),
+            dim=-1,
+        )
+
+        obs_buf = torch.cat(
+            (
+                self.command_input_wo_clock,  # 3
+                q,  # |A|
+                dq,  # |A|
+                self.actions,
+                self.base_ang_vel * self.cfg.normalization.obs_scales.ang_vel,  # 3
+                self.base_euler_xyz * self.cfg.normalization.obs_scales.quat,  # 3
+            ),
+            dim=-1,
+        )
+
+        obs_now = obs_buf.clone()
+        self.obs_history.append(obs_now)
+        self.critic_history.append(self.privileged_obs_buf)
+        obs_buf_all = torch.stack([self.obs_history[i] for i in range(self.obs_history.maxlen)], dim=1)
+        self.obs_buf = obs_buf_all.reshape(self.num_envs, -1)
+        self.privileged_obs_buf = torch.cat([self.critic_history[i] for i in range(self.cfg.c_frame_stack)], dim=1)
+
+        self.privileged_obs_buf = torch.clip(
+            self.privileged_obs_buf, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations
+        )
+
+    # ================================ Reward Functions ================================
 
     def _reward_wrist_pos(self, tensor_state: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg):
         """Reward for reaching the target position."""
@@ -72,7 +170,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
             dim=1,
         )
 
-    def _reward_feet_air_time(self):
+    def _reward_feet_air_time(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
         """Calculates the reward for feet air time, promoting longer steps."""
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.0
         stance_mask = self._get_gait_phase()
@@ -118,7 +216,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
 
     def _reward_base_height(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
         """Penalize base height deviation from target."""
-        stance_mask = self.gait_phase
+        stance_mask = self._get_gait_phase()
         measured_heights = torch.sum(
             states.robots[robot_name].body_state[:, self.feet_indices, 2] * stance_mask,
             dim=1,
@@ -175,7 +273,20 @@ class WalkingWrapper(HumanoidBaseWrapper):
         self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg
     ) -> torch.Tensor:
         """Reward swing leg clearance."""
-        return self.feet_clearance
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.0
+        feet_z = states.robots[robot_name].body_state[:, self.feet_indices, 2] - 0.05
+        delta_z = feet_z - self.last_feet_z
+        self.feet_height += delta_z
+        self.last_feet_z = feet_z
+
+        # Compute swing mask
+        swing_mask = 1 - self._get_gait_phase()
+
+        # feet height should be closed to target feet height at the peak
+        rew_pos = torch.abs(self.feet_height - self.cfg.reward_cfg.target_feet_height) < 0.01
+        rew_pos = torch.sum(rew_pos * swing_mask, dim=1)
+        self.feet_height *= ~contact
+        return rew_pos
 
     def _reward_feet_contact_forces(
         self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg
@@ -197,7 +308,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
     ) -> torch.Tensor:
         """Reward based on feet contact matching gait phase."""
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.0
-        stance_mask = self.gait_phase
+        stance_mask = self._get_gait_phase()
         reward = torch.where(contact == stance_mask, 1.0, -0.3)
         return torch.mean(reward, dim=1)
 
@@ -248,17 +359,17 @@ class WalkingWrapper(HumanoidBaseWrapper):
     def _reward_low_speed(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
         """Penalize speed mismatch with command."""
         absolute_speed = torch.abs(self.base_lin_vel[:, 0])
-        absolute_command = torch.abs(self.command[:, 0])
+        absolute_command = torch.abs(self.commands[:, 0])
         speed_too_low = absolute_speed < 0.5 * absolute_command
         speed_too_high = absolute_speed > 1.2 * absolute_command
         speed_desired = ~(speed_too_low | speed_too_high)
-        sign_mismatch = torch.sign(self.base_lin_vel[:, 0]) != torch.sign(self.command[:, 0])
+        sign_mismatch = torch.sign(self.base_lin_vel[:, 0]) != torch.sign(self.commands[:, 0])
         reward = torch.zeros_like(self.base_lin_vel[:, 0])
         reward[speed_too_low] = -1.0
         reward[speed_too_high] = 0.0
         reward[speed_desired] = 1.2
         reward[sign_mismatch] = -2.0
-        return reward * (self.command[:, 0].abs() > 0.1)
+        return reward * (self.commands[:, 0].abs() > 0.1)
 
     def _reward_orientation(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
         """Penalize deviation from flat base orientation."""
@@ -269,7 +380,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
     def _reward_stand_still(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
         """Reward for standing still, penalizing deviation from default joint positions."""
         return torch.sum(torch.abs(states.robots[robot_name].joint_pos - cfg.default_dof_pos), dim=1) * (
-            torch.norm(self.command[:, :2], dim=1) < 0.1
+            torch.norm(self.commands[:, :2], dim=1) < 0.1
         )
 
     def _reward_stumble(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
@@ -287,7 +398,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
         return torch.sum(
             (
                 torch.abs(states.robots[robot_name].joint_effort_target)
-                - cfg.torque_limits * cfg.reward_cfg.soft_torque_limit
+                - self.torque_limits * cfg.reward_cfg.soft_torque_limit
             ).clip(min=0.0),
             dim=1,
         )
@@ -296,7 +407,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
         self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg
     ) -> torch.Tensor:
         """Track angular velocity commands (yaw)."""
-        ang_vel_diff = self.command[:, 2] - self.base_ang_vel[:, 2]
+        ang_vel_diff = self.commands[:, 2] - self.base_ang_vel[:, 2]
         ang_vel_error = torch.square(ang_vel_diff)
         return torch.exp(-ang_vel_error * cfg.reward_cfg.tracking_sigma), torch.abs(ang_vel_diff)
 
@@ -304,7 +415,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
         self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg
     ) -> torch.Tensor:
         """Track linear velocity commands (xy axes)."""
-        lin_vel_diff = self.command[:, :2] - self.base_lin_vel[:, :2]
+        lin_vel_diff = self.commands[:, :2] - self.base_lin_vel[:, :2]
         lin_vel_error = torch.sum(torch.square(lin_vel_diff), dim=1)
         return torch.exp(-lin_vel_error * cfg.reward_cfg.tracking_sigma), torch.mean(torch.abs(lin_vel_diff), dim=1)
 
@@ -313,11 +424,11 @@ class WalkingWrapper(HumanoidBaseWrapper):
     ) -> torch.Tensor:
         """Track linear and angular velocity commands."""
         lin_vel_error = torch.norm(
-            self.command[:, :2] - self.base_lin_vel[:, :2],
+            self.commands[:, :2] - self.base_lin_vel[:, :2],
             dim=1,
         )
         lin_vel_error_exp = torch.exp(-lin_vel_error * 10)
-        ang_vel_error = torch.abs(self.command[:, 2] - self.base_ang_vel[:, 2])
+        ang_vel_error = torch.abs(self.commands[:, 2] - self.base_ang_vel[:, 2])
         ang_vel_error_exp = torch.exp(-ang_vel_error * 10)
         linear_error = 0.2 * (lin_vel_error + ang_vel_error)
         return (lin_vel_error_exp + ang_vel_error_exp) / 2.0 - linear_error
@@ -329,80 +440,3 @@ class WalkingWrapper(HumanoidBaseWrapper):
         lin_mismatch = torch.exp(-torch.square(self.base_lin_vel[:, 2]) * 10)
         ang_mismatch = torch.exp(-torch.norm(self.base_ang_vel[:, :2], dim=1) * 5.0)
         return (lin_mismatch + ang_mismatch) / 2.0
-
-    def _compute_ref_state(self):
-        phase = self._get_phase()
-        sin_pos = torch.sin(2 * torch.pi * phase)
-        sin_pos_l = sin_pos.clone()
-        sin_pos_r = sin_pos.clone()
-        self.ref_dof_pos = torch.zeros(self.num_envs, self.env.robot_num_dof, device=self.device, requires_grad=False)
-        scale_1 = self.cfg.reward_cfg.target_joint_pos_scale
-        scale_2 = 2 * scale_1
-        sin_pos_l[sin_pos_l > 0] = 0
-        self.ref_dof_pos[:, self.left_hip_pitch_joint_idx] = sin_pos_l * scale_1  # left_hip_pitch_joint
-        self.ref_dof_pos[:, self.left_knee_joint_idx] = sin_pos_l * scale_2  # left_knee_joint
-        self.ref_dof_pos[:, self.left_ankle_joint_idx] = sin_pos_l * scale_1  # left_ankle_joint
-        sin_pos_r[sin_pos_r < 0] = 0
-        self.ref_dof_pos[:, self.right_hip_pitch_joint_idx] = sin_pos_r * scale_1  # right_hip_pitch_joint
-        self.ref_dof_pos[:, self.right_knee_joint_idx] = sin_pos_r * scale_2  # right_knee_joint
-        self.ref_dof_pos[:, self.right_ankle_joint_idx] = sin_pos_r * scale_1  # right_ankle_joint
-        # Double support phase
-        self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = 0
-        self.ref_dof_pos = 2 * self.ref_dof_pos
-
-    def _compute_observations(self):
-        phase = self._get_phase()
-
-        sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
-        cos_pos = torch.cos(2 * torch.pi * phase).unsqueeze(1)
-
-        stance_mask = self._get_gait_phase()
-        contact_mask = self.contact_forces[:, self.feet_indices, 2] > 5
-
-        self.command_input = torch.cat((sin_pos, cos_pos, self.commands[:, :3] * self.commands_scale), dim=1)
-        self.command_input_wo_clock = self.commands[:, :3] * self.commands_scale
-
-        q = (self.dof_pos - self.cfg.default_joint_pd_target) * self.cfg.normalization.obs_scales.dof_pos
-        dq = self.joint_vel * self.cfg.normalization.obs_scales.dof_vel
-        diff = self.dof_pos - self.ref_dof_pos
-
-        self.privileged_obs_buf = torch.cat(
-            (
-                self.command_input,  # 2 + 3
-                q,  # |A|
-                dq,  # |A|
-                self.actions,  # |A|
-                diff,  # |A|
-                self.base_lin_vel * self.cfg.normalization.obs_scales.lin_vel,  # 3
-                self.base_ang_vel * self.cfg.normalization.obs_scales.ang_vel,  # 3
-                self.base_euler_xyz * self.cfg.normalization.obs_scales.quat,  # 3
-                self.rand_push_force[:, :2],  # 3
-                self.rand_push_torque,  # 3
-                stance_mask,  # 2
-                contact_mask,  # 2
-            ),
-            dim=-1,
-        )
-
-        obs_buf = torch.cat(
-            (
-                self.command_input_wo_clock,  # 3
-                q,  # |A|
-                dq,  # |A|
-                self.actions,
-                self.base_ang_vel * self.cfg.normalization.obs_scales.ang_vel,  # 3
-                self.base_euler_xyz * self.cfg.normalization.obs_scales.quat,  # 3
-            ),
-            dim=-1,
-        )
-
-        obs_now = obs_buf.clone()
-        self.obs_history.append(obs_now)
-        self.critic_history.append(self.privileged_obs_buf)
-        obs_buf_all = torch.stack([self.obs_history[i] for i in range(self.obs_history.maxlen)], dim=1)
-        self.obs_buf = obs_buf_all.reshape(self.num_envs, -1)
-        self.privileged_obs_buf = torch.cat([self.critic_history[i] for i in range(self.cfg.c_frame_stack)], dim=1)
-
-        self.privileged_obs_buf = torch.clip(
-            self.privileged_obs_buf, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations
-        )

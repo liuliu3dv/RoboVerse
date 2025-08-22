@@ -209,7 +209,7 @@ class BaseSimHandler(ABC):
         """Get the body names for a given object."""
         return self._get_body_names(obj_name, sort)
 
-    def get_body_reindex(self, obj_name: str) -> list[int]:
+    def get_body_reindex(self, obj_name: str, inverse: bool = False) -> list[int]:
         """Get the reindexing order for body indices of a given object. The returned indices can be used to reorder the bodies such that they are sorted alphabetically by their names.
 
         Args:
@@ -231,13 +231,15 @@ class BaseSimHandler(ABC):
         """
         if not hasattr(self, "_body_reindex_cache"):
             self._body_reindex_cache = {}
+            self._body_reindex_cache_inverse = {}
 
         if obj_name not in self._body_reindex_cache:
             origin_body_names = self._get_body_names(obj_name, sort=False)
             sorted_body_names = self._get_body_names(obj_name, sort=True)
             self._body_reindex_cache[obj_name] = [origin_body_names.index(bn) for bn in sorted_body_names]
+            self._body_reindex_cache_inverse[obj_name] = [sorted_body_names.index(bn) for bn in origin_body_names]
 
-        return self._body_reindex_cache[obj_name]
+        return self._body_reindex_cache_inverse[obj_name] if inverse else self._body_reindex_cache[obj_name]
 
     def get_body_mass(self, obj_name: str, body_name: str | None = None, env_ids: list[int] | None = None) -> torch.Tensor:
         """Get the mass of a specific body or all bodies of an object.

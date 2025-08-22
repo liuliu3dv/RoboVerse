@@ -113,7 +113,8 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device, requires_grad=False)
         self.rand_push_force = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
         self.rand_push_torque = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
-        self.contact_forces = None  # TODO: add contact forces
+        contact_forces = self.env.get_extra()
+        self.contact_forces = contact_forces["net_contact_force"]
         self.gravity_vec = torch.tensor(self.get_axis_params(-1.0, 2), device=self.device, dtype=torch.float32).repeat((
             self.num_envs,
             1,
@@ -123,6 +124,16 @@ class HumanoidBaseWrapper(RslRlWrapper):
             1,
         ))
         self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
+        self.last_contacts = torch.zeros(
+            self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False
+        )
+        self.feet_air_time = torch.zeros(
+            self.num_envs, len(self.feet_indices), dtype=torch.float, device=self.device, requires_grad=False
+        )
+        self.last_feet_z = 0.05 * torch.ones(
+            self.num_envs, len(self.feet_indices), device=self.device, requires_grad=False
+        )
+        self.last_root_vel = torch.zeros(self.num_envs, 6, device=self.device, requires_grad=False)
 
         # control
         self._p_gains = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
@@ -205,8 +216,8 @@ class HumanoidBaseWrapper(RslRlWrapper):
         """Update history buffer at the the of the frame, called after reset."""
         # we should always make a copy here
         # check whether torch.clone is necessary
-        self.last_last_actions[:] = torch.clone(self._last_actions[:])
-        self._last_actions[:] = self.actions[:]
+        self.last_last_actions[:] = torch.clone(self.last_actions[:])
+        self.last_actions[:] = self.actions[:]
         self.last_dof_vel[:] = tensor_state.robots[self.robot.name].joint_vel
 
     def _prepare_reward_function(self, task: BaseTableHumanoidTaskCfg):

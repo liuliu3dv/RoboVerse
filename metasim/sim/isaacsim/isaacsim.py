@@ -150,6 +150,11 @@ class IsaacsimHandler(BaseSimHandler):
         for sensor in self.scene.sensors.values():
             sensor.update(dt=0)
 
+        if self.optional_queries is None:
+            self.optional_queries = {}
+        for query_name, query_type in self.optional_queries.items():
+            query_type.bind_handler(self)
+
     def close(self) -> None:
         log.info("close Isaacsim Handler")
         if not self._is_closed:
