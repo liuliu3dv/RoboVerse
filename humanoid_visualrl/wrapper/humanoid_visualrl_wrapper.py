@@ -8,8 +8,8 @@ from copy import deepcopy
 import numpy as np
 import torch
 
-from active_vision.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
-from active_vision.utils.utils import (
+from humanoid_visualrl.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
+from humanoid_visualrl.utils.utils import (
     get_body_reindexed_indices_from_substring,
     sample_int_from_float,
     sample_wp,
@@ -20,7 +20,7 @@ from metasim.types import TensorState
 from roboverse_learn.rl.rsl_rl.rsl_rl_wrapper import RslRlWrapper
 
 
-class ActiveVisionWrapper(RslRlWrapper):
+class HumanoidVisualRLWrapper(RslRlWrapper):
     """Wraps Metasim environments to be compatible with rsl_rl OnPolicyRunner.
 
     Note that rsl_rl is designed for parallel training fully on GPU, with robust support for Isaac Gym and Isaac Lab.
@@ -154,7 +154,10 @@ class ActiveVisionWrapper(RslRlWrapper):
         """Compute effort from actions."""
         # scale the actions (generally output from policy)
         action_scaled = self._action_scale * actions
-        _effort = self._p_gains * (action_scaled + self.default_joint_pd_target - self._dof_pos) - self._d_gains * self._dof_vel
+        _effort = (
+            self._p_gains * (action_scaled + self.default_joint_pd_target - self._dof_pos)
+            - self._d_gains * self._dof_vel
+        )
         self._effort = torch.clip(_effort, -self._torque_limits, self._torque_limits)
         effort = self._effort.to(torch.float32)
         return effort
@@ -262,7 +265,9 @@ class ActiveVisionWrapper(RslRlWrapper):
         reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
         self.reset(reset_env_idx)
         self._update_target_wp(reset_env_idx)
-        self._update_marker_viz()
+
+        if not self.scenario.headless:
+            self._update_marker_viz()
 
         # compute obs for actor,  privileged_obs for critic network
         self._compute_observations(tensor_state)
@@ -376,23 +381,6 @@ class ActiveVisionWrapper(RslRlWrapper):
         if len(env_ids) > 0:
             self._resample_commands(env_ids)
 
-    @staticmethod
-    def get_axis_params(value, axis_idx, x_value=0.0, dtype=np.float64, n_dims=3):
-        """Construct arguments to `Vec` according to axis index."""
-        zs = np.zeros((n_dims,))
-        assert axis_idx < n_dims, "the axis dim should be within the vector dimensions"
-        zs[axis_idx] = 1.0
-        params = np.where(zs == 1.0, value, zs)
-        params[0] = x_value
-        return list(params.astype(dtype))
-
-    @staticmethod
-    def wrap_to_pi(angles: torch.Tensor) -> torch.Tensor:
-        """Wrap angles to [-pi, pi]."""
-        angles %= 2 * np.pi
-        angles -= 2 * np.pi * (angles > np.pi)
-        return angles
-
     # only for reaching
 
     def _compute_observations(self, tensor_states: TensorState) -> None:
@@ -498,6 +486,23 @@ class ActiveVisionWrapper(RslRlWrapper):
         self.delayed_obs_target_wp_steps = self.cfg.humanoid_extra_cfg.delay / self.target_wp_dt
         self.delayed_obs_target_wp_steps_int = sample_int_from_float(self.delayed_obs_target_wp_steps)
         self._update_target_wp(torch.tensor([], dtype=torch.long, device=self.device))
+
+    @staticmethod
+    def get_axis_params(value, axis_idx, x_value=0.0, dtype=np.float64, n_dims=3):
+        """Construct arguments to `Vec` according to axis index."""
+        zs = np.zeros((n_dims,))
+        assert axis_idx < n_dims, "the axis dim should be within the vector dimensions"
+        zs[axis_idx] = 1.0
+        params = np.where(zs == 1.0, value, zs)
+        params[0] = x_value
+        return list(params.astype(dtype))
+
+    @staticmethod
+    def wrap_to_pi(angles: torch.Tensor) -> torch.Tensor:
+        """Wrap angles to [-pi, pi]."""
+        angles %= 2 * np.pi
+        angles -= 2 * np.pi * (angles > np.pi)
+        return angles
 
     # ==== reward functions ====
     def _reward_wrist_pos(self, tensor_state: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg):

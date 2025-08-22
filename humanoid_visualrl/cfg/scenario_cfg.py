@@ -312,8 +312,6 @@ class BaseTableHumanoidTaskCfg:
     single_num_privileged_obs = 69  # FIXME hardcode
     num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
 
-
-
     # control
     action_scale = 0.25
 

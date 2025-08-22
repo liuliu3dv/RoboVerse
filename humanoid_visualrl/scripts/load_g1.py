@@ -14,10 +14,9 @@ from rich.logging import RichHandler
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 from get_started.utils import ObsSaver
-from metasim.constants import PhysicStateType, SimType
+from metasim.constants import SimType
 from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.scenario.lights import DiskLightCfg, DistantLightCfg, DomeLightCfg
-from metasim.scenario.objects import PrimitiveCubeCfg, PrimitiveSphereCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.utils import configclass
 from metasim.utils.setup_util import get_sim_handler_class
@@ -79,7 +78,7 @@ if __name__ == "__main__":
     scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
 
     # add objects
-    scenario.objects = [ ]
+    scenario.objects = []
 
     log.info(f"Using simulator: {args.sim}")
     env_class = get_sim_handler_class(SimType(args.sim))
@@ -93,7 +92,6 @@ if __name__ == "__main__":
                     "pos": torch.tensor([0.0, 0.0, 0.0]),
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
-
                         "waist_yaw": 0.0,
                         "left_shoulder_pitch": 0.0,
                         "left_shoulder_roll": 0.0,

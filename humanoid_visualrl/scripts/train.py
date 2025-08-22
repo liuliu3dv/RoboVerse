@@ -22,8 +22,8 @@ decimation = 3
 
 from rsl_rl.runners.on_policy_runner import OnPolicyRunner
 
-from active_vision.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
-from active_vision.wrapper.active_vision_wrapper import ActiveVisionWrapper
+from humanoid_visualrl.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
+from humanoid_visualrl.wrapper.humanoid_visualrl_wrapper import HumanoidVisualRLWrapper
 
 if __name__ == "__main__":
 
@@ -92,9 +92,9 @@ if __name__ == "__main__":
     scenario.env_spacing = task_cfg.env_spacing
 
     log.info(f"Using simulator: {args.sim}")
-    env = ActiveVisionWrapper(scenario)
+    env = HumanoidVisualRLWrapper(scenario)
     device = torch.device("cuda")
-    log_dir = "outputs/active_vision"
+    log_dir = "outputs/humanoid_visualrl"
     use_wandb = False
     learning_iterations = 1000
     ppo_runner = OnPolicyRunner(
