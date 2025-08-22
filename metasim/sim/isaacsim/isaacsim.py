@@ -551,7 +551,8 @@ class IsaacsimHandler(BaseSimHandler):
         terrain_config.env_spacing = self.scene.cfg.env_spacing
 
         self.terrain = terrain_config.class_type(terrain_config)
-        self.terrain.env_origins = self.terrain.terrain_origins
+        self.scene._terrain = self.terrain
+        # self.terrain.env_origins = self.terrain.terrain_origins
 
     def _load_render_settings(self) -> None:
         import carb

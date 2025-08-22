@@ -626,16 +626,79 @@ class MaterialHelper:
             if not material:
                 return False
 
-            # Clear existing binding for this material type
-            if material_type == "physics":
-                mat_binding_api.UnbindDirectBinding("physics")
-            elif material_type in ["visual", "mdl"]:
-                mat_binding_api.UnbindDirectBinding()
+            if material_type == "mdl":
+                try:
+                    mat_binding_api.UnbindDirectBinding()
+                except Exception:
+                    pass
+                # collect all meshes
+                from pxr import Gf, Sdf, Usd, UsdGeom, Vt
 
-            # Bind the material
-            if material_type == "physics":
+                meshes = [UsdGeom.Mesh(p) for p in Usd.PrimRange(target_prim) if p.IsA(UsdGeom.Mesh)]
+                # if target is a Mesh, add it to the list
+                if target_prim.IsA(UsdGeom.Mesh):
+                    meshes.append(UsdGeom.Mesh(target_prim))
+
+                # fix uv for meshes without/empty uv
+                def _ensure_uv(mesh, tile: float = 0.2):
+                    pvapi = UsdGeom.PrimvarsAPI(mesh)
+                    pv = pvapi.GetPrimvar("st")
+                    vals = pv.Get() if pv else None
+                    idx = mesh.GetFaceVertexIndicesAttr().Get() or []
+
+                    if pv and vals and len(vals) > 0:
+                        return  # no need to fix
+                    # calculate bounding box, and project to the largest two axes
+
+                    pts = mesh.GetPointsAttr().Get() or []
+                    if not pts:
+                        return
+                    xs, ys, zs = [p[0] for p in pts], [p[1] for p in pts], [p[2] for p in pts]
+                    rx, ry, rz = (
+                        ((max(xs) - min(xs)) if xs else 0),
+                        ((max(ys) - min(ys)) if ys else 0),
+                        ((max(zs) - min(zs)) if zs else 0),
+                    )
+                    axes = sorted([("x", rx), ("y", ry), ("z", rz)], key=lambda t: t[1], reverse=True)
+                    a, b = axes[0][0], axes[1][0]
+
+                    def comp(p, axis):
+                        return p[0] if axis == "x" else (p[1] if axis == "y" else p[2])
+
+                    from math import isfinite
+
+                    st_list = []
+                    for vid in idx:
+                        p = pts[vid]
+                        u = comp(p, a) * tile
+                        v = comp(p, b) * tile
+                        u = 0.0 if not isfinite(u) else u
+                        v = 0.0 if not isfinite(v) else v
+                        st_list.append((u, v))
+
+                    st = Vt.Vec2fArray([Gf.Vec2f(u, v) for (u, v) in st_list])
+                    api = UsdGeom.PrimvarsAPI(mesh)
+                    pv = api.CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying)
+                    pv.Set(st)
+                    pv.SetInterpolation(UsdGeom.Tokens.faceVarying)
+
+                for m in meshes:
+                    _ensure_uv(m)
+
+                # bind MDL to mesh, avoid being overridden by sub-meshes
+                for m in meshes:
+                    mprim = m.GetPrim()
+                    if not mprim.HasAPI(UsdShade.MaterialBindingAPI):
+                        UsdShade.MaterialBindingAPI.Apply(mprim)
+                    api_m = UsdShade.MaterialBindingAPI(mprim)
+                    api_m.UnbindDirectBinding()
+                    api_m.Bind(material, UsdShade.Tokens.strongerThanDescendants)
+
+            elif material_type == "physics":
+                mat_binding_api.UnbindDirectBinding("physics")
                 mat_binding_api.Bind(material, UsdShade.Tokens.strongerThanDescendants, "physics")
-            else:  # visual, mdl
+            else:
+                mat_binding_api.UnbindDirectBinding()
                 mat_binding_api.Bind(material, UsdShade.Tokens.strongerThanDescendants)
 
             return True
@@ -644,154 +707,154 @@ class MaterialHelper:
             log.debug(f"Material binding failed for {prim_path}: {e}")
             return False
 
-    def ensure_default_materials(self) -> None:
-        """Ensure all objects have default materials."""
-        try:
-            import omni.usd
-            from pxr import UsdShade
+    # def ensure_default_materials(self) -> None:
+    #     """Ensure all objects have default materials."""
+    #     try:
+    #         import omni.usd
+    #         from pxr import UsdShade
 
-            stage = omni.usd.get_context().get_stage()
-            if not stage:
-                return
+    #         stage = omni.usd.get_context().get_stage()
+    #         if not stage:
+    #             return
 
-            for obj in self.sim.objects:
-                obj_name = obj.name
-                for env_idx in range(self.sim.num_envs):
-                    env_path = f"/World/envs/env_{env_idx}/{obj_name}"
-                    prim = stage.GetPrimAtPath(env_path)
+    #         for obj in self.sim.objects:
+    #             obj_name = obj.name
+    #             for env_idx in range(self.sim.num_envs):
+    #                 env_path = f"/World/envs/env_{env_idx}/{obj_name}"
+    #                 prim = stage.GetPrimAtPath(env_path)
 
-                    if prim.IsValid():
-                        # Check if object already has a material binding
-                        has_material = False
-                        if prim.HasAPI(UsdShade.MaterialBindingAPI):
-                            mat_api = UsdShade.MaterialBindingAPI(prim)
-                            bound_material = mat_api.GetDirectBinding().GetMaterial()
-                            has_material = bound_material is not None
+    #                 if prim.IsValid():
+    #                     # Check if object already has a material binding
+    #                     has_material = False
+    #                     if prim.HasAPI(UsdShade.MaterialBindingAPI):
+    #                         mat_api = UsdShade.MaterialBindingAPI(prim)
+    #                         bound_material = mat_api.GetDirectBinding().GetMaterial()
+    #                         has_material = bound_material is not None
 
-                        if not has_material and hasattr(obj, "color"):
-                            # Create a default material for this object
-                            default_material_config = {
-                                "type": "pbr",
-                                "name": f"default_{obj_name}",
-                                "diffuse_color": obj.color,
-                                "metallic": 0.0,
-                                "roughness": 0.5,
-                                "specular": 0.2,
-                                "opacity": 1.0,
-                            }
+    #                     if not has_material and hasattr(obj, "color"):
+    #                         # Create a default material for this object
+    #                         default_material_config = {
+    #                             "type": "pbr",
+    #                             "name": f"default_{obj_name}",
+    #                             "diffuse_color": obj.color,
+    #                             "metallic": 0.0,
+    #                             "roughness": 0.5,
+    #                             "specular": 0.2,
+    #                             "opacity": 1.0,
+    #                         }
 
-                            # Apply the default material
-                            self._apply_material_to_object(obj, default_material_config, "default")
-                            log.debug(f"Applied default material to {obj_name}")
-                            break  # Only need to apply once per object, not per environment
+    #                         # Apply the default material
+    #                         self._apply_material_to_object(obj, default_material_config, "default")
+    #                         log.debug(f"Applied default material to {obj_name}")
+    #                         break  # Only need to apply once per object, not per environment
 
-        except Exception as e:
-            log.debug(f"Failed to ensure default materials: {e}")
+    #     except Exception as e:
+    #         log.debug(f"Failed to ensure default materials: {e}")
 
-    def debug_object_prims(self) -> None:
-        """Debug method to print all object prim paths."""
-        try:
-            import omni.usd
+    # def debug_object_prims(self) -> None:
+    #     """Debug method to print all object prim paths."""
+    #     try:
+    #         import omni.usd
 
-            stage = omni.usd.get_context().get_stage()
-            if stage:
-                log.info("=== Debugging Object Prims ===")
-                for obj in self.sim.objects:
-                    obj_name = obj.name
-                    log.info(f"Object: {obj_name}")
+    #         stage = omni.usd.get_context().get_stage()
+    #         if stage:
+    #             log.info("=== Debugging Object Prims ===")
+    #             for obj in self.sim.objects:
+    #                 obj_name = obj.name
+    #                 log.info(f"Object: {obj_name}")
 
-                    # Check if object exists in scene
-                    if obj_name in self.sim.scene.rigid_objects:
-                        obj_inst = self.sim.scene.rigid_objects[obj_name]
-                        cfg_path = str(obj_inst.cfg.prim_path)
-                        log.info(f"  Config prim_path: {cfg_path}")
+    #                 # Check if object exists in scene
+    #                 if obj_name in self.sim.scene.rigid_objects:
+    #                     obj_inst = self.sim.scene.rigid_objects[obj_name]
+    #                     cfg_path = str(obj_inst.cfg.prim_path)
+    #                     log.info(f"  Config prim_path: {cfg_path}")
 
-                        # Check actual prims for each environment
-                        for env_idx in range(min(3, self.sim.num_envs)):  # Check first 3 envs
-                            env_path = f"/World/envs/env_{env_idx}/{obj_name}"
-                            prim = stage.GetPrimAtPath(env_path)
-                            valid = prim.IsValid()
-                            log.info(f"  Env {env_idx} ({env_path}): {'Valid' if valid else 'Invalid'}")
+    #                     # Check actual prims for each environment
+    #                     for env_idx in range(min(3, self.sim.num_envs)):  # Check first 3 envs
+    #                         env_path = f"/World/envs/env_{env_idx}/{obj_name}"
+    #                         prim = stage.GetPrimAtPath(env_path)
+    #                         valid = prim.IsValid()
+    #                         log.info(f"  Env {env_idx} ({env_path}): {'Valid' if valid else 'Invalid'}")
 
-                            if valid:
-                                # Check if it has a material binding
-                                from pxr import UsdShade
+    #                         if valid:
+    #                             # Check if it has a material binding
+    #                             from pxr import UsdShade
 
-                                mat_api = UsdShade.MaterialBindingAPI(prim)
-                                if mat_api:
-                                    bound_material = mat_api.GetDirectBinding().GetMaterial()
-                                    if bound_material:
-                                        log.info(f"    Current material: {bound_material.GetPath()}")
-                                    else:
-                                        log.info("    No material bound")
-                log.info("=== End Debug ===")
-        except Exception as e:
-            log.warning(f"Debug failed: {e}")
+    #                             mat_api = UsdShade.MaterialBindingAPI(prim)
+    #                             if mat_api:
+    #                                 bound_material = mat_api.GetDirectBinding().GetMaterial()
+    #                                 if bound_material:
+    #                                     log.info(f"    Current material: {bound_material.GetPath()}")
+    #                                 else:
+    #                                     log.info("    No material bound")
+    #             log.info("=== End Debug ===")
+    #     except Exception as e:
+    #         log.warning(f"Debug failed: {e}")
 
-    def verify_material_binding(self, obj_name: str, expected_material_path: str) -> bool:
-        """Verify if a material is actually bound to an object."""
-        try:
-            import omni.usd
-            from pxr import UsdShade
+    # def verify_material_binding(self, obj_name: str, expected_material_path: str) -> bool:
+    #     """Verify if a material is actually bound to an object."""
+    #     try:
+    #         import omni.usd
+    #         from pxr import UsdShade
 
-            stage = omni.usd.get_context().get_stage()
-            if not stage:
-                return False
+    #         stage = omni.usd.get_context().get_stage()
+    #         if not stage:
+    #             return False
 
-            # Check first environment instance
-            env_path = f"/World/envs/env_0/{obj_name}"
-            prim = stage.GetPrimAtPath(env_path)
+    #         # Check first environment instance
+    #         env_path = f"/World/envs/env_0/{obj_name}"
+    #         prim = stage.GetPrimAtPath(env_path)
 
-            if prim.IsValid():
-                mat_api = UsdShade.MaterialBindingAPI(prim)
-                if mat_api:
-                    bound_material = mat_api.GetDirectBinding().GetMaterial()
-                    if bound_material:
-                        bound_path = str(bound_material.GetPath())
-                        # Check if any material is bound (not necessarily the exact one we tried to bind)
-                        return len(bound_path) > 0
-            return False
-        except Exception as e:
-            log.debug(f"Material verification failed: {e}")
-            return False
+    #         if prim.IsValid():
+    #             mat_api = UsdShade.MaterialBindingAPI(prim)
+    #             if mat_api:
+    #                 bound_material = mat_api.GetDirectBinding().GetMaterial()
+    #                 if bound_material:
+    #                     bound_path = str(bound_material.GetPath())
+    #                     # Check if any material is bound (not necessarily the exact one we tried to bind)
+    #                     return len(bound_path) > 0
+    #         return False
+    #     except Exception as e:
+    #         log.debug(f"Material verification failed: {e}")
+    #         return False
 
-    def verify_physics_material_binding(self, obj_name: str, expected_material_path: str) -> bool:
-        """Verify if a physics material is actually bound to an object."""
-        try:
-            import omni.usd
-            from pxr import UsdShade
+    # def verify_physics_material_binding(self, obj_name: str, expected_material_path: str) -> bool:
+    #     """Verify if a physics material is actually bound to an object."""
+    #     try:
+    #         import omni.usd
+    #         from pxr import UsdShade
 
-            stage = omni.usd.get_context().get_stage()
-            if not stage:
-                return False
+    #         stage = omni.usd.get_context().get_stage()
+    #         if not stage:
+    #             return False
 
-            # Check first environment instance
-            env_path = f"/World/envs/env_0/{obj_name}"
-            prim = stage.GetPrimAtPath(env_path)
+    #         # Check first environment instance
+    #         env_path = f"/World/envs/env_0/{obj_name}"
+    #         prim = stage.GetPrimAtPath(env_path)
 
-            if prim.IsValid():
-                # Check for physics material binding specifically
-                mat_api = UsdShade.MaterialBindingAPI(prim)
-                if mat_api:
-                    physics_binding = mat_api.GetDirectBinding("physics")
-                    if physics_binding:
-                        bound_material_path = str(physics_binding.GetMaterialPath())
-                        if bound_material_path == expected_material_path:
-                            log.debug(f"Verified physics material binding: {obj_name} -> {bound_material_path}")
-                            return True
-                        else:
-                            log.debug(
-                                f"Physics material mismatch for {obj_name}: expected {expected_material_path}, got {bound_material_path}"
-                            )
-                    else:
-                        log.debug(f"No physics material binding found for {obj_name}")
-                else:
-                    log.debug(f"No material binding API found for {obj_name}")
-            else:
-                log.debug(f"Prim not found: {env_path}")
+    #         if prim.IsValid():
+    #             # Check for physics material binding specifically
+    #             mat_api = UsdShade.MaterialBindingAPI(prim)
+    #             if mat_api:
+    #                 physics_binding = mat_api.GetDirectBinding("physics")
+    #                 if physics_binding:
+    #                     bound_material_path = str(physics_binding.GetMaterialPath())
+    #                     if bound_material_path == expected_material_path:
+    #                         log.debug(f"Verified physics material binding: {obj_name} -> {bound_material_path}")
+    #                         return True
+    #                     else:
+    #                         log.debug(
+    #                             f"Physics material mismatch for {obj_name}: expected {expected_material_path}, got {bound_material_path}"
+    #                         )
+    #                 else:
+    #                     log.debug(f"No physics material binding found for {obj_name}")
+    #             else:
+    #                 log.debug(f"No material binding API found for {obj_name}")
+    #         else:
+    #             log.debug(f"Prim not found: {env_path}")
 
-            return False
+    #         return False
 
-        except Exception as e:
-            log.debug(f"Physics material verification failed: {e}")
-            return False
+    #     except Exception as e:
+    #         log.debug(f"Physics material verification failed: {e}")
+    #         return False
