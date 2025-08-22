@@ -229,11 +229,12 @@ class IsaacsimHandler(BaseSimHandler):
                 obj_inst.write_root_pose_to_sim(root_state[env_ids, :7], env_ids=env_ids)
                 obj_inst.write_root_velocity_to_sim(root_state[env_ids, 7:], env_ids=env_ids)
                 if isinstance(obj, ArticulationObjCfg):
+                    joint_ids_reindex = self.get_joint_reindex(obj.name, inverse=True)
                     obj_inst.write_joint_position_to_sim(
-                        states.objects[obj.name].joint_pos[env_ids, :], env_ids=env_ids
+                        states.objects[obj.name].joint_pos[env_ids, :][:, joint_ids_reindex], env_ids=env_ids
                     )
                     obj_inst.write_joint_velocity_to_sim(
-                        states.objects[obj.name].joint_vel[env_ids, :], env_ids=env_ids
+                        states.objects[obj.name].joint_vel[env_ids, :][:, joint_ids_reindex], env_ids=env_ids
                     )
 
             for _, robot in enumerate(self.robots):
@@ -244,8 +245,13 @@ class IsaacsimHandler(BaseSimHandler):
                 robot_inst.write_root_velocity_to_sim(
                     states.robots[robot.name].root_state[env_ids, 7:], env_ids=env_ids
                 )
-                robot_inst.write_joint_position_to_sim(states.robots[robot.name].joint_pos[env_ids, :], env_ids=env_ids)
-                robot_inst.write_joint_velocity_to_sim(states.robots[robot.name].joint_vel[env_ids, :], env_ids=env_ids)
+                joint_ids_reindex = self.get_joint_reindex(robot.name, inverse=True)
+                robot_inst.write_joint_position_to_sim(
+                    states.robots[robot.name].joint_pos[env_ids, :][:, joint_ids_reindex], env_ids=env_ids
+                )
+                robot_inst.write_joint_velocity_to_sim(
+                    states.robots[robot.name].joint_vel[env_ids, :][:, joint_ids_reindex], env_ids=env_ids
+                )
 
         else:
             raise Exception("Unsupported state type, must be DictEnvState or TensorState")
@@ -381,8 +387,8 @@ class IsaacsimHandler(BaseSimHandler):
         is_rendering = self.sim.has_gui() or self.sim.has_rtx_sensors()
         self.scene.write_data_to_sim()
         self.sim.step(render=False)
-        if self._step_counter % self._render_interval == 0 and is_rendering:
-            self.sim.render()
+        # if self._step_counter % self._render_interval == 0 and is_rendering:
+        self.sim.render()
         self.scene.update(dt=self.dt)
 
         # Ensure camera pose is correct, especially for the first few frames

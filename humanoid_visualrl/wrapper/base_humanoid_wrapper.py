@@ -124,7 +124,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
             1,
         ))
 
-
         self.last_contacts = torch.zeros(
             self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False
         )
@@ -325,7 +324,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
         if len(reset_env_idx) > 0:
             self._resample_commands(reset_env_idx)
 
-
         self._compute_reward(tensor_state)
         self.reset(reset_env_idx)
 
@@ -445,9 +443,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
 
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
-
-
-
 
     def _push_robots(self):
         """Randomly set robot's root velocity to simulate a push."""

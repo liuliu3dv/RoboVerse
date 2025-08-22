@@ -25,7 +25,7 @@ class NetContactForce(BaseQueryType):
 
         if mod.startswith("metasim.sim.isaacsim"):
             robot_name = self.handler.robots[0].name
-            reindex = self.handler.get_body_reindex(robot_name, inverse=True)
+            reindex = self.handler.get_body_reindex(robot_name)
             return self.handler.contact_sensor.data.net_forces_w[:, reindex, :]
         else:
             raise ValueError(f"Unsupported handler type: {type(self.handler)} for NetContactForce query")

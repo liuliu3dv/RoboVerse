@@ -199,7 +199,7 @@ class BaseTableHumanoidTaskCfg:
     """PPO config."""
     normalization = Normalization()
     """Normalization config."""
-    decimation: int = 10
+    decimation: int = 3
     """Decimation pd control loop."""
     num_obs: int = 124
     """Number of observations."""
@@ -275,7 +275,7 @@ class BaseTableHumanoidTaskCfg:
             "objects": {},
             "robots": {
                 "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.737]),
+                    "pos": torch.tensor([0.0, 0.0, 0.747]),
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
                         "left_hip_pitch": -0.4,
