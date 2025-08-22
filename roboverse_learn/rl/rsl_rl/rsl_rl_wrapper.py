@@ -12,7 +12,7 @@ from metasim.constants import SimType
 from metasim.utils.setup_util import get_sim_handler_class
 from metasim.utils.state import list_state_to_tensor
 
-
+from humanoid_visualrl.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
 
 class RslRlWrapper(VecEnv):
     """
@@ -41,10 +41,6 @@ class RslRlWrapper(VecEnv):
         env.set_states(self.init_states)
         self.env = env
 
-        # Initialize observation buffers
-        self._init_buffers()
-
-
     def _init_buffers(self):
         """Initialize buffers for rsl_rl compatibility."""
         # Initialize observation buffers
@@ -72,7 +68,7 @@ class RslRlWrapper(VecEnv):
         self.num_privileged_obs = scenario.task.num_privileged_obs
         self.max_episode_length = scenario.task.max_episode_length
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.cfg = scenario.task
+        self.cfg:BaseTableHumanoidTaskCfg  = scenario.task
         from metasim.utils.dict import class_to_dict
         self.train_cfg = class_to_dict(scenario.task.ppo_cfg)
 

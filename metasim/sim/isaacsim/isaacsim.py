@@ -329,10 +329,8 @@ class IsaacsimHandler(BaseSimHandler):
             # ]
             # TODO: hard code here, at pos control mode
             robot_inst.set_joint_effort_target(
-                # action_tensor_all[:, start_idx : start_idx + len(actionable_joint_ids)],
                 action_tensor_all,
-                # joint_ids=actionable_joint_ids,
-                joint_ids=list(range(9)),  #
+                joint_ids=list(range(self.scenario.task.num_actions)),  #
             )
             # start_idx += len(actionable_joint_ids)
 
@@ -557,6 +555,7 @@ class IsaacsimHandler(BaseSimHandler):
     def _load_lights(self) -> None:
         import isaaclab.sim as sim_utils
         from isaaclab.sim.spawners import spawn_light
+
         from metasim.scenario.lights import (
             CylinderLightCfg,
             DiskLightCfg,
@@ -935,8 +934,13 @@ class IsaacsimHandler(BaseSimHandler):
             raise ValueError(f"Object {obj_name} not found")
 
     def _set_body_mass(
-        self, obj_name: str, mass: torch.Tensor, body_name: str | None = None,  env_ids: list[int] | None = None, 
-    device:str="cpu") -> None:
+        self,
+        obj_name: str,
+        mass: torch.Tensor,
+        body_name: str | None = None,
+        env_ids: list[int] | None = None,
+        device: str = "cpu",
+    ) -> None:
         """
         Set the mass of a specific body or all bodies of an object.
 
@@ -1015,7 +1019,12 @@ class IsaacsimHandler(BaseSimHandler):
             raise ValueError(f"Object {obj_name} not found")
 
     def _set_body_friction(
-        self, obj_name: str, friction: torch.Tensor, body_name: str | None = None, env_ids: list[int] | None = None, device:str="cpu"
+        self,
+        obj_name: str,
+        friction: torch.Tensor,
+        body_name: str | None = None,
+        env_ids: list[int] | None = None,
+        device: str = "cpu",
     ) -> None:
         """
         Set the friction coefficient of a specific body or all bodies of an object.

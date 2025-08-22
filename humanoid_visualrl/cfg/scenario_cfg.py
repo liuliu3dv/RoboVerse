@@ -67,8 +67,8 @@ class LeggedRobotRunnerCfg:
     """max number of iterations"""
 
     # logging
-    logger: str = "wandb"
-    wandb_project: str = "active_vision"
+    # logger: str = "wandb"
+    # wandb_project: str = "active_vision"
 
     save_interval = 1000
     """save interval for checkpoints"""
@@ -83,8 +83,8 @@ class LeggedRobotRunnerCfg:
     """checkpoint name"""
     resume_path = None
     """resume path"""
-    wandb = False
-    """Whether to use wandb."""
+    # wandb = False
+    # """Whether to use wandb."""
 
     policy: Policy = Policy()
     algorithm: Algorithm = Algorithm()
@@ -203,8 +203,7 @@ class BaseTableHumanoidTaskCfg:
     """Number of observations."""
     num_privileged_obs: int = None
     """Number of privileged observations. If not None a priviledge_obs_buf will be returned by step() (critic obs for assymetric training). None is returned """
-    num_actions: int = 12
-    """Number of actions."""
+
     env_spacing: float = 2.0
     """Environment spacing."""
     send_timeouts: bool = True
@@ -242,10 +241,16 @@ class BaseTableHumanoidTaskCfg:
     max_episode_length: int = 2400
     """episode length in steps"""
 
-    num_observations: int = 9
-    num_actions: int = 9
-    num_privileged_obs: int = 9
-    max_episode_length: int = 2400
+    frame_stack = 1
+    c_frame_stack = 3
+
+    command_dim = 14
+    num_actions: int = 21
+    """Number of actions."""
+    num_single_obs: int = 3 * num_actions + 6 + command_dim  #
+    num_observations: int = int(frame_stack * num_single_obs)
+    single_num_privileged_obs: int = 4 * num_actions + 25
+    num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
 
     @configclass
     class HumanoidExtraCfg:
@@ -286,9 +291,6 @@ class BaseTableHumanoidTaskCfg:
         }
     ]
 
-    command_dim = 14
-    num_actions = 9
-
     torque_limit_scale = 1.0
 
     reward_weights: dict[str, float] = {
@@ -300,20 +302,24 @@ class BaseTableHumanoidTaskCfg:
         "dof_acc": -1e-7,
     }
 
-    frame_stack = 1
-    c_frame_stack = 3
-
-    # obs
-    num_single_obs = 41  # FIXME hardcode
-    num_observations = int(frame_stack * num_single_obs)
-    single_num_observations = 3 * num_actions + 6
-
-    # privileged obs
-    single_num_privileged_obs = 69  # FIXME hardcode
-    num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
-
     # control
     action_scale = 0.25
+
+    # push robot
+    @configclass
+    class PushRandomCfg:
+        """Configuration for random push forces."""
+
+        enabled: bool = False
+        """Whether to enable random push forces."""
+        max_push_vel_xy: float = 0.2
+        """Maximum push velocity in xy plane."""
+        max_push_ang_vel: float = 0.4
+        """Maximum push angular velocity."""
+        push_interval: int = 4
+        """Interval in steps for applying random push forces and torques."""
+
+    random_push = PushRandomCfg(enabled=True)
 
     def __post_init__(self):
         self.command_ranges.wrist_max_radius = 0.15

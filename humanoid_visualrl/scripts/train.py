@@ -23,7 +23,7 @@ decimation = 3
 from rsl_rl.runners.on_policy_runner import OnPolicyRunner
 
 from humanoid_visualrl.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
-from humanoid_visualrl.wrapper.humanoid_visualrl_wrapper import HumanoidVisualRLWrapper
+from humanoid_visualrl.wrapper.walking_wrapper import WalkingWrapper as TaskWrapper
 
 if __name__ == "__main__":
 
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     class Args:
         """Arguments for the static scene."""
 
-        robot: str = "g1_static"
+        robot: str = "g1"
 
         ## Handlers
         sim: Literal["isaacsim"] = "isaacsim"
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     scenario.env_spacing = task_cfg.env_spacing
 
     log.info(f"Using simulator: {args.sim}")
-    env = HumanoidVisualRLWrapper(scenario)
+    env = TaskWrapper(scenario)
     device = torch.device("cuda")
     log_dir = "outputs/humanoid_visualrl"
     use_wandb = False
