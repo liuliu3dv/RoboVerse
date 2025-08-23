@@ -68,7 +68,7 @@ class LeggedRobotRunnerCfg:
 
     # logging
     # logger: str = "wandb"
-    # wandb_project: str = "active_vision"
+    wandb_project: str = "active_vision"
 
     save_interval = 1000
     """save interval for checkpoints"""
@@ -82,9 +82,6 @@ class LeggedRobotRunnerCfg:
     checkpoint = -1
     """checkpoint name"""
     resume_path = None
-    """resume path"""
-    # wandb = False
-    # """Whether to use wandb."""
 
     policy: Policy = Policy()
     algorithm: Algorithm = Algorithm()
@@ -100,7 +97,7 @@ class BaseTableHumanoidTaskCfg:
     penalised_contact_indices: indices of the contact joints
     """
 
-    decimation: int = 3
+    decimation: int = 10
     episode_length: int = MISSING
     reward_functions: list[callable[[list[TensorState], str | None], torch.FloatTensor]] = MISSING
     reward_weights: list[float] = MISSING
@@ -110,7 +107,7 @@ class BaseTableHumanoidTaskCfg:
     class RewardCfg:
         """Constants for reward computation."""
 
-        base_height_target: float = 0.89
+        base_height_target: float = 0.728  # for g1
         """target height of the base"""
         min_dist: float = 0.2
         """minimum distance between feet"""
@@ -199,7 +196,7 @@ class BaseTableHumanoidTaskCfg:
     """PPO config."""
     normalization = Normalization()
     """Normalization config."""
-    decimation: int = 3
+    decimation: int = 10
     """Decimation pd control loop."""
     num_obs: int = 124
     """Number of observations."""
@@ -219,7 +216,7 @@ class BaseTableHumanoidTaskCfg:
     termination_contact_indices: torch.Tensor = MISSING
     """termination contact indices for reward computation"""
     sim_params = SimParamCfg(
-        dt=0.005,
+        dt=0.001,
         contact_offset=0.01,
         num_position_iterations=4,
         num_velocity_iterations=0,
@@ -275,7 +272,7 @@ class BaseTableHumanoidTaskCfg:
             "objects": {},
             "robots": {
                 "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.747]),
+                    "pos": torch.tensor([0.0, 0.0, 0.735]),
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
                         "left_hip_pitch": -0.4,

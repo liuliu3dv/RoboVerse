@@ -3,7 +3,6 @@ from metasim.queries.base import BaseQueryType
 
 
 class NetContactForce(BaseQueryType):
-
     def __init__(self):
         super().__init__()
 
@@ -18,9 +17,7 @@ class NetContactForce(BaseQueryType):
             raise ValueError(f"Unsupported handler type: {type(handler)} for SitePos query")
 
     def __call__(self):
-        """Return (num_env, num_bodies) contact force whenever `get_extra()` is invoked.
-
-        """
+        """Return (num_env, num_bodies) contact force whenever `get_extra()` is invoked."""
         mod = self.handler.__class__.__module__
 
         if mod.startswith("metasim.sim.isaacsim"):
@@ -29,4 +26,3 @@ class NetContactForce(BaseQueryType):
             return self.handler.contact_sensor.data.net_forces_w[:, reindex, :]
         else:
             raise ValueError(f"Unsupported handler type: {type(self.handler)} for NetContactForce query")
-        

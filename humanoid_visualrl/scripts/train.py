@@ -95,7 +95,6 @@ if __name__ == "__main__":
     env = TaskWrapper(scenario)
     device = torch.device("cuda")
     log_dir = "outputs/humanoid_visualrl"
-    use_wandb = False
     learning_iterations = 1000
     ppo_runner = OnPolicyRunner(
         env=env,

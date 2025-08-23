@@ -124,6 +124,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
             1,
         ))
 
+        # history buffer
         self.last_contacts = torch.zeros(
             self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False
         )
@@ -142,7 +143,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self._action_scale = self.scenario.task.action_scale * torch.ones(
             self.num_envs, self.num_actions, device=self.device, requires_grad=False
         )
-        dof_names = self.env.get_joint_names(self.robot.name, sort=True)
+        dof_names = self.env.get_joint_names(self.robot.name)
         for i, dof_name in enumerate(dof_names):
             i_actuator_cfg = self.robot.actuators[dof_name]
             self._p_gains[:, i] = i_actuator_cfg.stiffness
@@ -219,14 +220,11 @@ class HumanoidBaseWrapper(RslRlWrapper):
 
     def _update_history(self, tensor_state: TensorState):
         """Update history buffer at the the of the frame, called after reset."""
-        # we should always make a copy here
-        # check whether torch.clone is necessary
-        self.last_last_actions[:] = torch.clone(self.last_actions[:])
+        self.last_last_actions[:] = self.last_actions[:]
         self.last_actions[:] = self.actions[:]
         self.last_dof_vel[:] = tensor_state.robots[self.robot.name].joint_vel
 
     def _prepare_reward_function(self, task: BaseTableHumanoidTaskCfg):
-        """Prepares a list of reward functions, which will be called to compute the total reward."""
         self.reward_scales = task.reward_weights
         for key in list(self.reward_scales.keys()):
             scale = self.reward_scales[key]
@@ -234,7 +232,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
                 self.reward_scales.pop(key)
             else:
                 self.reward_scales[key] *= self.dt
-        # prepare list of functions
+
         self.reward_functions = []
         self.reward_names = []
         for name, scale in self.reward_scales.items():
@@ -247,7 +245,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
                 raise KeyError(f"No reward function named '{method_name}' on {self.__class__.__name__}")
             self.reward_functions.append(fn)
 
-        # reward episode sums
         self.episode_sums = {
             name: torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
             for name in self.reward_scales.keys()

@@ -8,7 +8,7 @@ from typing import Literal
 import torch
 from loguru import logger as log
 from metasim.constants import PhysicStateType, SimType
-from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
+from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.utils.setup_util import get_sim_handler_class
 from rich.logging import RichHandler

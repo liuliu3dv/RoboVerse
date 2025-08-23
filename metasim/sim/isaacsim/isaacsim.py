@@ -72,6 +72,7 @@ class IsaacsimHandler(BaseSimHandler):
         from isaaclab.sim import PhysxCfg, SimulationCfg, SimulationContext
 
         sim_config: SimulationCfg = SimulationCfg(
+            dt=self.dt,
             device=args.device,
             render_interval=self.scenario.decimation,  # TTODO divide into render interval and control decimation
             physx=PhysxCfg(
@@ -82,8 +83,6 @@ class IsaacsimHandler(BaseSimHandler):
                 friction_correlation_distance=self.scenario.sim_params.friction_correlation_distance,
             ),
         )
-        if self.scenario.sim_params.dt is not None:
-            sim_config.dt = self.scenario.sim_params.dt
 
         self.sim: SimulationContext = SimulationContext(sim_config)
         scene_config: InteractiveSceneCfg = InteractiveSceneCfg(
@@ -387,8 +386,8 @@ class IsaacsimHandler(BaseSimHandler):
         is_rendering = self.sim.has_gui() or self.sim.has_rtx_sensors()
         self.scene.write_data_to_sim()
         self.sim.step(render=False)
-        # if self._step_counter % self._render_interval == 0 and is_rendering:
-        self.sim.render()
+        if self._step_counter % self._render_interval == 0 and is_rendering:
+            self.sim.render()
         self.scene.update(dt=self.dt)
 
         # Ensure camera pose is correct, especially for the first few frames
@@ -599,7 +598,7 @@ class IsaacsimHandler(BaseSimHandler):
         contact_sensor_config: ContactSensorCfg = ContactSensorCfg(
             prim_path=f"/World/envs/env_.*/{self.robots[0].name}/.*",
             history_length=3,
-            update_period=0.005,
+            update_period=self.dt,
             track_air_time=True,
         )
         self.contact_sensor = ContactSensor(contact_sensor_config)
