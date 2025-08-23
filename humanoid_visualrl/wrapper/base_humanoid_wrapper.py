@@ -8,7 +8,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 
-from humanoid_visualrl.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
+from humanoid_visualrl.cfg.humanoidVisualRLCfg import BaseTableHumanoidTaskCfg
 from humanoid_visualrl.utils.utils import (
     get_body_reindexed_indices_from_substring,
     get_euler_xyz_tensor,
@@ -365,11 +365,8 @@ class HumanoidBaseWrapper(RslRlWrapper):
             tensor_state = self.env.get_states()
             self.dof_pos = tensor_state.robots[self.robot.name].joint_pos
             self.dof_vel = tensor_state.robots[self.robot.name].joint_vel
-            # compute torques
             torques = self._compute_effort(action)
-            # assign torqus
             self.env.set_dof_targets(torques)
-            # step physics
             self.env.simulate()
 
     def step(self, actions):

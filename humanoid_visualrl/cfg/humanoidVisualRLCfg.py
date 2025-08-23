@@ -67,8 +67,8 @@ class LeggedRobotRunnerCfg:
     """max number of iterations"""
 
     # logging
-    # logger: str = "wandb"
-    wandb_project: str = "active_vision"
+    logger: str = "wandb"
+    wandb_project: str = "humanoid_visualrl"
 
     save_interval = 1000
     """save interval for checkpoints"""
@@ -272,7 +272,7 @@ class BaseTableHumanoidTaskCfg:
             "objects": {},
             "robots": {
                 "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.735]),
+                    "pos": torch.tensor([0.0, 0.0, 0.78]), # 0.78 is taken from unitree rl_gym
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
                         "left_hip_pitch": -0.4,

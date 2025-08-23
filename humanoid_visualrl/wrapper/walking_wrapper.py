@@ -1,6 +1,6 @@
 import torch
 
-from humanoid_visualrl.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
+from humanoid_visualrl.cfg.humanoidVisualRLCfg import BaseTableHumanoidTaskCfg
 from humanoid_visualrl.wrapper.base_humanoid_wrapper import HumanoidBaseWrapper
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.types import TensorState

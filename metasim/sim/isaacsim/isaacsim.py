@@ -413,9 +413,11 @@ class IsaacsimHandler(BaseSimHandler):
                 jn: ImplicitActuatorCfg(
                     # prim_path
                     joint_names_expr=[jn],
-                    stiffness=actuator.stiffness,
-                    damping=actuator.damping,
-                    friction=actuator.friction,
+                    # TODO fix this with different mode
+                    stiffness=0.0,
+                    damping=0,
+                    armature=0.01,
+                    friction=0.05,
                 )
                 for jn, actuator in robot.actuators.items()
             },
@@ -615,6 +617,17 @@ class IsaacsimHandler(BaseSimHandler):
             DomeLightCfg,
             SphereLightCfg,
         )
+
+        from isaaclab.assets import AssetBaseCfg
+        from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
+        sky_light = AssetBaseCfg(
+        prim_path="/World/skyLight",
+        spawn=sim_utils.DomeLightCfg(
+            intensity=750.0,
+            texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
+        ),
+    )
+
 
         # Use lights from scenario configuration if available
         if hasattr(self.scenario, "lights") and self.scenario.lights:

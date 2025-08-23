@@ -22,7 +22,7 @@ decimation = 3
 
 from rsl_rl.runners.on_policy_runner import OnPolicyRunner
 
-from humanoid_visualrl.cfg.scenario_cfg import BaseTableHumanoidTaskCfg
+from humanoid_visualrl.cfg.humanoidVisualRLCfg import BaseTableHumanoidTaskCfg
 from humanoid_visualrl.wrapper.walking_wrapper import WalkingWrapper as TaskWrapper
 
 if __name__ == "__main__":
@@ -54,26 +54,26 @@ if __name__ == "__main__":
         num_envs=args.num_envs,
     )
     scenario.lights = [
-        # Sky dome light - provides soft ambient lighting from all directions
-        DomeLightCfg(
-            intensity=800.0,  # Moderate ambient lighting
-            color=(0.85, 0.9, 1.0),  # Slightly blue sky color
-        ),
-        # Sun light - main directional light
-        DistantLightCfg(
-            intensity=1200.0,  # Strong sunlight
-            polar=35.0,  # Sun at 35° elevation (natural angle)
-            azimuth=60.0,  # From the northeast
-            color=(1.0, 0.98, 0.95),  # Slightly warm sunlight
-        ),
-        # Soft area light for subtle fill
-        DiskLightCfg(
-            intensity=300.0,
-            radius=1.5,  # Large disk for soft light
-            pos=(2.0, -2.0, 4.0),  # Side fill light
-            rot=(0.7071, 0.7071, 0.0, 0.0),  # Angled towards scene
-            color=(0.95, 0.95, 1.0),
-        ),
+        # # Sky dome light - provides soft ambient lighting from all directions
+        # DomeLightCfg(
+        #     intensity=800.0,  # Moderate ambient lighting
+        #     color=(0.85, 0.9, 1.0),  # Slightly blue sky color
+        # ),
+        # # Sun light - main directional light
+        # DistantLightCfg(
+        #     intensity=1200.0,  # Strong sunlight
+        #     polar=35.0,  # Sun at 35° elevation (natural angle)
+        #     azimuth=60.0,  # From the northeast
+        #     color=(1.0, 0.98, 0.95),  # Slightly warm sunlight
+        # ),
+        # # Soft area light for subtle fill
+        # DiskLightCfg(
+        #     intensity=300.0,
+        #     radius=1.5,  # Large disk for soft light
+        #     pos=(2.0, -2.0, 4.0),  # Side fill light
+        #     rot=(0.7071, 0.7071, 0.0, 0.0),  # Angled towards scene
+        #     color=(0.95, 0.95, 1.0),
+        # ),
     ]
 
     # add cameras
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     # task assign and override
     scenario.sim_params = task_cfg.sim_params
     scenario.decimation = task_cfg.decimation
-    scenario.render_interval = 4
+    scenario.render_interval = 8
     scenario.task = task_cfg
     scenario.env_spacing = task_cfg.env_spacing
 
