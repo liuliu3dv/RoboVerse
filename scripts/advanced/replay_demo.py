@@ -45,7 +45,7 @@ class Args:
     # random: RandomizationCfg = RandomizationCfg()
 
     ## Handlers
-    sim: Literal["isaaclab", "isaacgym", "genesis", "pybullet", "sapien2", "sapien3", "mujoco", "mjx"] = "mujoco"
+    sim: Literal["isaaclab", "isaacsim", "isaacgym", "genesis", "pybullet", "sapien2", "sapien3", "mujoco", "mjx"] = "mujoco"
     renderer: Literal["isaaclab", "isaacgym", "genesis", "pybullet", "mujoco", "sapien2", "sapien3"] | None = None
 
     ## Others
@@ -163,7 +163,7 @@ def main():
     #     env = HybridSimHandler(env_physics, env_render)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    env = task_cls(args.task, scenario, device=device)
+    env = task_cls(args.task, scenario)
     toc = time.time()
     log.trace(f"Time to launch: {toc - tic:.2f}s")
     traj_filepath = env.traj_filepath

@@ -34,6 +34,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
         self.common_step_counter += 1
         self.episode_length_buf += 1
         self.time_out_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
+        self._post_physics_step_callback()
         reset_buf = torch.any(
             torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
         )
@@ -45,11 +46,11 @@ class WalkingWrapper(HumanoidBaseWrapper):
         reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
         if len(reset_env_idx) > 0:
             self._resample_commands(reset_env_idx)
-        
+
         self._compute_ref_state()
         self._compute_reward(tensor_state)
         self.reset(reset_env_idx)
-        
+
         # compute obs for actor,  privileged_obs for critic network
         self._compute_observations()
         self._update_history(tensor_state)
@@ -100,7 +101,7 @@ class WalkingWrapper(HumanoidBaseWrapper):
                 self.base_lin_vel * self.cfg.normalization.obs_scales.lin_vel,  # 3
                 self.base_ang_vel * self.cfg.normalization.obs_scales.ang_vel,  # 3
                 self.base_euler_xyz * self.cfg.normalization.obs_scales.quat,  # 3
-                self.rand_push_force[:, :2],  # 3
+                self.rand_push_force[:, :2],  # 2
                 self.rand_push_torque,  # 3
                 stance_mask,  # 2
                 contact_mask,  # 2
@@ -173,7 +174,9 @@ class WalkingWrapper(HumanoidBaseWrapper):
             dim=1,
         )
 
-    def _reward_feet_air_time(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
+    def _reward_feet_air_time(
+        self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg
+    ) -> torch.Tensor:
         """Calculates the reward for feet air time, promoting longer steps."""
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.0
         stance_mask = self._get_gait_phase()

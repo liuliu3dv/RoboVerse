@@ -8,6 +8,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 
+from metasim.utils.math import quat_apply
 from humanoid_visualrl.cfg.humanoidVisualRLCfg import BaseTableHumanoidTaskCfg
 from humanoid_visualrl.utils.utils import (
     get_body_reindexed_indices_from_substring,
@@ -113,8 +114,8 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device, requires_grad=False)
         self.rand_push_force = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
         self.rand_push_torque = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
-        contact_forces = self.env.get_extra()
-        self.contact_forces = contact_forces["net_contact_force"]
+        extra = self.env.get_extra()
+        self.contact_forces = extra["net_contact_force"]
         self.gravity_vec = torch.tensor(self.get_axis_params(-1.0, 2), device=self.device, dtype=torch.float32).repeat((
             self.num_envs,
             1,
@@ -309,6 +310,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.common_step_counter += 1
         self.episode_length_buf += 1
         self.time_out_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
+        self._post_physics_step_callback()
         reset_buf = torch.any(
             torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
         )
@@ -318,8 +320,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self._update_refreshed_tensors(tensor_state)
 
         reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
-        if len(reset_env_idx) > 0:
-            self._resample_commands(reset_env_idx)
 
         self._compute_reward(tensor_state)
         self.reset(reset_env_idx)
@@ -328,7 +328,14 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self._compute_observations()
         self._update_history(tensor_state)
 
-        return self.obs_buf, self.privileged_obs_buf, self.rew_buf
+        self.extra_buf = {
+            "observations": {
+                "critic": self.privileged_obs_buf_hist,  # For PPO training
+                # Add other observation types as needed
+            }
+            # TODO add episodic info and log
+        }
+
 
     def update_command_curriculum(self, env_ids):
         """Implements a curriculum of increasing commands."""
@@ -376,7 +383,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
         return self.obs_buf, self.rew_buf, self.reset_buf, self.extra_buf
 
     def reset(self, env_ids=None):
-        # """"""
         if env_ids is None:
             env_ids = list(range(self.num_envs))
         if len(env_ids) == 0:
@@ -390,6 +396,14 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.last_last_actions[env_ids] = 0.0
         self.last_dof_vel[env_ids] = 0.0
         self.episode_length_buf[env_ids] = 0
+        self.feet_air_time[env_ids] = 0.0
+        self.base_quat[env_ids] = (
+            torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device, dtype=torch.float32)
+            .unsqueeze(0)
+            .repeat(len(env_ids), 1)
+        )
+        self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
+        self.projected_gravity[env_ids] = quat_rotate_inverse(self.base_quat[env_ids], self.gravity_vec[env_ids])
 
         self.extra_buf["episode"] = {}
         for key in self.episode_sums.keys():
@@ -406,6 +420,22 @@ class HumanoidBaseWrapper(RslRlWrapper):
             self.obs_history[i][env_ids] *= 0
         for i in range(self.critic_history.maxlen):
             self.critic_history[i][env_ids] *= 0
+
+    def _post_physics_step_callback(self):
+        env_ids = (
+            (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt) == 0)
+            .nonzero(as_tuple=False)
+            .flatten()
+        )
+        if len(env_ids) > 0:
+            self._resample_commands(env_ids)
+
+        if self.cfg.commands.heading_command:
+            forward = quat_apply(self.base_quat, self.forward_vec)
+            heading = torch.atan2(forward[:, 1], forward[:, 0])
+            self.commands[:, 2] = torch.clip(0.5 * self.wrap_to_pi(self.commands[:, 3] - heading), -1.0, 1.0)
+
+        self._push_robots()
 
     def _resample_commands(self, env_ids):
         self.commands[env_ids, 0] = torch_rand_float(
@@ -546,7 +576,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
             f"self.dt {self.dt} must be less than self.target_wp_dt {self.target_wp_dt}"
         )
         self.target_wp_update_steps_int = sample_int_from_float(self.target_wp_update_steps)
-
         self.ref_wrist_pos = None
         self.ref_action = self.default_joint_pd_target
         self.delayed_obs_target_wp = None

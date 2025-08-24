@@ -272,7 +272,7 @@ class BaseTableHumanoidTaskCfg:
             "objects": {},
             "robots": {
                 "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.78]), # 0.78 is taken from unitree rl_gym
+                    "pos": torch.tensor([0.0, 0.0, 0.74]),  # 0.78 is taken from unitree rl_gym
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
                         "left_hip_pitch": -0.4,
@@ -314,8 +314,8 @@ class BaseTableHumanoidTaskCfg:
         "feet_stumble": -0.0,
         "stand_still": -0.0,
         "joint_pos": 1.6,
-        "feet_clearance": 2.0,
-        "feet_contact_number": 2.4,
+        "feet_clearance": 2.0,  # 1. * 2
+        "feet_contact_number": 2.4,  # 1.2 * 2
         # gait
         "foot_slip": -0.05,
         "feet_distance": 0.2,
@@ -323,14 +323,14 @@ class BaseTableHumanoidTaskCfg:
         # contact
         "feet_contact_forces": -0.01,
         # vel tracking
-        "tracking_lin_vel": 2.4,
-        "tracking_ang_vel": 2.2,
+        "tracking_lin_vel": 2.4,  # 1.2 * 2
+        "tracking_ang_vel": 2.2,  # 1.1 * 2
         "vel_mismatch_exp": 0.5,
         "low_speed": 0.2,
-        "track_vel_hard": 1.0,
+        "track_vel_hard": 1.0,  # 0.5 * 2
         # base pos
-        "default_joint_pos": 1.0,
-        "upper_body_pos": 0.5,
+        "default_joint_pos": 0.5,  # 从1.0改为0.5
+        "upper_body_pos": 2.0,  # 0.5 * 4
         "orientation": 1.0,
         "base_acc": 0.2,
         # energy

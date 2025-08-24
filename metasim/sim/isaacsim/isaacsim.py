@@ -74,7 +74,7 @@ class IsaacsimHandler(BaseSimHandler):
         sim_config: SimulationCfg = SimulationCfg(
             dt=self.dt,
             device=args.device,
-            render_interval=self.scenario.decimation,  # TTODO divide into render interval and control decimation
+            render_interval=self.scenario.decimation,  # TODO divide into render interval and control decimation
             physx=PhysxCfg(
                 bounce_threshold_velocity=self.scenario.sim_params.bounce_threshold_velocity,
                 solver_type=self.scenario.sim_params.solver_type,
@@ -366,9 +366,6 @@ class IsaacsimHandler(BaseSimHandler):
                 action_tensors.append(action_tensor)
             action_tensor_all = torch.cat(action_tensors, dim=-1)
 
-            # reverse_reindex = self.get_joint_reindex(self.robots[0].name, inverse=True)
-            # action_tensor_all = action_tensor_all[:, reverse_reindex]
-
         # Apply actions to all robots
         # start_idx = 0
         for robot in self.robots:
@@ -379,7 +376,7 @@ class IsaacsimHandler(BaseSimHandler):
             # TODO: hard code here, at pos control mode
             robot_inst.set_joint_effort_target(
                 action_tensor_all,
-                joint_ids=list(range(self.scenario.task.num_actions)),  #
+                # joint_ids=list(range(self.scenario.task.num_actions)),  #
             )
 
     def _simulate(self):
@@ -428,7 +425,7 @@ class IsaacsimHandler(BaseSimHandler):
         cfg.spawn.articulation_props.enabled_self_collisions = robot.enabled_self_collisions
         init_state = ArticulationCfg.InitialStateCfg(
             # TODO hard code here
-            pos=[0.0, 0.0, 0.735],
+            pos=[0.0, 0.0, 0.78],
             joint_pos=robot.default_joint_positions,
             joint_vel={".*": 0.0},
         )
@@ -620,14 +617,14 @@ class IsaacsimHandler(BaseSimHandler):
 
         from isaaclab.assets import AssetBaseCfg
         from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
-        sky_light = AssetBaseCfg(
-        prim_path="/World/skyLight",
-        spawn=sim_utils.DomeLightCfg(
-            intensity=750.0,
-            texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
-        ),
-    )
 
+        sky_light = AssetBaseCfg(
+            prim_path="/World/skyLight",
+            spawn=sim_utils.DomeLightCfg(
+                intensity=750.0,
+                texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
+            ),
+        )
 
         # Use lights from scenario configuration if available
         if hasattr(self.scenario, "lights") and self.scenario.lights:

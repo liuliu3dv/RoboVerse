@@ -108,7 +108,7 @@ class BaseSimHandler(ABC):
     ############################################################
     ## Get extra queries
     ############################################################
-    def get_extra(self):
+    def get_extra(self, **ar):
         """Get the extra information of the environment."""
         ret_dict = {}
         for query_name, query_type in self.optional_queries.items():
