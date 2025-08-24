@@ -36,6 +36,7 @@ class BenchmarkType(enum.Enum):
     LIBERO = "Libero"
     GPT = "GPT"
     BIDEX = "BidexHands"
+    DEXBENCH = "DexBench"
 
     ## Locomotion
     UH1 = "UH1"
