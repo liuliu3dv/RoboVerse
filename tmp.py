@@ -12,7 +12,6 @@ import os
 import imageio.v3 as iio
 import numpy as np
 import rootutils
-import torch
 import tyro
 from loguru import logger as log
 from rich.logging import RichHandler
@@ -21,12 +20,10 @@ rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 
-from metasim.cfg.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
 from metasim.cfg.robots.base_robot_cfg import BaseRobotCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
-from metasim.constants import PhysicStateType, SimType
-from metasim.sim import BaseSimHandler, EnvWrapper
+from metasim.constants import SimType
 from metasim.utils import configclass
 from metasim.utils.demo_util import get_traj
 from metasim.utils.setup_util import get_robot, get_sim_env_class, get_task
