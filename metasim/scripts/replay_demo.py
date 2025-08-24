@@ -203,9 +203,6 @@ def main():
             env.handler.set_states(states)
             env.handler.refresh_render()
             obs = env.handler.get_states()
-            # if scenario.random.moving_camera:
-            scenario.cameras[0].pos[0] = obs.cameras[0].pos[0] + 0.01 * step
-            # scenario.cameras[0].look_at = obs.cameras[0].look_at
 
             ## XXX: hack
             success = env.handler.task.checker.check(env.handler)
@@ -217,11 +214,6 @@ def main():
         else:
             actions = get_actions(all_actions, step, num_envs, scenario.robots[0])
             obs, reward, success, time_out, extras = env.step(actions)
-            scenario.cameras[0].pos = (
-                scenario.cameras[0].pos[0] + 0.01 * step,
-                scenario.cameras[0].pos[1],
-                scenario.cameras[0].pos[2],
-            )
 
             if success.any():
                 log.info(f"Env {success.nonzero().squeeze(-1).tolist()} succeeded!")
