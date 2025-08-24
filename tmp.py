@@ -7,6 +7,7 @@ try:
 except ImportError:
     pass
 
+import os
 
 import imageio.v3 as iio
 import numpy as np
@@ -21,15 +22,27 @@ log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 
 from metasim.cfg.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
+from metasim.cfg.robots.base_robot_cfg import BaseRobotCfg
 from metasim.cfg.scenario import ScenarioCfg
 from metasim.cfg.sensors import PinholeCameraCfg
 from metasim.constants import PhysicStateType, SimType
+from metasim.sim import BaseSimHandler, EnvWrapper
 from metasim.utils import configclass
-from metasim.utils.setup_util import get_sim_env_class
+from metasim.utils.demo_util import get_traj
+from metasim.utils.setup_util import get_robot, get_sim_env_class, get_task
+
+
+def get_actions(all_actions, action_idx: int, num_envs: int, robot: BaseRobotCfg):
+    envs_actions = all_actions[:num_envs]
+    actions = [
+        env_actions[action_idx] if action_idx < len(env_actions) else env_actions[-1] for env_actions in envs_actions
+    ]
+    return actions
 
 
 @configclass
 class Args:
+    task: str = "close_box"
     robot: str = "franka"
     sim: str = "isaaclab"
     num_envs: int = 1
@@ -40,6 +53,7 @@ args = tyro.cli(Args)
 
 # initialize scenario
 scenario = ScenarioCfg(
+    task=args.task,
     robots=[args.robot],
     try_add_table=False,
     sim=args.sim,
@@ -86,62 +100,39 @@ log.info(f"Using simulator: {args.sim}")
 env_class = get_sim_env_class(SimType(args.sim))
 env = env_class(scenario)
 
-init_states = [
-    {
-        "objects": {
-            "cube": {
-                "pos": torch.tensor([0.3, -0.2, 0.05]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "sphere": {
-                "pos": torch.tensor([0.4, -0.6, 0.05]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "bbq_sauce": {
-                "pos": torch.tensor([0.7, -0.3, 0.14]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-            },
-            "box_base": {
-                "pos": torch.tensor([0.5, 0.2, 0.1]),
-                "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
-                "dof_pos": {"box_joint": 0.0},
-            },
-        },
-        "robots": {
-            "franka": {
-                "pos": torch.tensor([0.0, 0.0, 0.0]),
-                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-                "dof_pos": {
-                    "panda_joint1": 0.0,
-                    "panda_joint2": -0.785398,
-                    "panda_joint3": 0.0,
-                    "panda_joint4": -2.356194,
-                    "panda_joint5": 0.0,
-                    "panda_joint6": 1.570796,
-                    "panda_joint7": 0.785398,
-                    "panda_finger_joint1": 0.04,
-                    "panda_finger_joint2": 0.04,
-                },
-            },
-        },
-    }
-]
+task = get_task(args.task)()
+robot = get_robot(args.robot)
+assert os.path.exists(task.traj_filepath), f"Trajectory file does not exist: {task.traj_filepath}"
+init_states, all_actions, all_states = get_traj(task, robot, env.handler)
+
+
+def save_obs(obs, step: int):
+    rgb = next(iter(obs.cameras.values())).rgb[0].cpu().numpy()
+    depth = next(iter(obs.cameras.values())).depth[0].cpu().numpy().squeeze(-1)
+    depth_normalized = (depth - depth.min()) / (depth.max() - depth.min())
+    iio.imwrite("tmp_rgb.png", rgb)
+    np.savez(
+        f"tmp_metadata_{step}.npz",
+        rgb=rgb,
+        depth=depth_normalized,
+        depth_min=depth.min().item(),
+        depth_max=depth.max().item(),
+        intrinsics=next(iter(obs.cameras.values())).intrinsics[0].cpu().numpy(),
+        cam_pos=next(iter(obs.cameras.values())).pos[0].cpu().numpy(),
+        cam_quat_world=next(iter(obs.cameras.values())).quat_world[0].cpu().numpy(),
+        cam_quat_ros=next(iter(obs.cameras.values())).quat_ros[0].cpu().numpy(),
+        cam_quat_opengl=next(iter(obs.cameras.values())).quat_opengl[0].cpu().numpy(),
+    )
+
+
 obs, extras = env.reset(states=init_states)
-rgb = next(iter(obs.cameras.values())).rgb[0].cpu().numpy()
-depth = next(iter(obs.cameras.values())).depth[0].cpu().numpy().squeeze(-1)
-depth_normalized = (depth - depth.min()) / (depth.max() - depth.min())
-iio.imwrite("tmp_rgb.png", rgb)
-breakpoint()
-np.savez(
-    "tmp_metadata.npz",
-    rgb=rgb,
-    depth=depth_normalized,
-    depth_min=depth.min().item(),
-    depth_max=depth.max().item(),
-    intrinsics=next(iter(obs.cameras.values())).intrinsics[0].cpu().numpy(),
-    cam_pos=next(iter(obs.cameras.values())).pos[0].cpu().numpy(),
-    cam_quat_world=next(iter(obs.cameras.values())).quat_world[0].cpu().numpy(),
-    cam_quat_ros=next(iter(obs.cameras.values())).quat_ros[0].cpu().numpy(),
-    cam_quat_opengl=next(iter(obs.cameras.values())).quat_opengl[0].cpu().numpy(),
-)
+
+for i in range(10):
+    pos = (1, -0.5 + 0.1 * i, 1)
+    look_at = (0.0, 0.0, 0.0)
+    actions = get_actions(all_actions, i, 1, scenario.robots[0])
+    env.handler.set_camera_pose(pos, look_at)
+    obs, _, _, _, _ = env.step(actions)
+    save_obs(obs, i)
+
 breakpoint()

@@ -119,30 +119,35 @@ def visualize_pointcloud(points, colors, title="Point Cloud Visualization"):
 
 def main():
     """Main function to demonstrate point cloud generation and visualization"""
-    data = np.load("tmp_metadata.npz", allow_pickle=True)
-    rgb_image = data["rgb"]
-    depth_image = data["depth"]
-    depth_min = data["depth_min"]
-    depth_max = data["depth_max"]
-    intrinsics = data["intrinsics"]
-    camera_pos = data["cam_pos"]
-    camera_quat = data["cam_quat_world"]
+    pointss = []
+    colorss = []
+    for i in range(1, 10):
+        data = np.load(f"tmp_metadata_{i}.npz", allow_pickle=True)
+        rgb_image = data["rgb"]
+        depth_image = data["depth"]
+        depth_min = data["depth_min"]
+        depth_max = data["depth_max"]
+        intrinsics = data["intrinsics"]
+        camera_pos = data["cam_pos"]
+        camera_quat = data["cam_quat_ros"]
 
-    camera_quat = camera_quat[[1, 2, 3, 0]]  # (w, x, y, z) -> (x, y, z, w)
+        camera_quat = camera_quat[[1, 2, 3, 0]]  # (w, x, y, z) -> (x, y, z, w)
 
-    print("Generating point cloud...")
-
-    # Generate point cloud
-    points, colors = depth_to_pointcloud(
-        rgb_image=rgb_image,
-        depth_image=depth_image,
-        depth_min=depth_min,
-        depth_max=depth_max,
-        intrinsics=intrinsics,
-        camera_pos=camera_pos,
-        camera_quat=camera_quat,
-        subsample_factor=2,  # Subsample for performance
-    )
+        # Generate point cloud
+        points, colors = depth_to_pointcloud(
+            rgb_image=rgb_image,
+            depth_image=depth_image,
+            depth_min=depth_min,
+            depth_max=depth_max,
+            intrinsics=intrinsics,
+            camera_pos=camera_pos,
+            camera_quat=camera_quat,
+            subsample_factor=2,  # Subsample for performance
+        )
+        pointss.append(points)
+        colorss.append(colors)
+    points = np.concatenate(pointss, axis=0)
+    colors = np.concatenate(colorss, axis=0)
 
     print(f"Generated {len(points)} points")
 
