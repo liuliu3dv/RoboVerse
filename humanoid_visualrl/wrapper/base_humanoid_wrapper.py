@@ -76,6 +76,9 @@ class HumanoidBaseWrapper(RslRlWrapper):
             self.env, robot.name, penalised_contact_names, device=self.device
         )
 
+        a = self.env.load_contact_sensor_idx()
+        return a
+
     def _parse_cfg(self, scenario):
         super()._parse_cfg(scenario)
         # per step dt
@@ -286,11 +289,16 @@ class HumanoidBaseWrapper(RslRlWrapper):
         stance_mask[torch.abs(sin_pos) < 0.1] = 1
         return stance_mask
 
+
+    def _pre_compute_reward(self):
+        """Hook method for subclasses to add custom logic before computing reward. Default implementation does nothing."""
+        pass
+
     def _compute_observations(self, tensor_state):
         """Compute observations and priviledged observation."""
         raise NotImplementedError
 
-    def _update_refreshed_tensors(self, tensor_state: TensorState):
+    def _refreshed_tensors(self, tensor_state: TensorState):
         """Update tensors from are refreshed tensors after physics step."""
         self.dof_pos[:] = tensor_state.robots[self.robot.name].joint_pos
         self.dof_vel[:] = tensor_state.robots[self.robot.name].joint_vel
@@ -303,7 +311,11 @@ class HumanoidBaseWrapper(RslRlWrapper):
         )
         self.projected_gravity[:] = quat_rotate_inverse(self.base_quat, self.gravity_vec)
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
-        self.contact_forces[:] = tensor_state.extras["net_contact_force"][:]
+        # self.contact_forces[:] = tensor_state.extras["net_contact_force"][:]
+        # FIXME debug here
+        self.contact_forces[:] = self.env.contact_sensor.data.net_forces_w[
+            :, self.env.get_body_reindex(self.robot.name), :
+        ]
 
     def _post_physics_step(self):
         """After physics step, compute reward, get obs and privileged_obs, resample command."""
@@ -314,20 +326,20 @@ class HumanoidBaseWrapper(RslRlWrapper):
         # reset_buf = torch.any(
         #     torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
         # )
-        reindex = self.env.get_body_reindex(self.robot.name)
-        a = self.env.contact_sensor.data.net_forces_w[:, reindex, :]
+        # reindex = self.env.get_body_reindex(self.robot.name)
+        contact_forces = self.env.contact_sensor.data.net_forces_w.clone()
         reset_buf = torch.any(
-            torch.norm(a[:, self.termination_contact_indices, :], dim=-1)
-            > 1.0,
+            torch.norm(contact_forces[:, self.env.termination_contact_indices, :], dim=-1) > 1.0,
             dim=1,
         )
         self.reset_buf = torch.logical_or(self.time_out_buf, reset_buf)
 
         tensor_state = self.env.get_states()
-        self._update_refreshed_tensors(tensor_state)
+        self._refreshed_tensors(tensor_state)
 
         reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
 
+        self._pre_compute_reward()
         self._compute_reward(tensor_state)
         self.reset(reset_env_idx)
 
@@ -335,13 +347,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self._compute_observations()
         self._update_history(tensor_state)
 
-        self.extra_buf = {
-            "observations": {
-                "critic": self.privileged_obs_buf_hist,  # For PPO training
-                # Add other observation types as needed
-            }
-            # TODO add episodic info and log
-        }
 
 
     def update_command_curriculum(self, env_ids):

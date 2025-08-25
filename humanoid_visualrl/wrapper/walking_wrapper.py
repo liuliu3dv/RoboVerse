@@ -29,31 +29,8 @@ class WalkingWrapper(HumanoidBaseWrapper):
         else:
             raise ValueError(f"Unsupported robot: {self.robot.name} for Skillblender Walking Task")
 
-    def _post_physics_step(self):
-        """After physics step, compute reward, get obs and privileged_obs, resample command."""
-        self.common_step_counter += 1
-        self.episode_length_buf += 1
-        self.time_out_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
-        tensor_state = self.env.get_states()
-        self._update_refreshed_tensors(tensor_state)
-        self._post_physics_step_callback()
-        reset_buf = torch.any(
-            torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
-        )
-        self.reset_buf = torch.logical_or(self.time_out_buf, reset_buf)
-
-
-        reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
-        if len(reset_env_idx) > 0:
-            self._resample_commands(reset_env_idx)
-
+    def _pre_compute_reward(self):
         self._compute_ref_state()
-        self._compute_reward(tensor_state)
-        self.reset(reset_env_idx)
-
-        # compute obs for actor,  privileged_obs for critic network
-        self._compute_observations()
-        self._update_history(tensor_state)
 
     def _compute_ref_state(self):
         phase = self._get_phase()

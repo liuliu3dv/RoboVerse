@@ -244,7 +244,7 @@ class BaseTableHumanoidTaskCfg:
     c_frame_stack = 3
 
     command_dim = 3
-    num_actions: int = 23
+    num_actions: int = 29
     """Number of actions."""
     num_single_obs: int = 3 * num_actions + 6 + command_dim  #
     num_observations: int = int(frame_stack * num_single_obs)

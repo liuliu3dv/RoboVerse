@@ -611,6 +611,76 @@ class IsaacsimHandler(BaseSimHandler):
         self.contact_sensor = ContactSensor(contact_sensor_config)
         self.scene.sensors["contact_sensor"] = self.contact_sensor
 
+    def load_contact_sensor_idx(self) -> None:
+        body_names = [
+            "pelvis",
+            "left_hip_pitch_link",
+            "left_hip_roll_link",
+            "left_hip_yaw_link",
+            "left_knee_link",
+            "left_ankle_pitch_link",
+            "left_ankle_roll_link",
+            "right_hip_pitch_link",
+            "right_hip_roll_link",
+            "right_hip_yaw_link",
+            "right_knee_link",
+            "right_ankle_pitch_link",
+            "right_ankle_roll_link",
+            "waist_yaw_link",
+            "waist_roll_link",
+            "torso_link",
+            "left_shoulder_pitch_link",
+            "left_shoulder_roll_link",
+            "left_shoulder_yaw_link",
+            "left_elbow_link",
+            "left_wrist_roll_link",
+            "left_wrist_pitch_link",
+            "left_wrist_yaw_link",
+            "right_shoulder_pitch_link",
+            "right_shoulder_roll_link",
+            "right_shoulder_yaw_link",
+            "right_elbow_link",
+            "right_wrist_roll_link",
+            "right_wrist_pitch_link",
+            "right_wrist_yaw_link",]
+        self.body_ids, self.body_names = self.scene.articulations[self.robots[0].name].find_bodies(
+            body_names, preserve_order=True
+        )
+
+        termination_contact_names = []
+        for name in self.robots[0].terminate_contacts_links:
+            termination_contact_names.extend([s for s in self.body_names if name in s])
+
+        self.termination_contact_indices = torch.zeros(
+            len(termination_contact_names), dtype=torch.long, device=self.device, requires_grad=False
+        )
+        for i in range(len(termination_contact_names)):
+            self.termination_contact_indices[i] = self.find_rigid_body_indice(termination_contact_names[i])
+
+        return self.termination_contact_indices
+
+
+
+    def find_rigid_body_indice(self, body_name):
+        '''
+        ipdb> self.simulator._robot.find_bodies("left_ankle_link")
+        ([16], ['left_ankle_link'])
+        ipdb> self.simulator.contact_sensor.find_bodies("left_ankle_link")
+        ([4], ['left_ankle_link'])
+
+        this function returns the indice of the body in BFS order
+        '''
+        indices, names = self.scene.articulations[self.robots[0].name].find_bodies(body_name)
+        indices = [self.body_ids.index(i) for i in indices]
+        if len(indices) == 0:
+            log.warning(f"Body {body_name} not found in the contact sensor.")
+            return None
+        elif len(indices) == 1:
+            return indices[0]
+        else: # multiple bodies found
+            log.warning(f"Multiple bodies found for {body_name}.")
+            return indices
+
     def _load_lights(self) -> None:
         import isaaclab.sim as sim_utils
         from isaaclab.sim.spawners import spawn_light

@@ -13,7 +13,7 @@ from .franka_slide_urdf_sapien_cfg import FrankaSlideUrdfSapienCfg
 from .franka_urdf_cfg import FrankaUrdfCfg
 from .franka_urdf_sapien_cfg import FrankaUrdfSapienCfg
 from .franka_with_gripper_extension_cfg import FrankaWithGripperExtensionCfg
-from .g1_23dof_cfg import G1Cfg
+from .g1_29dof_cfg import G1Cfg
 # from .g1_23dof_cfg import G123dofCfg
 from .g1_static_lower_body_cfg import G1StaticCfg
 from .google_robot_static_cfg import GoogleRobotStaticCfg
