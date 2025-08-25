@@ -86,7 +86,7 @@ scenario.objects = [
     ),
     ArticulationObjCfg(
         name="box_base",
-        fix_base_link=True,
+        fix_base_link=False,
         usd_path="get_started/example_assets/box_base/usd/box_base.usd",
         urdf_path="get_started/example_assets/box_base/urdf/box_base_unique.urdf",
         mjcf_path="get_started/example_assets/box_base/mjcf/box_base_unique.mjcf",
