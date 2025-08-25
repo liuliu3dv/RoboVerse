@@ -387,7 +387,6 @@ class IsaacsimHandler(BaseSimHandler):
         if self._step_counter % self._render_interval == 0 and is_rendering:
             self.sim.render()
         self.scene.update(dt=self.dt)
-        self.contact_sensor.update(dt=self.dt)
 
         # Ensure camera pose is correct, especially for the first few frames
         if self._step_counter < 5:
