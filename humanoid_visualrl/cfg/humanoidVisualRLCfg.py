@@ -67,7 +67,7 @@ class LeggedRobotRunnerCfg:
     """max number of iterations"""
 
     # logging
-    # logger: str = "wandb"
+    logger: str = "wandb"
     wandb_project: str = "humanoid_visualrl"
 
     save_interval = 1000
@@ -272,7 +272,8 @@ class BaseTableHumanoidTaskCfg:
             "objects": {},
             "robots": {
                 "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.737]),  # 0.78 is taken from unitree rl_gym
+                    # "pos": torch.tensor([0.0, 0.0, 0.737]),  # 0.78 is taken from unitree rl_gym
+                    "pos": torch.tensor([0.0, 0.0, 0.8]),  # 0.8 is for g1 29 dof
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
                         "left_hip_pitch_joint": -0.4,
@@ -363,12 +364,3 @@ class BaseTableHumanoidTaskCfg:
         """Interval in steps for applying random push forces and torques."""
 
     random_push = PushRandomCfg(enabled=True)
-
-    def __post_init__(self):
-        self.command_ranges.wrist_max_radius = 0.15
-        self.command_ranges.l_wrist_pos_x = [-0.05, 0.15]
-        self.command_ranges.l_wrist_pos_y = [-0.05, 0.15]
-        self.command_ranges.l_wrist_pos_z = [-0.15, 0.15]
-        self.command_ranges.r_wrist_pos_x = [-0.05, 0.15]
-        self.command_ranges.r_wrist_pos_y = [-0.15, 0.05]
-        self.command_ranges.r_wrist_pos_z = [-0.15, 0.15]

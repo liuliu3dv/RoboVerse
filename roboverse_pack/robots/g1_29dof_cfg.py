@@ -34,7 +34,7 @@ class G1Cfg(RobotCfg):
         "right_knee_joint": BaseActuatorCfg(stiffness=200, damping=5),
         "right_ankle_pitch_joint": BaseActuatorCfg(stiffness=20, damping=4),
         "right_ankle_roll_joint": BaseActuatorCfg(stiffness=20, damping=4),
-        "waist_yaw_joint": BaseActuatorCfg(stiffness=200, damping=5),
+        "waist_yaw_joint": BaseActuatorCfg(stiffness=400, damping=5),
         "left_shoulder_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "left_shoulder_roll_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "left_shoulder_yaw_joint": BaseActuatorCfg(stiffness=40, damping=10),
@@ -49,8 +49,8 @@ class G1Cfg(RobotCfg):
         "right_wrist_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "left_wrist_yaw_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "right_wrist_yaw_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "waist_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
-        "waist_roll_joint": BaseActuatorCfg(stiffness=40, damping=10),
+        "waist_pitch_joint": BaseActuatorCfg(stiffness=400, damping=50),
+        "waist_roll_joint": BaseActuatorCfg(stiffness=400, damping=5),
     }
     joint_limits: dict[str, tuple[float, float]] = {
         "left_hip_pitch_joint": (-2.5307, 2.8798),
@@ -78,8 +78,8 @@ class G1Cfg(RobotCfg):
         "right_wrist_pitch_joint": (-0.87267, 0.5236),
         "left_wrist_yaw_joint": (-0.87267, 0.5236),
         "right_wrist_yaw_joint": (-0.87267, 0.5236),
-        "waist_pitch_joint": (-0.87267, 0.5236),
-        "waist_roll_joint": (-0.87267, 0.5236),
+        "waist_pitch_joint": (-0.52267, 0.5236),
+        "waist_roll_joint": (-0.52267, 0.5236),
     }
 
     torque_limits: dict[str, float] = {  # = target angles [rad] when action = 0.0
@@ -110,22 +110,22 @@ class G1Cfg(RobotCfg):
         "right_wrist_pitch_joint": 5,   
         "left_wrist_yaw_joint": 5,
         "right_wrist_yaw_joint": 5,
-        "waist_pitch_joint": 5,
-        "waist_roll_joint": 5,
+        "waist_pitch_joint": 50,
+        "waist_roll_joint": 50,
     }
 
     default_joint_positions: dict[str, float] = {  # = target angles [rad] when action = 0.0
-        "left_hip_pitch_joint": -0.4,
+        "left_hip_pitch_joint": -0.1,
         "left_hip_roll_joint": 0,
         "left_hip_yaw_joint": 0.0,
-        "left_knee_joint": 0.8,
-        "left_ankle_pitch_joint": -0.4,
+        "left_knee_joint": 0.4,
+        "left_ankle_pitch_joint": -0.2,
         "left_ankle_roll_joint": 0,
         "right_hip_pitch_joint": -0.4,
         "right_hip_roll_joint": 0,
         "right_hip_yaw_joint": 0.0,
-        "right_knee_joint": 0.8,
-        "right_ankle_pitch_joint": -0.4,
+        "right_knee_joint": 0.4,
+        "right_ankle_pitch_joint": -0.2,
         "right_ankle_roll_joint": 0,
         "waist_yaw_joint": 0.0,
         "left_shoulder_pitch_joint": 0.0,

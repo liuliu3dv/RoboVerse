@@ -40,7 +40,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self._init_buffers()
 
         tensor_state = self.env.get_states()
-        self._init_target_wp(tensor_state)
+        # self._init_target_wp(tensor_state)
         self.marker_viz = self.env.init_marker_viz()
 
     def _parse_rigid_body_indices(self, robot):
@@ -289,7 +289,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
         stance_mask[torch.abs(sin_pos) < 0.1] = 1
         return stance_mask
 
-
     def _pre_compute_reward(self):
         """Hook method for subclasses to add custom logic before computing reward. Default implementation does nothing."""
         pass
@@ -317,12 +316,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
             :, self.env.get_body_reindex(self.robot.name), :
         ]
 
-    def _post_physics_step(self):
-        """After physics step, compute reward, get obs and privileged_obs, resample command."""
-        self.common_step_counter += 1
-        self.episode_length_buf += 1
-        self.time_out_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
-        self._post_physics_step_callback()
+    def _check_reset(self):
         # reset_buf = torch.any(
         #     torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
         # )
@@ -333,6 +327,14 @@ class HumanoidBaseWrapper(RslRlWrapper):
             dim=1,
         )
         self.reset_buf = torch.logical_or(self.time_out_buf, reset_buf)
+
+    def _post_physics_step(self):
+        """After physics step, compute reward, get obs and privileged_obs, resample command."""
+        self.common_step_counter += 1
+        self.episode_length_buf += 1
+        self.time_out_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
+        self._post_physics_step_callback()
+        self._check_reset()
 
         tensor_state = self.env.get_states()
         self._refreshed_tensors(tensor_state)
@@ -346,8 +348,6 @@ class HumanoidBaseWrapper(RslRlWrapper):
         # compute obs for actor,  privileged_obs for critic network
         self._compute_observations()
         self._update_history(tensor_state)
-
-
 
     def update_command_curriculum(self, env_ids):
         """Implements a curriculum of increasing commands."""

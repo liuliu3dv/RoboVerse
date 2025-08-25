@@ -404,7 +404,15 @@ class IsaacsimHandler(BaseSimHandler):
             spawn=sim_utils.UsdFileCfg(
                 usd_path=robot.usd_path,
                 activate_contact_sensors=True,
-                rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                    disable_gravity=False,
+                    retain_accelerations=False,
+                    linear_damping=0.0,
+                    angular_damping=0.0,
+                    max_linear_velocity=1000.0,
+                    max_angular_velocity=1000.0,
+                    max_depenetration_velocity=1.0,
+                ),
                 articulation_props=sim_utils.ArticulationRootPropertiesCfg(
                     fix_root_link=robot.fix_base_link,
                     enabled_self_collisions=robot.enabled_self_collisions,
