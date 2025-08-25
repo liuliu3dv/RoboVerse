@@ -67,7 +67,7 @@ class LeggedRobotRunnerCfg:
     """max number of iterations"""
 
     # logging
-    logger: str = "wandb"
+    # logger: str = "wandb"
     wandb_project: str = "humanoid_visualrl"
 
     save_interval = 1000
@@ -244,7 +244,7 @@ class BaseTableHumanoidTaskCfg:
     c_frame_stack = 3
 
     command_dim = 3
-    num_actions: int = 21
+    num_actions: int = 23
     """Number of actions."""
     num_single_obs: int = 3 * num_actions + 6 + command_dim  #
     num_observations: int = int(frame_stack * num_single_obs)
@@ -272,30 +272,32 @@ class BaseTableHumanoidTaskCfg:
             "objects": {},
             "robots": {
                 "g1": {
-                    "pos": torch.tensor([0.0, 0.0, 0.74]),  # 0.78 is taken from unitree rl_gym
+                    "pos": torch.tensor([0.0, 0.0, 0.737]),  # 0.78 is taken from unitree rl_gym
                     "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
                     "dof_pos": {
-                        "left_hip_pitch": -0.4,
-                        "left_hip_roll": 0,
-                        "left_hip_yaw": 0.0,
-                        "left_knee": 0.8,
-                        "left_ankle_pitch": -0.4,
-                        "left_ankle_roll": 0,
-                        "right_hip_pitch": -0.4,
-                        "right_hip_roll": 0,
-                        "right_hip_yaw": 0.0,
-                        "right_knee": 0.8,
-                        "right_ankle_pitch": -0.4,
-                        "right_ankle_roll": 0,
-                        "waist_yaw": 0.0,
-                        "left_shoulder_pitch": 0.0,
-                        "left_shoulder_roll": 0.0,
-                        "left_shoulder_yaw": 0.0,
-                        "left_elbow": 0.0,
-                        "right_shoulder_pitch": 0.0,
-                        "right_shoulder_roll": 0.0,
-                        "right_shoulder_yaw": 0.0,
-                        "right_elbow": 0.0,
+                        "left_hip_pitch_joint": -0.4,
+                        "left_hip_roll_joint": 0,
+                        "left_hip_yaw_joint": 0.0,
+                        "left_knee_joint": 0.8,
+                        "left_ankle_pitch_joint": -0.4,
+                        "left_ankle_roll_joint": 0,
+                        "right_hip_pitch_joint": -0.4,
+                        "right_hip_roll_joint": 0,
+                        "right_hip_yaw_joint": 0.0,
+                        "right_knee_joint": 0.8,
+                        "right_ankle_pitch_joint": -0.4,
+                        "right_ankle_roll_joint": 0,
+                        "left_wrist_roll_joint": 0,
+                        "right_wrist_roll_joint": 0,
+                        "waist_yaw_joint": 0.0,
+                        "left_shoulder_pitch_joint": 0.0,
+                        "left_shoulder_roll_joint": 0.0,
+                        "left_shoulder_yaw_joint": 0.0,
+                        "left_elbow_joint": 0.0,
+                        "right_shoulder_pitch_joint": 0.0,
+                        "right_shoulder_roll_joint": 0.0,
+                        "right_shoulder_yaw_joint": 0.0,
+                        "right_elbow_joint": 0.0,
                     },
                 },
             },

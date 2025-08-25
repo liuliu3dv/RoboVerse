@@ -80,7 +80,8 @@ class IsaacsimHandler(BaseSimHandler):
                 solver_type=self.scenario.sim_params.solver_type,
                 max_position_iteration_count=self.scenario.sim_params.num_position_iterations,
                 max_velocity_iteration_count=self.scenario.sim_params.num_velocity_iterations,
-                friction_correlation_distance=self.scenario.sim_params.friction_correlation_distance,
+                # TODO: uncomment this
+                # friction_correlation_distance=self.scenario.sim_params.friction_correlation_distance,
             ),
         )
 
@@ -344,8 +345,8 @@ class IsaacsimHandler(BaseSimHandler):
                 quat_world=camera_inst.data.quat_w_world,
                 intrinsics=torch.tensor(camera.intrinsics, device=self.device)[None, ...].repeat(self.num_envs, 1, 1),
             )
-
-        return TensorState(objects=object_states, robots=robot_states, cameras=camera_states)
+        extras = self.get_extra()
+        return TensorState(objects=object_states, robots=robot_states, cameras=camera_states, extras=extras)
 
     def set_dof_targets(self, actions: torch.Tensor) -> None:
         # TODO: support set torque
@@ -386,6 +387,7 @@ class IsaacsimHandler(BaseSimHandler):
         if self._step_counter % self._render_interval == 0 and is_rendering:
             self.sim.render()
         self.scene.update(dt=self.dt)
+        self.contact_sensor.update(dt=self.dt)
 
         # Ensure camera pose is correct, especially for the first few frames
         if self._step_counter < 5:
@@ -403,7 +405,12 @@ class IsaacsimHandler(BaseSimHandler):
                 usd_path=robot.usd_path,
                 activate_contact_sensors=True,
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(),
-                articulation_props=sim_utils.ArticulationRootPropertiesCfg(fix_root_link=robot.fix_base_link),
+                articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+                    fix_root_link=robot.fix_base_link,
+                    enabled_self_collisions=robot.enabled_self_collisions,
+                    solver_position_iteration_count=4,
+                    solver_velocity_iteration_count=0,
+                ),
             ),
             actuators={
                 # jn: ImplicitActuatorCfg(
@@ -422,7 +429,6 @@ class IsaacsimHandler(BaseSimHandler):
         cfg.prim_path = f"/World/envs/env_.*/{robot.name}"
         cfg.spawn.usd_path = os.path.abspath(robot.usd_path)
         cfg.spawn.rigid_props.disable_gravity = not robot.enabled_gravity
-        cfg.spawn.articulation_props.enabled_self_collisions = robot.enabled_self_collisions
         init_state = ArticulationCfg.InitialStateCfg(
             # TODO hard code here
             pos=[0.0, 0.0, 0.78],
@@ -597,7 +603,9 @@ class IsaacsimHandler(BaseSimHandler):
         contact_sensor_config: ContactSensorCfg = ContactSensorCfg(
             prim_path=f"/World/envs/env_.*/{self.robots[0].name}/.*",
             history_length=3,
-            update_period=self.dt,
+            # update_period=self.dt,
+            # TODO: hard code here
+            update_period=0.0001,
             track_air_time=True,
         )
         self.contact_sensor = ContactSensor(contact_sensor_config)
@@ -909,7 +917,7 @@ class IsaacsimHandler(BaseSimHandler):
         if isinstance(self.object_dict[obj_name], ArticulationObjCfg):
             body_names = deepcopy(self.scene.articulations[obj_name].body_names)
             if sort:
-                body_names.sort()
+                return sorted(body_names)
             return body_names
         else:
             return []

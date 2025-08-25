@@ -15,17 +15,17 @@ class WalkingWrapper(HumanoidBaseWrapper):
 
     def _prepare_ref_indices(self):
         joint_names = self.env.get_joint_names(self.robot.name)
-        self.left_hip_pitch_joint_idx = joint_names.index("left_hip_pitch")
-        self.left_knee_joint_idx = joint_names.index("left_knee")
-        self.right_hip_pitch_joint_idx = joint_names.index("right_hip_pitch")
-        self.right_knee_joint_idx = joint_names.index("right_knee")
+        self.left_hip_pitch_joint_idx = joint_names.index("left_hip_pitch_joint")
+        self.left_knee_joint_idx = joint_names.index("left_knee_joint")
+        self.right_hip_pitch_joint_idx = joint_names.index("right_hip_pitch_joint")
+        self.right_knee_joint_idx = joint_names.index("right_knee_joint")
 
         if "h1" in self.robot.name:
-            self.left_ankle_joint_idx = joint_names.index("left_ankle")
-            self.right_ankle_joint_idx = joint_names.index("right_ankle")
+            self.left_ankle_joint_idx = joint_names.index("left_ankle_joint")
+            self.right_ankle_joint_idx = joint_names.index("right_ankle_joint")
         elif "g1" in self.robot.name:
-            self.left_ankle_joint_idx = joint_names.index("left_ankle_pitch")
-            self.right_ankle_joint_idx = joint_names.index("right_ankle_pitch")
+            self.left_ankle_joint_idx = joint_names.index("left_ankle_pitch_joint")
+            self.right_ankle_joint_idx = joint_names.index("right_ankle_pitch_joint")
         else:
             raise ValueError(f"Unsupported robot: {self.robot.name} for Skillblender Walking Task")
 
@@ -34,14 +34,14 @@ class WalkingWrapper(HumanoidBaseWrapper):
         self.common_step_counter += 1
         self.episode_length_buf += 1
         self.time_out_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
+        tensor_state = self.env.get_states()
+        self._update_refreshed_tensors(tensor_state)
         self._post_physics_step_callback()
         reset_buf = torch.any(
             torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
         )
         self.reset_buf = torch.logical_or(self.time_out_buf, reset_buf)
 
-        tensor_state = self.env.get_states()
-        self._update_refreshed_tensors(tensor_state)
 
         reset_env_idx = self.reset_buf.nonzero(as_tuple=False).flatten().tolist()
         if len(reset_env_idx) > 0:

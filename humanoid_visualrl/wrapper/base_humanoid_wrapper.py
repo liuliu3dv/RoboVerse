@@ -114,8 +114,9 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device, requires_grad=False)
         self.rand_push_force = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
         self.rand_push_torque = torch.zeros((self.num_envs, 3), dtype=torch.float32, device=self.device)
-        extra = self.env.get_extra()
-        self.contact_forces = extra["net_contact_force"]
+        self.contact_forces = torch.zeros(
+            (self.num_envs, len(self.env.get_body_names(self.robot.name)), 3), dtype=torch.float32, device=self.device
+        )
         self.gravity_vec = torch.tensor(self.get_axis_params(-1.0, 2), device=self.device, dtype=torch.float32).repeat((
             self.num_envs,
             1,
@@ -302,8 +303,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
         )
         self.projected_gravity[:] = quat_rotate_inverse(self.base_quat, self.gravity_vec)
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
-        contact_forces = self.env.get_extra()
-        self.contact_forces = contact_forces["net_contact_force"]
+        self.contact_forces[:] = tensor_state.extras["net_contact_force"][:]
 
     def _post_physics_step(self):
         """After physics step, compute reward, get obs and privileged_obs, resample command."""
@@ -311,8 +311,15 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.episode_length_buf += 1
         self.time_out_buf = self.episode_length_buf >= self.cfg.max_episode_length_s / self.dt
         self._post_physics_step_callback()
+        # reset_buf = torch.any(
+        #     torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
+        # )
+        reindex = self.env.get_body_reindex(self.robot.name)
+        a = self.env.contact_sensor.data.net_forces_w[:, reindex, :]
         reset_buf = torch.any(
-            torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
+            torch.norm(a[:, self.termination_contact_indices, :], dim=-1)
+            > 1.0,
+            dim=1,
         )
         self.reset_buf = torch.logical_or(self.time_out_buf, reset_buf)
 
