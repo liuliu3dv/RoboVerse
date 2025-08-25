@@ -109,6 +109,9 @@ class WalkingWrapper(HumanoidBaseWrapper):
             self.privileged_obs_buf, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations
         )
 
+        # update extra_buf
+        self.extra_buf["observations"]["critic"] = self.privileged_obs_buf
+
     # ================================ Reward Functions ================================
 
     def _reward_wrist_pos(self, tensor_state: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg):

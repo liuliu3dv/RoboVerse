@@ -27,7 +27,7 @@ if __name__ == "__main__":
         """Arguments for the static scene."""
 
         robot: str = "g1"
-        sim: Literal["isaacsim"] = "isaacsim"
+        sim: Literal["isaacsim"] = "isaacsim" # only support isaacsim
         num_envs: int = 1
         headless: bool = False
         num_learning_iterations: int = 10000

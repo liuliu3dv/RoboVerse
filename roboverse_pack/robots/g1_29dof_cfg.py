@@ -107,7 +107,7 @@ class G1Cfg(RobotCfg):
         "right_elbow_joint": 25,
         "right_wrist_roll_joint": 25,
         "left_wrist_pitch_joint": 5,
-        "right_wrist_pitch_joint": 5,   
+        "right_wrist_pitch_joint": 5,
         "left_wrist_yaw_joint": 5,
         "right_wrist_yaw_joint": 5,
         "waist_pitch_joint": 50,
@@ -146,8 +146,6 @@ class G1Cfg(RobotCfg):
         "waist_roll_joint": 0.0,
     }
 
-    
-
     control_type: dict[str, Literal["position", "effort"]] = {
         "left_hip_pitch_joint": "effort",
         "left_hip_roll_joint": "effort",
@@ -183,7 +181,7 @@ class G1Cfg(RobotCfg):
     feet_links: list[str] = ["ankle_roll"]
     knee_links: list[str] = ["knee"]
     elbow_links: list[str] = ["elbow"]
-    wrist_links: list[str] = ["left_wrist_yaw_link"] #TODO to be checked
+    wrist_links: list[str] = ["left_wrist_yaw_link"]  # TODO to be checked
     torso_links: list[str] = ["torso_link"]
     terminate_contacts_links = ["pelvis", "torso", "waist", "shoulder", "shoulder", "wrist"]
     penalized_contacts_links: list[str] = ["hip", "knee"]

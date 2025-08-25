@@ -97,7 +97,8 @@ class BaseTableHumanoidTaskCfg:
     penalised_contact_indices: indices of the contact joints
     """
 
-    decimation: int = 10
+    decimation: int = 10  # for isaacgym
+    decimation: int = 4  # for isaacsim
     episode_length: int = MISSING
     reward_functions: list[callable[[list[TensorState], str | None], torch.FloatTensor]] = MISSING
     reward_weights: list[float] = MISSING
@@ -196,7 +197,7 @@ class BaseTableHumanoidTaskCfg:
     """PPO config."""
     normalization = Normalization()
     """Normalization config."""
-    decimation: int = 10
+    decimation: int = 4
     """Decimation pd control loop."""
     num_obs: int = 124
     """Number of observations."""
@@ -216,7 +217,8 @@ class BaseTableHumanoidTaskCfg:
     termination_contact_indices: torch.Tensor = MISSING
     """termination contact indices for reward computation"""
     sim_params = SimParamCfg(
-        dt=0.001,
+        # dt=0.001,  # for isaacgym
+        dt=0.005,  # for isaacsim
         contact_offset=0.01,
         num_position_iterations=4,
         num_velocity_iterations=0,
@@ -248,7 +250,7 @@ class BaseTableHumanoidTaskCfg:
     """Number of actions."""
     num_single_obs: int = 3 * num_actions + 6 + command_dim  #
     num_observations: int = int(frame_stack * num_single_obs)
-    single_num_privileged_obs: int = 4 * num_actions + 25
+    single_num_privileged_obs: int = 4 * num_actions + 23
     num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
 
     @configclass

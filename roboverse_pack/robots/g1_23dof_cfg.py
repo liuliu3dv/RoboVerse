@@ -122,8 +122,6 @@ class G1Cfg(RobotCfg):
         "right_wrist_roll_joint": 0.0,
     }
 
-    
-
     control_type: dict[str, Literal["position", "effort"]] = {
         "left_hip_pitch_joint": "effort",
         "left_hip_roll_joint": "effort",

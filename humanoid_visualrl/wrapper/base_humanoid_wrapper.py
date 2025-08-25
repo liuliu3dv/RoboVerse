@@ -402,6 +402,11 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.env.set_states(self.init_states, env_ids)
         self._resample_commands(env_ids)
 
+        # for isaacsim internal data buffer reset
+        self.env.scene.reset(env_ids)
+        self.env.scene.write_data_to_sim()
+        self.env.sim.forward()
+
         # reset state buffer in the wrapper
         self.actions[env_ids] = 0.0
         self.last_actions[env_ids] = 0.0
@@ -409,6 +414,8 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.last_dof_vel[env_ids] = 0.0
         self.episode_length_buf[env_ids] = 0
         self.feet_air_time[env_ids] = 0.0
+
+        
         self.base_quat[env_ids] = (
             torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device, dtype=torch.float32)
             .unsqueeze(0)
