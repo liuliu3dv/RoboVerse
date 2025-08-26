@@ -293,7 +293,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
         """Hook method for subclasses to add custom logic before computing reward. Default implementation does nothing."""
         pass
 
-    def _compute_observations(self, tensor_state):
+    def _compute_observations(self, **kwargs):
         """Compute observations and priviledged observation."""
         raise NotImplementedError
 
@@ -312,9 +312,9 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         # self.contact_forces[:] = tensor_state.extras["net_contact_force"][:]
         # FIXME debug here
-        self.contact_forces[:] = self.env.contact_sensor.data.net_forces_w[
-            :, self.env.get_body_reindex(self.robot.name), :
-        ]
+        # self.contact_forces[:] = self.env.contact_sensor.data.net_forces_w[
+        #     :, self.env.get_body_reindex(self.robot.name), :
+        # ]
 
     def _check_reset(self):
         # reset_buf = torch.any(
@@ -346,7 +346,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.reset(reset_env_idx)
 
         # compute obs for actor,  privileged_obs for critic network
-        self._compute_observations()
+        self._compute_observations(tensor_state)
         self._update_history(tensor_state)
 
     def update_command_curriculum(self, env_ids):

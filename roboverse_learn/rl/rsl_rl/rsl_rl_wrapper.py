@@ -42,13 +42,27 @@ class RslRlWrapper(VecEnv):
         self.env = env
         self._get_init_states(scenario)
         env.set_states(self.init_states)
+        self.use_vision = scenario.task.use_vision
+
+
+
+
 
     def _init_buffers(self):
         """Initialize buffers for rsl_rl compatibility."""
         # Initialize observation buffers
         self.obs_buf = torch.zeros((self.num_envs, self.num_obs), device=self.device, dtype=torch.float32)
         self.privileged_obs_buf = torch.zeros((self.num_envs, self.num_privileged_obs), device=self.device, dtype=torch.float32)
-        self.extra_buf = {
+        if self.use_vision:
+            self.vision_buf = torch.zeros((self.num_envs, 3, 48, 64), device=self.device, dtype=torch.float32)
+        if self.use_vision:
+            self.extra_buf = {
+            "observations": {
+                "critic": (self.privileged_obs_buf, self.vision_buf),  # For PPO training
+                # Add other observation types as needed
+            }}
+        else:
+            self.extra_buf = {
             "observations": {
                 "critic": self.privileged_obs_buf,  # For PPO training
                 # Add other observation types as needed

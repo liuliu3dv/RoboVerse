@@ -7,6 +7,8 @@ from typing import Literal
 import rootutils
 import torch
 import tyro
+from metasim.scenario.cameras import PinholeCameraCfg
+
 from loguru import logger as log
 from rich.logging import RichHandler
 
@@ -22,8 +24,8 @@ from metasim.utils import configclass
 # for humanoid_visualrl
 from humanoid_visualrl.actor_critic.on_policy_runner import OnPolicyRunner
 
-from humanoid_visualrl.cfg.humanoidVisualRLCfg import BaseTableHumanoidTaskCfg
-from humanoid_visualrl.wrapper.walking_wrapper import WalkingWrapper as TaskWrapper
+from humanoid_visualrl.cfg.humanoidVisualRLVisionCfg import BaseTableHumanoidTaskCfg
+from humanoid_visualrl.wrapper.walking_wrapper_cnn import WalkingWrapperCNN as TaskWrapper
 from humanoid_visualrl.utils.utils import get_log_dir
 
 if __name__ == "__main__":
@@ -54,8 +56,26 @@ if __name__ == "__main__":
     scenario.lights = []
 
     # add cameras
-    # scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
-    scenario.cameras = []
+    # egocentric camera
+
+    from scipy.spatial.transform import Rotation as R
+
+    quat_xyzw = R.from_euler("xyz", [0, 60, 0], degrees=True).as_quat()
+    quat = (quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2])  # convert to wxyz
+    translation = (0.1, 0.0, 0.9)
+    scenario.cameras = [
+        PinholeCameraCfg(
+            name="camera_first_person",
+            width=64,
+            height=48,
+            pos=(1.5, -1.5, 1.5),
+            look_at=(0.0, 0.0, 0.0),
+            mount_to="g1",
+            mount_link="torso_link",
+            mount_pos=translation,
+            mount_quat=quat,
+        ),
+    ]
     # add objects
     scenario.objects = []
 
