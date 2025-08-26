@@ -303,6 +303,24 @@ def main():
         )
         # print(robot_pose[i, inds[0], 4:])
         solutions.append(solution)
+
+
+    # init_dof_pos = {}
+    # for i in range(len(tgt_robot.joints.actuated_names)):
+    #     init_dof_pos[tgt_robot.joints.actuated_names[i]] = solutions[0][i]
+
+    # init_states[0]["robots"]["g1"] = {
+    #             "pos": torch.tensor([-0.263, -0.0053, -0.]),
+    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0]),
+    #             "dof_pos": init_dof_pos
+    #         }
+
+    # 环境复位
+    # obs, extras = env.reset()
+    # 准备录像保存器
+    # obs, extras = env.reset(states=init_states)
+    # remove franka
+    init_states[0]['robots'].pop('franka')
     init_dof_pos = {}
     for i in range(len(tgt_robot.joints.actuated_names)):
         init_dof_pos[tgt_robot.joints.actuated_names[i]] = solutions[0][i]
@@ -312,18 +330,14 @@ def main():
                 "rot": torch.tensor([1.0, 0.0, 0.0, 0]),
                 "dof_pos": init_dof_pos
             }
-
-    # 环境复位
-    # obs, extras = env.reset()
-    # 准备录像保存器
-    # obs, extras = env.reset(states=init_states)
-    # remove franka
-    init_states[0]['robots'].pop('franka')
+    # init_states[0]['objects'].pop('box_base')
+    # add_h = 0.05 + 0.75
+    # init_states[0]['objects']['box_base']['pos'][2] += add_h
     obs, extras = env.reset(states=[init_states[0]])
-    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting_v2/output/replay_g1_rlbench_actions_cross_sim/{cur_task}/replay_{args.sim}_test.mp4")
+    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting_v2/output/replay_g1_rlbench_actions_cross_sim/{cur_task}/replay_{args.sim}_test_v3.mp4")
 
     total_step = len(solutions)
-    for step, solution in enumerate(solutions[0:5]):
+    for step, solution in enumerate(solutions):
         print("{} / {}".format(step, total_step))
         robot_obj = scenario.robots[0]
         actions = [

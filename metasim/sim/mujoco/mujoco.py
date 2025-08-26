@@ -262,6 +262,87 @@ class MujocoHandler(BaseSimHandler):
             self._set_framebuffer_size(mjcf_model, camera_max_width, camera_max_height)
 
         if self.scenario.try_add_table:
+
+            # --- Clean floor (no checkerboard), soft lighting ---
+            if self.scenario.try_add_table:
+                # # 纯色浅灰材质的地面
+                # floor_mat = mjcf_model.asset.add(
+                #     "material", name="mat_floor", rgba=[0.95, 0.95, 0.95, 1.0], specular="0.05", shininess="0.1"
+                # )
+                # mjcf_model.worldbody.add(
+                #     "geom",
+                #     name="floor",
+                #     type="plane",
+                #     pos="0 0 0.1",  # avoid z-fighting
+                #     size="100 100 0.001",
+                #     material=floor_mat.name,
+                #     condim="3",
+                #     conaffinity="15",
+                # )
+
+                # 柔和的全局可视化与光照（尽量保持背景整洁）
+                # 离屏分辨率已由 _set_framebuffer_size 控制；这里设定头灯与环境光
+                # headlight = mjcf_model.visual.headlight
+                # headlight.ambient = "0.4 0.4 0.4"
+                # headlight.diffuse = "0.6 0.6 0.6"
+                # headlight.specular = "0.1 0.1 0.1"
+
+                # 额外加一盏方向光，给桌面和机器人更柔的层次
+                # mjcf_model.worldbody.add(
+                #     "light",
+                #     name="key_light",
+                #     pos="2.0 1.0 2.5",
+                #     dir="-0.6 -0.3 -1.0",
+                #     directional="true",
+                #     diffuse=".8 .8 .8",
+                #     specular=".2 .2 .2",
+                #     ambient=".1 .1 .1",
+                #     castshadow="true",
+                # )
+
+                # --- Add a clean table (top + 4 legs) ---
+                # 桌面参数（以 box 半尺寸为单位设置）
+                table_half_len = 0.50  # x 半长度 => 桌面总长 1.0m
+                table_half_wid = 0.40  # y 半宽度 => 桌面总宽 0.8m
+                table_half_thk = 0.025 # 桌面半厚度 => 厚度 0.05m
+
+                table_top_z = 0.75     # 桌面中心高度（桌面距离地面 0.75 m）
+                leg_half_xy = 0.03     # 桌腿 x/y 半尺寸 => 边长 6 cm
+                leg_half_h  = 0.375    # 桌腿半高度 => 桌腿总高 0.75 m
+
+                table = mjcf_model.worldbody.add("body", name="table", pos=f"0.4 0.0 {table_top_z}")
+
+                # 桌面
+                table_top = table.add(
+                    "geom",
+                    name="table_top",
+                    type="box",
+                    size=f"{table_half_len} {table_half_wid} {table_half_thk}",
+                    rgba="0.78 0.60 0.25 1",
+                    friction="1 0.005 0.0001",  # 稍高摩擦，放物体更稳
+                    condim="3",
+                )
+
+                # 桌腿位置（相对桌面中心）
+                leg_xy = [
+                    (+table_half_len - leg_half_xy, +table_half_wid - leg_half_xy),
+                    (+table_half_len - leg_half_xy, -table_half_wid + leg_half_xy),
+                    (-table_half_len + leg_half_xy, +table_half_wid - leg_half_xy),
+                    (-table_half_len + leg_half_xy, -table_half_wid + leg_half_xy),
+                ]
+                for i, (lx, ly) in enumerate(leg_xy):
+                    table.add(
+                        "geom",
+                        name=f"table_leg_{i+1}",
+                        type="box",
+                        size=f"{leg_half_xy} {leg_half_xy} {leg_half_h}",
+                        # 桌腿中心要比桌面中心低：桌面半厚 + 桌腿半高
+                        pos=f"{lx} {ly} {- (table_half_thk + leg_half_h)}",
+                        rgba="0.62 0.44 0.18 1",
+                        condim="3",
+                    )
+
+
             mjcf_model.asset.add(
                 "texture",
                 name="texplane",
@@ -278,13 +359,15 @@ class MujocoHandler(BaseSimHandler):
             ground = mjcf_model.worldbody.add(
                 "geom",
                 type="plane",
-                pos="0 0 0",
+                pos="0 0 0.001", # avoid z-fighting
                 size="100 100 0.001",
                 quat="1 0 0 0",
                 condim="3",
                 conaffinity="15",
                 material="matplane",
             )
+
+
         self.object_body_names = []
         self.mj_objects = {}
         for obj in self.objects:
