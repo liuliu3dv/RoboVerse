@@ -19,6 +19,7 @@ from rsl_rl.runners.on_policy_runner import OnPolicyRunner
 
 from humanoid_visualrl.cfg.humanoidVisualRLCfg import BaseTableHumanoidTaskCfg
 from humanoid_visualrl.wrapper.walking_wrapper import WalkingWrapper as TaskWrapper
+from humanoid_visualrl.utils.utils import get_log_dir
 
 if __name__ == "__main__":
 
@@ -65,7 +66,7 @@ if __name__ == "__main__":
     log.info(f"Using simulator: {args.sim}")
     env = TaskWrapper(scenario)
     device = torch.device("cuda")
-    log_dir = "outputs/humanoid_visualrl"
+    log_dir = get_log_dir(args, scenario)
     ppo_runner = OnPolicyRunner(
         env=env,
         train_cfg=env.train_cfg,

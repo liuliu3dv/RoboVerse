@@ -610,10 +610,8 @@ class IsaacsimHandler(BaseSimHandler):
         contact_sensor_config: ContactSensorCfg = ContactSensorCfg(
             prim_path=f"/World/envs/env_.*/{self.robots[0].name}/.*",
             history_length=3,
-            # update_period=self.physics_dt,
-            # TODO: hard code here
-            update_period=0.0001,
-            track_air_time=True,
+            update_period=self.physics_dt * self.scenario.decimation,
+            track_air_time=False,
         )
         self.contact_sensor = ContactSensor(contact_sensor_config)
         self.scene.sensors["contact_sensor"] = self.contact_sensor

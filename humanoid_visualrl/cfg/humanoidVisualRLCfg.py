@@ -252,6 +252,7 @@ class BaseTableHumanoidTaskCfg:
     num_observations: int = int(frame_stack * num_single_obs)
     single_num_privileged_obs: int = 4 * num_actions + 23
     num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
+    task_name = "walking"
 
     @configclass
     class HumanoidExtraCfg:

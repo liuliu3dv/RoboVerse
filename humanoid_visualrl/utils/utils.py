@@ -179,3 +179,22 @@ def sample_wp(device, num_points, num_wp, ranges):
     wp = wp.unsqueeze(1).repeat(1, num_wp, 1, 1)  # (num_pairs, num_wp, 2, 7)
     log.info("===> [sample_wp] return shape:", wp.shape)
     return wp.to(device), num_pairs, num_wp
+
+
+import argparse
+from metasim.scenario.scenario import ScenarioCfg
+import datetime
+import os
+
+def get_log_dir(args: argparse.Namespace, scenario: ScenarioCfg) -> str:
+    """Get the log directory."""
+
+    robot_name = args.robot
+    task_name = scenario.task.task_name
+    task_name = f"{robot_name}_{task_name}"
+    now = datetime.datetime.now().strftime("%Y_%m%d_%H%M%S")
+    log_dir = f"./outputs/humanoid_visualrl/{task_name}/{now}/"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    log.info("Log directory: {}", log_dir)
+    return log_dir

@@ -39,7 +39,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self._prepare_reward_function(scenario.task)
         self._init_buffers()
 
-        tensor_state = self.env.get_states()
+        # tensor_state = self.env.get_states()
         # self._init_target_wp(tensor_state)
         self.marker_viz = self.env.init_marker_viz()
 
@@ -321,7 +321,7 @@ class HumanoidBaseWrapper(RslRlWrapper):
         #     torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1
         # )
         # reindex = self.env.get_body_reindex(self.robot.name)
-        contact_forces = self.env.contact_sensor.data.net_forces_w.clone()
+        contact_forces = self.env.contact_sensor.data.net_forces_w
         reset_buf = torch.any(
             torch.norm(contact_forces[:, self.env.termination_contact_indices, :], dim=-1) > 1.0,
             dim=1,
