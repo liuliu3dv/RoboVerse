@@ -48,7 +48,7 @@ class IsaacsimHandler(BaseSimHandler):
         self._episode_length_buf = [0 for _ in range(self.num_envs)]
 
         self.scenario_cfg: ScenarioCfg = scenario_cfg
-        self.dt = self.scenario.sim_params.dt if self.scenario.sim_params.dt is not None else 0.01
+        self.physics_dt = self.scenario.sim_params.dt if self.scenario.sim_params.dt is not None else 0.01
         self._step_counter = 0
         self._is_closed = False
         self._render_interval = self.scenario.render_interval
@@ -72,7 +72,7 @@ class IsaacsimHandler(BaseSimHandler):
         from isaaclab.sim import PhysxCfg, SimulationCfg, SimulationContext
 
         sim_config: SimulationCfg = SimulationCfg(
-            dt=self.dt,
+            dt=self.physics_dt,
             device=args.device,
             render_interval=self.scenario.decimation,  # TODO divide into render interval and control decimation
             physx=PhysxCfg(
@@ -141,7 +141,7 @@ class IsaacsimHandler(BaseSimHandler):
 
         # Force another simulation step and camera update to ensure proper initialization
         self.sim.step(render=False)
-        self.scene.update(dt=self.dt)
+        self.scene.update(dt=self.physics_dt)
         self._update_camera_pose()
 
         # Force a render to update camera data after position is set
@@ -386,7 +386,7 @@ class IsaacsimHandler(BaseSimHandler):
         self.sim.step(render=False)
         if self._step_counter % self._render_interval == 0 and is_rendering:
             self.sim.render()
-        self.scene.update(dt=self.dt)
+        self.scene.update(dt=self.physics_dt)
 
         # Ensure camera pose is correct, especially for the first few frames
         if self._step_counter < 5:
@@ -610,7 +610,7 @@ class IsaacsimHandler(BaseSimHandler):
         contact_sensor_config: ContactSensorCfg = ContactSensorCfg(
             prim_path=f"/World/envs/env_.*/{self.robots[0].name}/.*",
             history_length=3,
-            # update_period=self.dt,
+            # update_period=self.physics_dt,
             # TODO: hard code here
             update_period=0.0001,
             track_air_time=True,

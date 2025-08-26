@@ -303,10 +303,10 @@ class HumanoidBaseWrapper(RslRlWrapper):
         self.dof_vel[:] = tensor_state.robots[self.robot.name].joint_vel
         self.base_quat[:] = tensor_state.robots[self.robot.name].root_state[:, 3:7]
         self.base_lin_vel[:] = quat_rotate_inverse(
-            self.base_quat, tensor_state.robots[self.robot.name].root_state[:, 0:3]
+            self.base_quat, tensor_state.robots[self.robot.name].root_state[:, 7:10]
         )
         self.base_ang_vel[:] = quat_rotate_inverse(
-            self.base_quat, tensor_state.robots[self.robot.name].root_state[:, 6:9]
+            self.base_quat, tensor_state.robots[self.robot.name].root_state[:, 10:13]
         )
         self.projected_gravity[:] = quat_rotate_inverse(self.base_quat, self.gravity_vec)
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)

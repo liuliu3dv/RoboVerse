@@ -200,15 +200,20 @@ class WalkingWrapper(HumanoidBaseWrapper):
         rew = torch.exp(-torch.norm(root_acc, dim=1) * 3)
         return rew
 
+    # def _reward_base_height(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
+    #     """Penalize base height deviation from target."""
+    #     stance_mask = self._get_gait_phase()
+    #     measured_heights = torch.sum(
+    #         states.robots[robot_name].body_state[:, self.feet_indices, 2] * stance_mask,
+    #         dim=1,
+    #     ) / torch.sum(stance_mask, dim=1)
+    #     base_height = states.robots[robot_name].root_state[:, 2] - (measured_heights - 0.05)
+    #     return torch.exp(-torch.abs(base_height - cfg.reward_cfg.base_height_target) * 100)
+
     def _reward_base_height(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
-        """Penalize base height deviation from target."""
-        stance_mask = self._get_gait_phase()
-        measured_heights = torch.sum(
-            states.robots[robot_name].body_state[:, self.feet_indices, 2] * stance_mask,
-            dim=1,
-        ) / torch.sum(stance_mask, dim=1)
-        base_height = states.robots[robot_name].root_state[:, 2] - (measured_heights - 0.05)
-        return torch.exp(-torch.abs(base_height - cfg.reward_cfg.base_height_target) * 100)
+        # Penalize base height away from target
+        base_height = states.robots[robot_name].root_state[:, 2]
+        return torch.square(base_height - self.cfg.reward_cfg.base_height_target)
 
     def _reward_collision(self, states: TensorState, robot_name: str, cfg: BaseTableHumanoidTaskCfg) -> torch.Tensor:
         """Penalize collisions."""

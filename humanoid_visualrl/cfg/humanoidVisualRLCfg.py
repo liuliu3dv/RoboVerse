@@ -110,9 +110,9 @@ class BaseTableHumanoidTaskCfg:
 
         base_height_target: float = 0.728  # for g1
         """target height of the base"""
-        min_dist: float = 0.2
+        min_dist: float = 0.05
         """minimum distance between feet"""
-        max_dist: float = 0.5
+        max_dist: float = 0.25
         """maximum distance between feet"""
 
         target_joint_pos_scale: float = 0.17
@@ -176,8 +176,8 @@ class BaseTableHumanoidTaskCfg:
     class CommandRanges:
         """Command Ranges for random command sampling when training."""
 
-        lin_vel_x: list[float] = [-1.0, 2.0]
-        lin_vel_y: list[float] = [-1.0, 1.0]
+        lin_vel_x: list[float] = [0.0, 1.0]
+        lin_vel_y: list[float] = [-0.5, 0.5]
         ang_vel_yaw: list[float] = [-1.0, 1.0]
         heading: list[float] = [-3.14, 3.14]
 
@@ -235,7 +235,7 @@ class BaseTableHumanoidTaskCfg:
     traj_filepath = None
     """path to the trajectory file"""
     # TODO read form max_episode_length_s and divide s
-    max_episode_length_s: int = 8
+    max_episode_length_s: int = 24
     """maximum episode length in seconds"""
     episode_length: int = 2400
     """episode length in steps"""
@@ -313,7 +313,7 @@ class BaseTableHumanoidTaskCfg:
         "termination": -0.0,
         "lin_vel_z": -0.0,
         # "ang_vel_xy": -0.05,
-        "base_height": 0.2,
+        "base_height": -10.0,
         "feet_air_time": 1.0,
         "collision": -1.0,
         "feet_stumble": -0.0,
