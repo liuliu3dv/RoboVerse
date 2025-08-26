@@ -16,6 +16,7 @@ from rich.logging import RichHandler
 
 from metasim.constants import PhysicStateType, SimType
 from metasim.scenario.cameras import PinholeCameraCfg
+from metasim.scenario.lights import DistantLightCfg, SphereLightCfg
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.utils import configclass
@@ -24,11 +25,14 @@ from metasim.utils.setup_util import get_sim_handler_class
 from roboverse_pack.randomization import (
     FrictionRandomCfg,
     FrictionRandomizer,
+    LightPresets,
+    LightRandomizer,
     MassRandomCfg,
     MassRandomizer,
     MaterialPresets,
     MaterialRandomizer,
 )
+from roboverse_pack.randomization.presets.light_presets import LightScenarios
 
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
@@ -47,6 +51,106 @@ def run_domain_randomization(args):
 
     # Add cameras for video recording
     scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
+
+    # Demo: Using LightScenarios for complex lighting setups
+    if args.lighting_scenario == "indoor_room":
+        # Use LightScenarios for indoor room setup
+        scenario.lights = [
+            DistantLightCfg(
+                name="ceiling_light", intensity=800.0, color=(1.0, 1.0, 0.9), polar=0.0, azimuth=0.0, is_global=True
+            ),
+            SphereLightCfg(
+                name="window_light",
+                intensity=1200.0,
+                color=(0.9, 0.95, 1.0),
+                radius=0.3,
+                pos=(2.0, 1.0, 2.5),
+                is_global=False,
+            ),
+            SphereLightCfg(
+                name="desk_lamp",
+                intensity=400.0,
+                color=(1.0, 0.8, 0.6),
+                radius=0.1,
+                pos=(-1.0, -1.0, 1.0),
+                is_global=False,
+            ),
+        ]
+    elif args.lighting_scenario == "outdoor_scene":
+        # Use LightScenarios for outdoor setup
+        scenario.lights = [
+            DistantLightCfg(
+                name="sun_light", intensity=2000.0, color=(1.0, 0.95, 0.8), polar=45.0, azimuth=30.0, is_global=True
+            ),
+            DistantLightCfg(
+                name="sky_light", intensity=600.0, color=(0.7, 0.8, 1.0), polar=80.0, azimuth=0.0, is_global=True
+            ),
+        ]
+    elif args.lighting_scenario == "studio":
+        # Use LightScenarios for studio setup
+        scenario.lights = [
+            DistantLightCfg(
+                name="key_light", intensity=1500.0, color=(1.0, 1.0, 1.0), polar=30.0, azimuth=45.0, is_global=True
+            ),
+            SphereLightCfg(
+                name="fill_light",
+                intensity=800.0,
+                color=(0.9, 0.9, 1.0),
+                radius=0.5,
+                pos=(1.0, -2.0, 2.0),
+                is_global=False,
+            ),
+            SphereLightCfg(
+                name="rim_light",
+                intensity=600.0,
+                color=(1.0, 0.9, 0.8),
+                radius=0.2,
+                pos=(-2.0, 0.5, 1.5),
+                is_global=False,
+            ),
+        ]
+    elif args.lighting_scenario == "demo":
+        # Demo mode: maximum dramatic changes for visibility with strong shadows
+        # Use multiple lights to create clear shadow effects
+        scenario.lights = [
+            # Main distant light for overall scene lighting and color changes
+            DistantLightCfg(
+                name="rainbow_light", intensity=3000.0, color=(1.0, 0.0, 0.0), polar=60.0, azimuth=45.0, is_global=True
+            ),
+            # Strong sphere light for position-based shadow changes (lower initial position)
+            SphereLightCfg(
+                name="disco_light",
+                intensity=15000.0,
+                color=(1.0, 1.0, 1.0),
+                radius=0.3,
+                pos=(0.0, 0.0, 2.0),
+                is_global=False,
+            ),
+            # Second sphere light for cross-shadows (lower initial position)
+            SphereLightCfg(
+                name="shadow_light",
+                intensity=12000.0,
+                color=(1.0, 1.0, 1.0),
+                radius=0.2,
+                pos=(0.0, 0.0, 2.0),
+                is_global=False,
+            ),
+        ]
+    else:
+        # Default simple setup
+        scenario.lights = [
+            DistantLightCfg(
+                name="main_light", intensity=1000.0, color=(1.0, 1.0, 1.0), polar=45.0, azimuth=30.0, is_global=True
+            ),
+            SphereLightCfg(
+                name="ambient_light",
+                intensity=500.0,
+                color=(0.9, 0.8, 0.7),
+                radius=0.5,
+                pos=(0.0, 0.0, 2.0),
+                is_global=False,
+            ),
+        ]
 
     # Add objects (same as 0_static_scene.py)
     scenario.objects = [
@@ -169,14 +273,93 @@ def run_domain_randomization(args):
     )
     box_material_randomizer.bind_handler(env)
 
+    # Initialize light randomizers using LightScenarios for complex setups
+    light_randomizers = []
+
+    if args.lighting_scenario == "indoor_room":
+        # Get indoor room scenario configurations
+        light_configs = LightScenarios.indoor_room()
+        log.info("Using Indoor Room lighting scenario with 3 lights")
+
+        # Create randomizers for each light in the scenario
+        for config in light_configs:
+            randomizer = LightRandomizer(config)
+            randomizer.bind_handler(env)
+            light_randomizers.append(randomizer)
+
+    elif args.lighting_scenario == "outdoor_scene":
+        # Get outdoor scene scenario configurations
+        light_configs = LightScenarios.outdoor_scene()
+        log.info("Using Outdoor Scene lighting scenario with 2 lights")
+
+        for config in light_configs:
+            randomizer = LightRandomizer(config)
+            randomizer.bind_handler(env)
+            light_randomizers.append(randomizer)
+
+    elif args.lighting_scenario == "studio":
+        # Get studio scenario configurations
+        light_configs = LightScenarios.three_point_studio()
+        log.info("Using Three-Point Studio lighting scenario with 3 lights")
+
+        for config in light_configs:
+            randomizer = LightRandomizer(config)
+            randomizer.bind_handler(env)
+            light_randomizers.append(randomizer)
+
+    elif args.lighting_scenario == "demo":
+        # Demo mode: use extreme colors and positions for maximum visual impact with shadows
+        log.info("Using Demo mode with EXTREME changes, shadows, and debugging (3 lights)")
+
+        # Use demo presets for maximum visual impact
+        rainbow_randomizer = LightRandomizer(LightPresets.demo_colors("rainbow_light", randomization_mode="color_only"))
+        rainbow_randomizer.bind_handler(env)
+
+        # Use position randomizers for shadow effects
+        position_randomizer = LightRandomizer(
+            LightPresets.demo_positions("disco_light", randomization_mode="position_only")
+        )
+        position_randomizer.bind_handler(env)
+
+        shadow_randomizer = LightRandomizer(
+            LightPresets.demo_positions("shadow_light", randomization_mode="position_only")
+        )
+        shadow_randomizer.bind_handler(env)
+
+        light_randomizers = [rainbow_randomizer, position_randomizer, shadow_randomizer]
+    else:
+        # Default simple setup using individual presets
+        log.info("Using default lighting setup with 2 lights")
+        main_light_randomizer = LightRandomizer(
+            LightPresets.outdoor_daylight("main_light", randomization_mode="combined")
+        )
+        main_light_randomizer.bind_handler(env)
+
+        ambient_light_randomizer = LightRandomizer(
+            LightPresets.indoor_ambient("ambient_light", randomization_mode="combined")
+        )
+        ambient_light_randomizer.bind_handler(env)
+
+        light_randomizers = [main_light_randomizer, ambient_light_randomizer]
+
     # Get cube mass using randomizer
     cube_mass = cube_mass_randomizer.get_body_mass("cube")
     robot_friction = franka_friction_randomizer.get_body_friction("franka")
     robot_mass = franka_mass_randomizer.get_body_mass("franka")
 
-    # Get initial material properties for comparison
+    # Get initial material and light properties for comparison
     initial_cube_physical = cube_material_randomizer.get_physical_properties()
     initial_sphere_physical = sphere_material_randomizer.get_physical_properties()
+
+    # Get initial light properties from all light randomizers
+    initial_light_properties = {}
+    for i, randomizer in enumerate(light_randomizers):
+        try:
+            properties = randomizer.get_light_properties()
+            initial_light_properties[f"light_{i}"] = properties
+        except Exception as e:
+            log.warning(f"Failed to get initial properties for light {i}: {e}")
+            initial_light_properties[f"light_{i}"] = {}
 
     # Store initial values for comparison
     initial_values = {
@@ -185,6 +368,7 @@ def run_domain_randomization(args):
         "franka_friction": robot_friction.clone(),
         "cube_physical": initial_cube_physical,
         "sphere_physical": initial_sphere_physical,
+        "lights": initial_light_properties,
     }
 
     # run randomization for cube mass
@@ -242,6 +426,20 @@ def run_domain_randomization(args):
         log.warning(f"  Metal material randomization failed: {e}")
         log.info("  This is expected if MDL files are not available")
 
+    # run light randomization for all lights in the scenario
+    log.info("================================================")
+    log.info(f"randomizing all lights in {args.lighting_scenario} scenario")
+
+    # Initial light randomization
+    log.info("Applying initial light randomization...")
+    for i, randomizer in enumerate(light_randomizers):
+        try:
+            randomizer()
+            light_name = randomizer.cfg.light_name
+            log.info(f"  Light {i} ({light_name}): Randomization applied")
+        except Exception as e:
+            log.warning(f"  Light {i} randomization failed: {e}")
+
     # Run simulation for a few steps with video recording
     log.info("================================================")
     log.info("Running simulation with randomized materials...")
@@ -252,12 +450,21 @@ def run_domain_randomization(args):
         obs = env.get_states(mode="dict")
         obs_saver.add(obs)
 
-        # Apply randomization every 30 steps to show material changes (less frequent to reduce flicker)
-        if step % 30 == 0 and step > 0:
-            log.info(f"  Step {step}: Re-randomizing materials...")
-            cube_material_randomizer()
-            sphere_material_randomizer()
-            box_material_randomizer()
+        # Apply randomization every 10 steps to show material and lighting changes very frequently
+        if step % 10 == 0 and step > 0:
+            log.info(f"  Step {step}: Re-randomizing materials and lighting...")
+            try:
+                # Randomize materials
+                cube_material_randomizer()
+                sphere_material_randomizer()
+                box_material_randomizer()
+
+                # Randomize all lights in the scenario
+                for randomizer in light_randomizers:
+                    randomizer()
+
+            except Exception as e:
+                log.warning(f"  Randomization failed at step {step}: {e}")
 
     # Save video and close
     log.info("================================================")
@@ -269,12 +476,16 @@ def run_domain_randomization(args):
 def main():
     @configclass
     class Args:
-        """Arguments for the static scene."""
+        """Arguments for the domain randomization demo."""
 
         robot: str = "franka"
 
         ## Handlers
         simulator: Literal["isaacsim"] = "isaacsim"
+
+        ## Lighting scenarios
+        lighting_scenario: Literal["default", "indoor_room", "outdoor_scene", "studio", "demo"] = "default"
+        """Choose lighting scenario: default, indoor_room, outdoor_scene, studio, or demo (for testing)"""
 
         ## Others
         num_envs: int = 1
@@ -294,7 +505,28 @@ def main():
     log.info("    * Cube: Wood (MDL + physics)")
     log.info("    * Sphere: Rubber (PBR + physics, high bounce)")
     log.info("    * Box: Metal (MDL + physics)")
-    log.info("  - Flexible and extensible material configuration system")
+    log.info("  - Advanced lighting randomization using LightScenarios:")
+    log.info(f"    * Scenario: {args.lighting_scenario}")
+    if args.lighting_scenario == "indoor_room":
+        log.info("    * 3 lights: ceiling_light, window_light, desk_lamp")
+    elif args.lighting_scenario == "outdoor_scene":
+        log.info("    * 2 lights: sun_light, sky_light")
+    elif args.lighting_scenario == "studio":
+        log.info("    * 3 lights: key_light, fill_light, rim_light")
+    elif args.lighting_scenario == "demo":
+        log.info("    * 3 lights: rainbow_light (COLORS), disco_light (SHADOWS), shadow_light (MORE SHADOWS)")
+    else:
+        log.info("    * 2 lights: main_light, ambient_light")
+    log.info("  - Flexible and extensible configuration system")
+    log.info("  - Video recording and comprehensive logging")
+    log.info("")
+    log.info("Try different lighting scenarios:")
+    log.info("  --lighting-scenario demo        # For testing with maximum visual changes")
+    log.info("  --lighting-scenario indoor_room # 3-light indoor setup")
+    log.info("  --lighting-scenario outdoor_scene # 2-light outdoor setup")
+    log.info("  --lighting-scenario studio      # 3-light studio setup")
+    log.info("")
+
     # Run IsaacSim demo
     run_domain_randomization(args)
     log.info("\nRandomization demo completed! Check the logs above for detailed results.")

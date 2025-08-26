@@ -1,5 +1,13 @@
-"""Material presets for domain randomization."""
+"""Presets for domain randomization."""
 
+from .light_presets import LightPresets, LightProperties, LightScenarios
 from .material_presets import MaterialPresets, MaterialProperties, MDLCollections
 
-__all__ = ["MDLCollections", "MaterialPresets", "MaterialProperties"]
+__all__ = [
+    "LightPresets",
+    "LightProperties",
+    "LightScenarios",
+    "MDLCollections",
+    "MaterialPresets",
+    "MaterialProperties",
+]
