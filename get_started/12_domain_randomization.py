@@ -6,6 +6,7 @@ import rootutils
 
 rootutils.setup_root(__file__, pythonpath=True)
 
+import os
 from typing import Literal
 
 import torch
@@ -14,12 +15,20 @@ from loguru import logger as log
 from rich.logging import RichHandler
 
 from metasim.constants import PhysicStateType, SimType
+from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.utils import configclass
+from metasim.utils.obs_utils import ObsSaver
 from metasim.utils.setup_util import get_sim_handler_class
-from roboverse_pack.randomization.friction_randomizer import FrictionRandomCfg, FrictionRandomizer
-from roboverse_pack.randomization.mass_randomizer import MassRandomCfg, MassRandomizer
+from roboverse_pack.randomization import (
+    FrictionRandomCfg,
+    FrictionRandomizer,
+    MassRandomCfg,
+    MassRandomizer,
+    MaterialPresets,
+    MaterialRandomizer,
+)
 
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
@@ -35,6 +44,9 @@ def run_domain_randomization(args):
         simulator=args.simulator,  # Will be overridden
         headless=args.headless,  # Will be overridden
     )
+
+    # Add cameras for video recording
+    scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
 
     # Add objects (same as 0_static_scene.py)
     scenario.objects = [
@@ -103,6 +115,12 @@ def run_domain_randomization(args):
 
     env.set_states(init_states)
 
+    # Initialize video recording
+    os.makedirs("get_started/output", exist_ok=True)
+    obs_saver = ObsSaver(video_path=f"get_started/output/12_domain_randomization_{args.simulator}.mp4")
+    obs = env.get_states(mode="dict")
+    obs_saver.add(obs)
+
     # initialize randomizers
     cube_mass_config = MassRandomCfg(
         obj_name="cube",
@@ -131,16 +149,42 @@ def run_domain_randomization(args):
     franka_mass_randomizer = MassRandomizer(franka_mass_config)
     franka_mass_randomizer.bind_handler(env)
 
+    # Initialize material randomizers with different strategies
+
+    # Cube: Wood with MDL textures (combined mode - physics + visual)
+    cube_material_randomizer = MaterialRandomizer(
+        MaterialPresets.wood_object("cube", use_mdl=True, randomization_mode="combined")
+    )
+    cube_material_randomizer.bind_handler(env)
+
+    # Sphere: Rubber with high bounce (combined mode - physics + visual)
+    sphere_material_randomizer = MaterialRandomizer(
+        MaterialPresets.rubber_object("sphere", randomization_mode="combined")
+    )
+    sphere_material_randomizer.bind_handler(env)
+
+    # Box: Metal with MDL textures (combined mode - physics + visual)
+    box_material_randomizer = MaterialRandomizer(
+        MaterialPresets.wood_object("box_base", use_mdl=True, randomization_mode="combined")
+    )
+    box_material_randomizer.bind_handler(env)
+
     # Get cube mass using randomizer
     cube_mass = cube_mass_randomizer.get_body_mass("cube")
     robot_friction = franka_friction_randomizer.get_body_friction("franka")
     robot_mass = franka_mass_randomizer.get_body_mass("franka")
+
+    # Get initial material properties for comparison
+    initial_cube_physical = cube_material_randomizer.get_physical_properties()
+    initial_sphere_physical = sphere_material_randomizer.get_physical_properties()
 
     # Store initial values for comparison
     initial_values = {
         "cube_mass": cube_mass.clone(),
         "franka_mass": robot_mass.clone(),
         "franka_friction": robot_friction.clone(),
+        "cube_physical": initial_cube_physical,
+        "sphere_physical": initial_sphere_physical,
     }
 
     # run randomization for cube mass
@@ -167,10 +211,58 @@ def run_domain_randomization(args):
     log.info(f"  Before: {initial_values['franka_mass'].cpu().numpy().round(3)} kg")
     log.info(f"  After:  {randomized_sphere_mass.cpu().numpy().round(3)} kg")
 
-    # Run simulation for a few steps
-    for _ in range(50):
-        env.simulate()
+    # run material randomization
+    log.info("================================================")
+    log.info("randomizing cube material (Wood: combined mode)")
+    cube_material_randomizer()
+    randomized_cube_physical = cube_material_randomizer.get_physical_properties()
+    log.info("  Applied: Wood MDL texture + Physics properties")
+    if "friction" in initial_values["cube_physical"] and "friction" in randomized_cube_physical:
+        log.info(f"  Cube friction before: {initial_values['cube_physical']['friction'][0].round(3)}")
+        log.info(f"  Cube friction after:  {randomized_cube_physical['friction'][0].round(3)}")
 
+    log.info("================================================")
+    log.info("randomizing sphere material (Rubber: combined mode)")
+    sphere_material_randomizer()
+    randomized_sphere_physical = sphere_material_randomizer.get_physical_properties()
+    log.info("  Applied: Rubber PBR + Physics (high bounce)")
+    if "friction" in initial_values["sphere_physical"] and "friction" in randomized_sphere_physical:
+        log.info(f"  Sphere friction before: {initial_values['sphere_physical']['friction'][0].round(3)}")
+        log.info(f"  Sphere friction after:  {randomized_sphere_physical['friction'][0].round(3)}")
+    if "restitution" in initial_values["sphere_physical"] and "restitution" in randomized_sphere_physical:
+        log.info(f"  Sphere restitution before: {initial_values['sphere_physical']['restitution'][0].round(3)}")
+        log.info(f"  Sphere restitution after:  {randomized_sphere_physical['restitution'][0].round(3)}")
+
+    log.info("================================================")
+    log.info("randomizing box_base material (Metal: combined mode)")
+    try:
+        box_material_randomizer()
+        log.info("  Applied: Metal MDL texture + Physics properties")
+    except Exception as e:
+        log.warning(f"  Metal material randomization failed: {e}")
+        log.info("  This is expected if MDL files are not available")
+
+    # Run simulation for a few steps with video recording
+    log.info("================================================")
+    log.info("Running simulation with randomized materials...")
+
+    for step in range(100):
+        log.debug(f"Simulation step {step}")
+        env.simulate()
+        obs = env.get_states(mode="dict")
+        obs_saver.add(obs)
+
+        # Apply randomization every 30 steps to show material changes (less frequent to reduce flicker)
+        if step % 30 == 0 and step > 0:
+            log.info(f"  Step {step}: Re-randomizing materials...")
+            cube_material_randomizer()
+            sphere_material_randomizer()
+            box_material_randomizer()
+
+    # Save video and close
+    log.info("================================================")
+    log.info("Saving video and closing simulation...")
+    obs_saver.save()
     env.close()
 
 
@@ -195,9 +287,18 @@ def main():
     args = tyro.cli(Args)
     """Main function to run the domain randomization demo."""
     log.info("Starting Domain Randomization Demo")
+    log.info("This demo showcases:")
+    log.info("  - Mass randomization (cube and franka)")
+    log.info("  - Friction randomization (franka)")
+    log.info("  - Advanced material randomization with combined mode:")
+    log.info("    * Cube: Wood (MDL + physics)")
+    log.info("    * Sphere: Rubber (PBR + physics, high bounce)")
+    log.info("    * Box: Metal (MDL + physics)")
+    log.info("  - Flexible and extensible material configuration system")
     # Run IsaacSim demo
     run_domain_randomization(args)
-    log.info("\nRandomization demo completed. Check the logs above for detailed results.")
+    log.info("\nRandomization demo completed! Check the logs above for detailed results.")
+    log.info(f"Video saved to: get_started/output/12_domain_randomization_{args.simulator}.mp4")
 
 
 if __name__ == "__main__":
