@@ -9,6 +9,7 @@ rootutils.setup_root(__file__, pythonpath=True)
 import os
 from typing import Literal
 
+import numpy as np
 import torch
 import tyro
 from loguru import logger as log
@@ -40,6 +41,15 @@ log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 def run_domain_randomization(args):
     """Demonstrate domain randomization with specified simulator."""
     log.info(f"=== {args.simulator.upper()} Domain Randomization Demo ===")
+
+    # Set up reproducible randomization
+    if args.seed is not None:
+        log.info(f"Reproducibility: Using seed {args.seed}")
+        # Set global seeds for PyTorch, NumPy, etc.
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(args.seed)
 
     # Create scenario and update simulator
     scenario = ScenarioCfg(
@@ -257,19 +267,19 @@ def run_domain_randomization(args):
 
     # Cube: Wood with MDL textures (combined mode - physics + visual)
     cube_material_randomizer = MaterialRandomizer(
-        MaterialPresets.wood_object("cube", use_mdl=True, randomization_mode="combined")
+        MaterialPresets.wood_object("cube", use_mdl=True, randomization_mode="combined"), seed=args.seed
     )
     cube_material_randomizer.bind_handler(env)
 
     # Sphere: Rubber with high bounce (combined mode - physics + visual)
     sphere_material_randomizer = MaterialRandomizer(
-        MaterialPresets.rubber_object("sphere", randomization_mode="combined")
+        MaterialPresets.rubber_object("sphere", randomization_mode="combined"), seed=args.seed
     )
     sphere_material_randomizer.bind_handler(env)
 
     # Box: Metal with MDL textures (combined mode - physics + visual)
     box_material_randomizer = MaterialRandomizer(
-        MaterialPresets.wood_object("box_base", use_mdl=True, randomization_mode="combined")
+        MaterialPresets.wood_object("box_base", use_mdl=True, randomization_mode="combined"), seed=args.seed
     )
     box_material_randomizer.bind_handler(env)
 
@@ -283,7 +293,7 @@ def run_domain_randomization(args):
 
         # Create randomizers for each light in the scenario
         for config in light_configs:
-            randomizer = LightRandomizer(config)
+            randomizer = LightRandomizer(config, seed=args.seed)
             randomizer.bind_handler(env)
             light_randomizers.append(randomizer)
 
@@ -293,7 +303,7 @@ def run_domain_randomization(args):
         log.info("Using Outdoor Scene lighting scenario with 2 lights")
 
         for config in light_configs:
-            randomizer = LightRandomizer(config)
+            randomizer = LightRandomizer(config, seed=args.seed)
             randomizer.bind_handler(env)
             light_randomizers.append(randomizer)
 
@@ -303,7 +313,7 @@ def run_domain_randomization(args):
         log.info("Using Three-Point Studio lighting scenario with 3 lights")
 
         for config in light_configs:
-            randomizer = LightRandomizer(config)
+            randomizer = LightRandomizer(config, seed=args.seed)
             randomizer.bind_handler(env)
             light_randomizers.append(randomizer)
 
@@ -312,17 +322,19 @@ def run_domain_randomization(args):
         log.info("Using Demo mode with EXTREME changes, shadows, and debugging (3 lights)")
 
         # Use demo presets for maximum visual impact
-        rainbow_randomizer = LightRandomizer(LightPresets.demo_colors("rainbow_light", randomization_mode="color_only"))
+        rainbow_randomizer = LightRandomizer(
+            LightPresets.demo_colors("rainbow_light", randomization_mode="color_only"), seed=args.seed
+        )
         rainbow_randomizer.bind_handler(env)
 
         # Use position randomizers for shadow effects
         position_randomizer = LightRandomizer(
-            LightPresets.demo_positions("disco_light", randomization_mode="position_only")
+            LightPresets.demo_positions("disco_light", randomization_mode="position_only"), seed=args.seed
         )
         position_randomizer.bind_handler(env)
 
         shadow_randomizer = LightRandomizer(
-            LightPresets.demo_positions("shadow_light", randomization_mode="position_only")
+            LightPresets.demo_positions("shadow_light", randomization_mode="position_only"), seed=args.seed
         )
         shadow_randomizer.bind_handler(env)
 
@@ -331,12 +343,12 @@ def run_domain_randomization(args):
         # Default simple setup using individual presets
         log.info("Using default lighting setup with 2 lights")
         main_light_randomizer = LightRandomizer(
-            LightPresets.outdoor_daylight("main_light", randomization_mode="combined")
+            LightPresets.outdoor_daylight("main_light", randomization_mode="combined"), seed=args.seed
         )
         main_light_randomizer.bind_handler(env)
 
         ambient_light_randomizer = LightRandomizer(
-            LightPresets.indoor_ambient("ambient_light", randomization_mode="combined")
+            LightPresets.indoor_ambient("ambient_light", randomization_mode="combined"), seed=args.seed
         )
         ambient_light_randomizer.bind_handler(env)
 
@@ -490,6 +502,8 @@ def main():
         ## Others
         num_envs: int = 1
         headless: bool = False
+        seed: int | None = None
+        """Random seed for reproducible randomization. If None, uses random seed."""
 
         def __post_init__(self):
             """Post-initialization configuration."""
@@ -519,12 +533,17 @@ def main():
         log.info("    * 2 lights: main_light, ambient_light")
     log.info("  - Flexible and extensible configuration system")
     log.info("  - Video recording and comprehensive logging")
+    log.info("  - Reproducible results with --seed argument")
     log.info("")
     log.info("Try different lighting scenarios:")
     log.info("  --lighting-scenario demo        # For testing with maximum visual changes")
     log.info("  --lighting-scenario indoor_room # 3-light indoor setup")
     log.info("  --lighting-scenario outdoor_scene # 2-light outdoor setup")
     log.info("  --lighting-scenario studio      # 3-light studio setup")
+    log.info("")
+    log.info("For reproducible results:")
+    log.info("  --seed 42                       # Use specific seed for reproducibility")
+    log.info("  --seed 123                      # Different seed for different random sequences")
     log.info("")
 
     # Run IsaacSim demo

@@ -122,25 +122,25 @@ class LightRandomCfg:
 
 
 class LightRandomizer(BaseRandomizerType):
-    """Advanced light randomizer supporting flexible multi-property light randomization.
+    """Light randomizer supporting intensity, color, position, and orientation.
 
-    Supports randomization of:
-    1. Intensity: Light brightness/power
-    2. Color: RGB color or color temperature
-    3. Position: Light position in 3D space
-    4. Orientation: Light direction/rotation
-
-    Features:
-    - Flexible randomization modes
-    - Configurable distributions (uniform, log-uniform, gaussian)
-    - Per-environment targeting
-    - Color temperature support
-    - Relative and absolute positioning
+    Supports multiple randomization modes and distributions with reproducible seeding.
     """
 
-    def __init__(self, cfg: LightRandomCfg):
+    def __init__(self, cfg: LightRandomCfg, seed: int | None = None):
         super().__init__()
         self.cfg = cfg
+
+        # Set up reproducible random state - simple and direct
+        if seed is not None:
+            # Use provided seed + simple string-to-number conversion for uniqueness
+            name_sum = sum(ord(c) for c in cfg.light_name)
+            self._seed = seed + name_sum
+        else:
+            self._seed = random.randint(0, 2**32 - 1)
+
+        self._rng = random.Random(self._seed)
+        logger.debug(f"LightRandomizer for '{cfg.light_name}' using seed {self._seed}")
 
     def bind_handler(self, handler, *args: Any, **kwargs):
         """Bind the handler to the randomizer."""
@@ -232,17 +232,17 @@ class LightRandomizer(BaseRandomizerType):
         return self.cfg.env_ids or list(range(self.handler.num_envs))
 
     def _generate_random_value(self, value_range: tuple[float, float], distribution: str = "uniform") -> float:
-        """Generate a single random value."""
+        """Generate a single random value using reproducible RNG."""
         if distribution == "uniform":
-            return random.uniform(value_range[0], value_range[1])
+            return self._rng.uniform(value_range[0], value_range[1])
         elif distribution == "log_uniform":
             log_min = torch.log(torch.tensor(value_range[0])).item()
             log_max = torch.log(torch.tensor(value_range[1])).item()
-            return torch.exp(torch.tensor(random.uniform(log_min, log_max))).item()
+            return torch.exp(torch.tensor(self._rng.uniform(log_min, log_max))).item()
         elif distribution == "gaussian":
             mean = (value_range[0] + value_range[1]) / 2
             std = (value_range[1] - value_range[0]) / 6
-            val = random.gauss(mean, std)
+            val = self._rng.gauss(mean, std)
             return max(value_range[0], min(value_range[1], val))
         else:
             raise ValueError(f"Unsupported distribution: {distribution}")

@@ -176,25 +176,26 @@ class MaterialRandomCfg:
 
 
 class MaterialRandomizer(BaseRandomizerType):
-    """Advanced material randomizer supporting flexible multi-type material randomization.
+    """Material randomizer supporting Physical, PBR, and MDL materials.
 
-    Supports three material types that can be used independently or in combination:
-    1. Physical: Friction, restitution, and other physics properties
-    2. PBR: Procedural material properties (roughness, metallic, colors)
-    3. MDL: Asset-based materials loaded from MDL files
-
-    Features:
-    - Flexible randomization modes (all, random choice, priority-based)
-    - Configurable distributions (uniform, log-uniform, gaussian)
-    - Per-environment targeting
-    - Extensible material property system
-    - Validation and error handling
+    Supports multiple randomization modes and distributions with reproducible seeding.
     """
 
-    def __init__(self, cfg: MaterialRandomCfg):
+    def __init__(self, cfg: MaterialRandomCfg, seed: int | None = None):
         super().__init__()
         self.cfg = cfg
         self._mdl_selection_state = {"sequential_index": 0}
+
+        # Set up reproducible random state - simple and direct
+        if seed is not None:
+            # Use provided seed + simple string-to-number conversion for uniqueness
+            name_sum = sum(ord(c) for c in cfg.obj_name)
+            self._seed = seed + name_sum
+        else:
+            self._seed = random.randint(0, 2**32 - 1)
+
+        self._rng = random.Random(self._seed)
+        logger.debug(f"MaterialRandomizer for '{cfg.obj_name}' using seed {self._seed}")
 
     def bind_handler(self, handler, *args: Any, **kwargs):
         """Bind the handler to the randomizer."""
@@ -236,17 +237,17 @@ class MaterialRandomizer(BaseRandomizerType):
         return self.cfg.env_ids or list(range(self.handler.num_envs))
 
     def _generate_random_value(self, value_range: tuple[float, float], distribution: str = "uniform") -> float:
-        """Generate a single random value."""
+        """Generate a single random value using reproducible RNG."""
         if distribution == "uniform":
-            return random.uniform(value_range[0], value_range[1])
+            return self._rng.uniform(value_range[0], value_range[1])
         elif distribution == "log_uniform":
             log_min = torch.log(torch.tensor(value_range[0])).item()
             log_max = torch.log(torch.tensor(value_range[1])).item()
-            return torch.exp(torch.tensor(random.uniform(log_min, log_max))).item()
+            return torch.exp(torch.tensor(self._rng.uniform(log_min, log_max))).item()
         elif distribution == "gaussian":
             mean = (value_range[0] + value_range[1]) / 2
             std = (value_range[1] - value_range[0]) / 6
-            val = random.gauss(mean, std)
+            val = self._rng.gauss(mean, std)
             return max(value_range[0], min(value_range[1], val))
         else:
             raise ValueError(f"Unsupported distribution: {distribution}")
@@ -328,7 +329,7 @@ class MaterialRandomizer(BaseRandomizerType):
             return
 
         # Always create a new material to ensure it overrides any existing material
-        mtl_name = f"pbr_material_{random.randint(0, 1000000)}"
+        mtl_name = f"pbr_material_{self._rng.randint(0, 1000000)}"
         _, mtl_prim_path = get_material_prim_path(mtl_name)
         material = UsdShade.Material.Define(self.stage, mtl_prim_path)
 
@@ -422,9 +423,9 @@ class MaterialRandomizer(BaseRandomizerType):
                 logger.warning(f"Failed to apply MDL {mdl_path} to {env_prim_path}: {e}")
 
     def _select_mdl_path(self, available_paths: list[str]) -> str:
-        """Select MDL path based on selection strategy."""
+        """Select MDL path based on selection strategy using reproducible RNG."""
         if self.cfg.mdl.selection_strategy == "random":
-            return random.choice(available_paths)
+            return self._rng.choice(available_paths)
         elif self.cfg.mdl.selection_strategy == "sequential":
             idx = self._mdl_selection_state["sequential_index"] % len(available_paths)
             self._mdl_selection_state["sequential_index"] += 1
@@ -433,7 +434,7 @@ class MaterialRandomizer(BaseRandomizerType):
             # Get weights for available paths
             available_indices = [i for i, path in enumerate(self.cfg.mdl.mdl_paths) if path in available_paths]
             available_weights = [self.cfg.mdl.weights[i] for i in available_indices]
-            return random.choices(available_paths, weights=available_weights, k=1)[0]
+            return self._rng.choices(available_paths, weights=available_weights, k=1)[0]
         else:
             raise ValueError(f"Unknown selection strategy: {self.cfg.mdl.selection_strategy}")
 
