@@ -116,7 +116,7 @@ class PPO:
         self.normalize_advantage_per_mini_batch = normalize_advantage_per_mini_batch
 
     def init_storage(
-        self, training_type, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, actions_shape
+        self, training_type, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, actions_shape, obs_vision_shape=None
     ):
         # create memory for RND as well :)
         if self.rnd:
@@ -133,6 +133,7 @@ class PPO:
             actions_shape,
             rnd_state_shape,
             self.device,
+            obs_vision_shape,
         )
 
     def act(self, obs, critic_obs):
@@ -226,7 +227,10 @@ class PPO:
             # we start with 1 and increase it if we use symmetry augmentation
             num_aug = 1
             # original batch size
-            original_batch_size = obs_batch.shape[0]
+            if isinstance(obs_batch, tuple):
+                original_batch_size = obs_batch[0].shape[0]
+            else:
+                original_batch_size = obs_batch.shape[0] 
 
             # check if we should normalize advantages per mini batch
             if self.normalize_advantage_per_mini_batch:

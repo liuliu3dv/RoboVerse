@@ -34,7 +34,10 @@ class WalkingWrapperCNN(HumanoidBaseWrapper):
 
     def _refreshed_tensors(self, tensor_state: TensorState):
         super()._refreshed_tensors(tensor_state)
-        self.vision_buf = tensor_state.cameras["camera_first_person"].rgb
+        # Convert from HWC (H, W, C) to CHW (C, H, W) format for PyTorch CNN
+        # Convert from uint8 to float and normalize to [0, 1]
+        vision_rgb = tensor_state.cameras["camera_first_person"].rgb
+        self.vision_buf = vision_rgb.permute(0, 3, 1, 2).float() / 255.0
 
     def _compute_ref_state(self):
         phase = self._get_phase()

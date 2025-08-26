@@ -39,6 +39,7 @@ class RolloutStorage:
         actions_shape,
         rnd_state_shape=None,
         device="cpu",
+        obs_vision_shape=None
     ):
         # store inputs
         self.training_type = training_type
@@ -52,6 +53,7 @@ class RolloutStorage:
 
         # Core
         self.observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
+        self.observations_vision = torch.zeros(num_transitions_per_env, num_envs, *obs_vision_shape, device=self.device) if obs_vision_shape is not None else None
         if privileged_obs_shape is not None:
             self.privileged_observations = torch.zeros(
                 num_transitions_per_env, num_envs, *privileged_obs_shape, device=self.device
@@ -92,9 +94,20 @@ class RolloutStorage:
             raise OverflowError("Rollout buffer overflow! You should call clear() before adding new transitions.")
 
         # Core
-        self.observations[self.step].copy_(transition.observations)
+        if isinstance(transition.observations, tuple) and self.observations_vision is not None:
+            state_obs, vision_obs = transition.observations
+            self.observations[self.step].copy_(state_obs)
+            self.observations_vision[self.step].copy_(vision_obs)
+        else:
+            self.observations[self.step].copy_(transition.observations)
+
         if self.privileged_observations is not None:
-            self.privileged_observations[self.step].copy_(transition.privileged_observations)
+
+            if isinstance(transition.privileged_observations, tuple):
+                state_obs, vision_obs = transition.privileged_observations
+                self.privileged_observations[self.step].copy_(state_obs)
+            else:
+                self.privileged_observations[self.step].copy_(transition.privileged_observations)
         self.actions[self.step].copy_(transition.actions)
         self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
         self.dones[self.step].copy_(transition.dones.view(-1, 1))
@@ -237,7 +250,24 @@ class RolloutStorage:
                     rnd_state_batch = None
 
                 # yield the mini-batch
-                yield obs_batch, privileged_observations_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (
+                if self.observations_vision is not None:
+                    obs_vision_batch = self.observations_vision.flatten(0, 1)[batch_idx]
+                    yield (
+                        (obs_batch, obs_vision_batch),
+                        (privileged_observations_batch, obs_vision_batch),
+                        actions_batch,
+                        target_values_batch,
+                        advantages_batch,
+                        returns_batch,
+                        old_actions_log_prob_batch,
+                        old_mu_batch,
+                        old_sigma_batch,
+                        (None, None),
+                        None,
+                        rnd_state_batch,
+                    )
+                else:
+                    yield obs_batch, privileged_observations_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (
                     None,
                     None,
                 ), None, rnd_state_batch

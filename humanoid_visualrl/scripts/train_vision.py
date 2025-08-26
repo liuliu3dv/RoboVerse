@@ -58,28 +58,13 @@ if __name__ == "__main__":
     # add cameras
     # egocentric camera
 
-    from scipy.spatial.transform import Rotation as R
-
-    quat_xyzw = R.from_euler("xyz", [0, 60, 0], degrees=True).as_quat()
-    quat = (quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2])  # convert to wxyz
-    translation = (0.1, 0.0, 0.9)
+    task_cfg = BaseTableHumanoidTaskCfg()
     scenario.cameras = [
-        PinholeCameraCfg(
-            name="camera_first_person",
-            width=64,
-            height=48,
-            pos=(1.5, -1.5, 1.5),
-            look_at=(0.0, 0.0, 0.0),
-            mount_to="g1",
-            mount_link="torso_link",
-            mount_pos=translation,
-            mount_quat=quat,
-        ),
+        task_cfg.camera,
     ]
     # add objects
     scenario.objects = []
 
-    task_cfg = BaseTableHumanoidTaskCfg()
 
     # task assign and override
     scenario.sim_params = task_cfg.sim_params
@@ -97,5 +82,6 @@ if __name__ == "__main__":
         train_cfg=env.train_cfg,
         device=device,
         log_dir=log_dir,
+        use_vision=task_cfg.use_vision,
     )
     ppo_runner.learn(num_learning_iterations=args.num_learning_iterations)
