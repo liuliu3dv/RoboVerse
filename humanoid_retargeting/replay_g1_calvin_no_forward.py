@@ -196,52 +196,52 @@ import numpy as np
 
 #     return robot_pose_new
 
-import jax.numpy as jnp
-import numpy as np
+# import jax.numpy as jnp
+# import numpy as np
 
-# 定义四元数转换为旋转矩阵的函数
-def quat_to_rot_matrix(q):
-    # 将四元数转换为旋转矩阵
-    w, x, y, z = q
-    return jnp.array([
-        [1 - 2 * (y**2 + z**2), 2 * (x * y - w * z), 2 * (x * z + w * y)],
-        [2 * (x * y + w * z), 1 - 2 * (x**2 + z**2), 2 * (y * z - w * x)],
-        [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x**2 + y**2)]
-    ])
+# # 定义四元数转换为旋转矩阵的函数
+# def quat_to_rot_matrix(q):
+#     # 将四元数转换为旋转矩阵
+#     w, x, y, z = q
+#     return jnp.array([
+#         [1 - 2 * (y**2 + z**2), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+#         [2 * (x * y + w * z), 1 - 2 * (x**2 + z**2), 2 * (y * z - w * x)],
+#         [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x**2 + y**2)]
+#     ])
 
-# 将robot_pose从旧坐标系转换到新坐标系
-def convert_to_new_frame(robot_pose, R_new, T):
-    # 结果数组，形状仍为 [247, 26, 7]
-    robot_pose_new = jnp.zeros_like(robot_pose)
+# # 将robot_pose从旧坐标系转换到新坐标系
+# def convert_to_new_frame(robot_pose, R_new, T):
+#     # 结果数组，形状仍为 [247, 26, 7]
+#     robot_pose_new = jnp.zeros_like(robot_pose)
 
-    for i in range(robot_pose.shape[0]):  # 遍历所有帧
-        for j in range(robot_pose.shape[1]):  # 遍历所有关节
-            # 获取原始位置（x, y, z）
-            pos_old = robot_pose[i, j, :3]  # 前三个是位置 x, y, z
+#     for i in range(robot_pose.shape[0]):  # 遍历所有帧
+#         for j in range(robot_pose.shape[1]):  # 遍历所有关节
+#             # 获取原始位置（x, y, z）
+#             pos_old = robot_pose[i, j, :3]  # 前三个是位置 x, y, z
 
-            # 旋转位置：从旧坐标系转换到新坐标系
-            pos_new_rot = jnp.dot(R_new, pos_old)  # 旋转变换
-            pos_new = pos_new_rot + T  # 加上偏移量
+#             # 旋转位置：从旧坐标系转换到新坐标系
+#             pos_new_rot = jnp.dot(R_new, pos_old)  # 旋转变换
+#             pos_new = pos_new_rot + T  # 加上偏移量
 
-            # 获取姿态（r, p, y）
-            rpy_old = robot_pose[i, j, 3:6]  # 后三个是姿态：r, p, y（欧拉角）
+#             # 获取姿态（r, p, y）
+#             rpy_old = robot_pose[i, j, 3:6]  # 后三个是姿态：r, p, y（欧拉角）
 
-            # 由于旋转是绕Z轴的，所以只需要调整yaw（即z轴的旋转），调整roll和pitch保持不变
-            yaw_old = rpy_old[2]  # 原始的yaw
-            yaw_new = yaw_old + np.pi / 2  # 新坐标系下的yaw，增加90度（旋转90度）
+#             # 由于旋转是绕Z轴的，所以只需要调整yaw（即z轴的旋转），调整roll和pitch保持不变
+#             yaw_old = rpy_old[2]  # 原始的yaw
+#             yaw_new = yaw_old + np.pi / 2  # 新坐标系下的yaw，增加90度（旋转90度）
 
-            # 更新新的姿态（r, p, y）
-            rpy_new = jnp.concatenate([rpy_old[:2], jnp.array([yaw_new])])
+#             # 更新新的姿态（r, p, y）
+#             rpy_new = jnp.concatenate([rpy_old[:2], jnp.array([yaw_new])])
 
-            # 获取夹爪状态（gripper condition）
-            gripper_condition = robot_pose[i, j, 6]  # gripper condition（最后一个数值）
+#             # 获取夹爪状态（gripper condition）
+#             gripper_condition = robot_pose[i, j, 6]  # gripper condition（最后一个数值）
 
-            # 保存转换后的结果
-            robot_pose_new = robot_pose_new.at[i, j, :3].set(pos_new)  # 更新位置
-            robot_pose_new = robot_pose_new.at[i, j, 3:6].set(rpy_new)  # 更新姿态
-            robot_pose_new = robot_pose_new.at[i, j, 6].set(gripper_condition)  # 夹爪状态不变
+#             # 保存转换后的结果
+#             robot_pose_new = robot_pose_new.at[i, j, :3].set(pos_new)  # 更新位置
+#             robot_pose_new = robot_pose_new.at[i, j, 3:6].set(rpy_new)  # 更新姿态
+#             robot_pose_new = robot_pose_new.at[i, j, 6].set(gripper_condition)  # 夹爪状态不变
 
-    return robot_pose_new
+#     return robot_pose_new
 
 # 执行转换
 # robot_pose_new = convert_to_new_frame(robot_pose, R_new, T)
@@ -263,10 +263,27 @@ def main():
     # camera = PinholeCameraCfg(data_types=["rgb", "depth"],pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
     camera = PinholeCameraCfg(data_types=["rgb", "depth"],pos=(2.0, -2.0, 2.0), look_at=(0.0, 0.0, 0.0))
 
+    # scenario = ScenarioCfg(
+    #     # TODO retarget task
+    #     task=task,
+    #     robots=[robot_franka_dst],
+    #     scene=args.scene,
+    #     # objects=objects,
+    #     cameras=[camera],
+    #     random=args.random,
+    #     try_add_table=args.table,
+    #     render=args.render,
+    #     split=args.split,
+    #     sim=args.sim,
+    #     headless=args.headless,
+    #     num_envs=args.num_envs,
+    #     humanoid=True
+    # )
+
     scenario = ScenarioCfg(
         # TODO retarget task
         task=task,
-        robots=[robot_franka_dst],
+        robots=[robot_franka_src],
         scene=args.scene,
         # objects=objects,
         cameras=[camera],
@@ -296,18 +313,24 @@ def main():
     for index, action in enumerate(robot_joint):
         joint_angle = action['franka']['dof_pos_target']
         robot_joint_list.append(list(joint_angle.values()))
-    robot_joint_array = np.array(robot_joint_list)
-    robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7]
+    # robot_joint_array = np.array(robot_joint_list)
+    # robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7]
+    # 用模拟器执行，替代forward_kinematics?
 
-    # 旧坐标系到新坐标系的旋转矩阵（绕Z轴旋转90度）
-    # R_new = jnp.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
-
-    # # 旧机械臂与新机械臂之间的位移差
-    # T = jnp.array([0.0, -0.4947, 1.0])
-    # from copy import deepcopy
-    # robot_pose_copy = robot_pose.copy()
-    # robot_pose_torch = torch.tensor(robot_pose_copy.numpy())
-    # robot_pose = convert_to_new_frame(robot_pose, R_new, T)  # align coordinates?
+    obs_list = []
+    solutions = robot_joint_list
+    for solution in solutions:
+        robot_obj = scenario.robots[0]
+        actions = [
+            {
+                robot_obj.name: {
+                    "dof_pos_target": dict(zip(robot_obj.actuators.keys(), solution))
+                }
+            }
+            for _ in range(args.num_envs)
+        ]
+        obs, reward, success, time_out, extras = env.step(actions)
+        obs_list.append(obs)
 
 
     src_robot_links_names = src_robot.links.names

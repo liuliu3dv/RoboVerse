@@ -13,7 +13,10 @@ class G1HandCfg(BaseRobotCfg):
     name: str = "g1"
     num_joints: int = 21
     usd_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_with_hand_lock_waist.usd"
-    xml_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_with_hand_lock_waist.xml"
+    # xml_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_with_hand_lock_waist.xml"
+    # mjcf_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_with_hand_lock_waist.xml"
+    # mjcf_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_rev_1_0.xml"
+    mjcf_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_with_hand_lock_waist_dmcontrol.xml"
     urdf_path: str = "roboverse_data/robots/g1/urdf/g1_29dof_with_hand_lock_waist.urdf"
     enabled_gravity: bool = True
     fix_base_link: bool = True
@@ -21,6 +24,9 @@ class G1HandCfg(BaseRobotCfg):
     isaacgym_flip_visual_attachments: bool = False
     collapse_fixed_joints: bool = True
     actuators: dict[str, BaseActuatorCfg] = {
+        # add for mujoco
+        # "floating_base_joint": BaseActuatorCfg(stiffness=200, damping=5),
+
         "left_hip_pitch_joint": BaseActuatorCfg(stiffness=200, damping=5),
         "left_hip_roll_joint": BaseActuatorCfg(stiffness=150, damping=5),
         "left_hip_yaw_joint": BaseActuatorCfg(stiffness=150, damping=5),
@@ -34,6 +40,7 @@ class G1HandCfg(BaseRobotCfg):
         "right_ankle_pitch_joint": BaseActuatorCfg(stiffness=20, damping=4),
         "right_ankle_roll_joint": BaseActuatorCfg(stiffness=20, damping=4),
         "waist_yaw_joint": BaseActuatorCfg(stiffness=200, damping=5),
+        # for lock waist
         # 'waist_roll_joint': BaseActuatorCfg(stiffness=200, damping=5),
         # 'waist_pitch_joint': BaseActuatorCfg(stiffness=200, damping=5),
         "left_shoulder_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
@@ -66,6 +73,8 @@ class G1HandCfg(BaseRobotCfg):
         'right_hand_index_1_joint': BaseActuatorCfg(stiffness=40, damping=10),
     }
     joint_limits: dict[str, tuple[float, float]] = {
+        # "floating_base_joint": (-2.5307, 2.8798),
+
         "left_hip_pitch_joint": (-2.5307, 2.8798),
         "left_hip_roll_joint": (-0.5236, 2.9671),
         "left_hip_yaw_joint": (-2.7576, 2.7576),
@@ -90,6 +99,8 @@ class G1HandCfg(BaseRobotCfg):
     }
 
     torque_limits: dict[str, float] = {  # = target angles [rad] when action = 0.0
+        # "floating_base_joint": 50,
+
         "left_hip_pitch_joint": 88,
         "left_hip_roll_joint": 139,
         "left_hip_yaw_joint": 88,
@@ -114,6 +125,8 @@ class G1HandCfg(BaseRobotCfg):
     }
 
     default_joint_positions: dict[str, float] = {  # = target angles [rad] when action = 0.0
+        # "floating_base_joint": 0.0,
+
         "left_hip_pitch_joint": -0.4,
         "left_hip_roll_joint": 0,
         "left_hip_yaw_joint": 0.0,
@@ -138,6 +151,8 @@ class G1HandCfg(BaseRobotCfg):
     }
 
     control_type: dict[str, Literal["position", "effort"]] = {
+        # "floating_base_joint": "effort",
+
         "left_hip_pitch_joint": "effort",
         "left_hip_roll_joint": "effort",
         "left_hip_yaw_joint": "effort",

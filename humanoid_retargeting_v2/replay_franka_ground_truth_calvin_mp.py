@@ -147,9 +147,10 @@ def main():
     handler_class = get_sim_env_class(SimType("isaaclab"))
 
     cur_task = args.task
-    print(cur_task)
+    # print(cur_task)
     task = get_task(cur_task)()
-    robot_franka_dst = get_robot("franka")
+    # robot_franka_dst = get_robot("franka")
+    robot_franka_dst = get_robot("franka_with_gripper_extension")
     camera = PinholeCameraCfg(
         data_types=["rgb", "depth"],
         pos=(1.5, -1.5, 1.5),
@@ -172,8 +173,10 @@ def main():
 
     env = handler_class(scenario)
     init_states, all_actions, all_states = get_traj(task, robot_franka_dst, env.handler)
+    # pos = [-0.3400, -0.4600,  0.2400]
+    # rot = [1., 0., 0., 0.]
     obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting/output/replay_franka_calvin_actions/{cur_task}/replay_{args.sim}.mp4")
+    # obs_saver = ObsSaver(video_path=f"./humanoid_retargeting/output/replay_franka_gt_calvin_actions/{cur_task}/replay_{args.sim}.mp4")
 
     src_robot_urdf = URDF.load("./roboverse_data/robots/franka_with_gripper_extension/urdf/franka_with_gripper_extensions.urdf")
     src_robot = get_pk_robot(src_robot_urdf)
@@ -183,26 +186,32 @@ def main():
     robot_joint = all_actions[0]
     robot_joint_list = []
     for action in robot_joint:
-        joint_angle = action['franka']['dof_pos_target']
+        joint_angle = action['franka_with_gripper_extension']['dof_pos_target']
         robot_joint_list.append(list(joint_angle.values()))
     robot_joint_array = np.array(robot_joint_list)
 
-    robot_pose = src_robot.forward_kinematics(robot_joint_array)
+    robot_joint_array = np.array(robot_joint_list)
+    robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7]
+
+    # robot_pose = src_robot.forward_kinematics(robot_joint_array)
     src_robot_links_names = src_robot.links.names
     franka2franka = {'panda_hand': 'panda_hand', 'panda_link0': 'panda_link0'}
     target_link_names = ["panda_hand"]
     inds = [src_robot_links_names.index(franka2franka[name]) for name in target_link_names]
 
-    solutions = []
-    for i in range(robot_pose.shape[0]):
-        solution = pks.solve_ik_with_multiple_targets(
-            robot=tgt_robot,
-            target_link_names=target_link_names,
-            target_positions=np.array([robot_pose[i, inds[0], 4:]]),
-            target_wxyzs=np.array([robot_pose[i, inds[0], 0:4]]),
-        )
-        solutions.append(solution)
-
+    # solutions = []
+    # for i in range(robot_pose.shape[0]):
+    #     solution = pks.solve_ik_with_multiple_targets(
+    #         robot=tgt_robot,
+    #         target_link_names=target_link_names,
+    #         target_positions=np.array([robot_pose[i, inds[0], 4:]]),
+    #         target_wxyzs=np.array([robot_pose[i, inds[0], 0:4]]),
+    #     )
+    #     solutions.append(solution)
+    robot_arm_pos_list = []
+    robot_arm_name = None
+    root_state = None
+    solutions = robot_joint_list
     for solution in solutions:
         robot_obj = scenario.robots[0]
         actions = [
@@ -214,28 +223,32 @@ def main():
             for _ in range(args.num_envs)
         ]
         obs, reward, success, time_out, extras = env.step(actions)
-        obs_saver.add(obs)
+        # obs_saver.add(obs)
+        body_names = obs.robots['franka_with_gripper_extension'].body_names
+        body_state = obs.robots['franka_with_gripper_extension'].body_state  # [x,y,z,wxyz]
+        root_state = obs.robots['franka_with_gripper_extension'].root_state
+        robot_arm_pos_list.append(body_state)
+        robot_arm_name = body_names
 
-    obs_saver.save()
+    # robot_arm_pos_list.append(root_state)
+    data_list = [tensor.cpu().numpy() for tensor in robot_arm_pos_list]
+    data_array = np.array(data_list)
+    root_array = np.array(root_state.cpu().numpy())
+    np.save('./humanoid_retargeting_v2/data/open_drawer_a_001.npy', data_array)
+    np.save('./humanoid_retargeting_v2/data/open_drawer_a_001_root_state.npy', root_array)
+
+    import json
+    with open('./humanoid_retargeting_v2/data/franka_body_names.json', 'w') as json_file:
+        json.dump(robot_arm_name, json_file)
+
+    # obs_saver.save()
     env.close()
 
 
 if __name__ == "__main__":
     task_list = [
-        # "basketball_in_hoop",
-        # "beat_the_buzz",  # has bug
-        # "block_pyramid",
-        # "change_clock",
-        # "close_fridge",
-        # "empty_dishwasher",
-        # "insert_onto_square_peg",
-        # "lamp_on",
-        # "light_bulb_in",
-        # "meat_on_grill",
-        # "open_box",
-        # "reach_and_drag" # bug
-        # "take_cup_out_from_cabinet"  # AttributeError: 'RigidObject' object has no attribute '_data'. Did you mean: 'data'?
-        "lift_blue_block_slider_a"
+
+        "open_drawer_a"
     ]
 
     mp.set_start_method("spawn", force=True)

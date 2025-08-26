@@ -151,104 +151,6 @@ def run_task(task_name: str):
 import torch
 import numpy as np
 
-# # 定义转换函数
-# def quat_to_rot_matrix(q):
-#     # 将四元数转换为旋转矩阵
-#     w, x, y, z = q
-#     return torch.tensor([
-#         [1 - 2 * (y**2 + z**2), 2 * (x * y - w * z), 2 * (x * z + w * y)],
-#         [2 * (x * y + w * z), 1 - 2 * (x**2 + z**2), 2 * (y * z - w * x)],
-#         [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x**2 + y**2)]
-#     ])
-
-
-# # 将robot_pose从旧坐标系转换到新坐标系
-# def convert_to_new_frame(robot_pose, R_new, T):
-#     # 结果张量，形状仍为 [247, 26, 7]
-#     robot_pose_new = torch.zeros_like(robot_pose)
-
-#     for i in range(robot_pose.shape[0]):  # 遍历所有帧
-#         for j in range(robot_pose.shape[1]):  # 遍历所有关节
-#             # 获取原始位置（x, y, z）
-#             pos_old = robot_pose[i, j, :3]  # 前三个是位置 x, y, z
-
-#             # 旋转位置：从旧坐标系转换到新坐标系
-#             pos_new_rot = torch.matmul(R_new, pos_old)  # 旋转变换
-#             pos_new = pos_new_rot + T  # 加上偏移量
-
-#             # 获取姿态（r, p, y）
-#             rpy_old = robot_pose[i, j, 3:6]  # 后三个是姿态：r, p, y（欧拉角）
-
-#             # 由于旋转是绕Z轴的，所以只需要调整yaw（即z轴的旋转），调整roll和pitch保持不变
-#             yaw_old = rpy_old[2]  # 原始的yaw
-#             yaw_new = yaw_old + np.pi / 2  # 新坐标系下的yaw，增加90度（旋转90度）
-
-#             # 更新新的姿态（r, p, y）
-#             rpy_new = torch.cat([rpy_old[:2], torch.tensor([yaw_new])])
-
-#             # 获取夹爪状态（gripper condition）
-#             gripper_condition = robot_pose[i, j, 6]  # gripper condition（最后一个数值）
-
-#             # 保存转换后的结果
-#             robot_pose_new[i, j, :3] = pos_new  # 更新位置
-#             robot_pose_new[i, j, 3:6] = rpy_new  # 更新姿态
-#             robot_pose_new[i, j, 6] = gripper_condition  # 夹爪状态不变
-
-#     return robot_pose_new
-
-import jax.numpy as jnp
-import numpy as np
-
-# 定义四元数转换为旋转矩阵的函数
-def quat_to_rot_matrix(q):
-    # 将四元数转换为旋转矩阵
-    w, x, y, z = q
-    return jnp.array([
-        [1 - 2 * (y**2 + z**2), 2 * (x * y - w * z), 2 * (x * z + w * y)],
-        [2 * (x * y + w * z), 1 - 2 * (x**2 + z**2), 2 * (y * z - w * x)],
-        [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x**2 + y**2)]
-    ])
-
-# 将robot_pose从旧坐标系转换到新坐标系
-def convert_to_new_frame(robot_pose, R_new, T):
-    # 结果数组，形状仍为 [247, 26, 7]
-    robot_pose_new = jnp.zeros_like(robot_pose)
-
-    for i in range(robot_pose.shape[0]):  # 遍历所有帧
-        for j in range(robot_pose.shape[1]):  # 遍历所有关节
-            # 获取原始位置（x, y, z）
-            pos_old = robot_pose[i, j, :3]  # 前三个是位置 x, y, z
-
-            # 旋转位置：从旧坐标系转换到新坐标系
-            pos_new_rot = jnp.dot(R_new, pos_old)  # 旋转变换
-            pos_new = pos_new_rot + T  # 加上偏移量
-
-            # 获取姿态（r, p, y）
-            rpy_old = robot_pose[i, j, 3:6]  # 后三个是姿态：r, p, y（欧拉角）
-
-            # 由于旋转是绕Z轴的，所以只需要调整yaw（即z轴的旋转），调整roll和pitch保持不变
-            yaw_old = rpy_old[2]  # 原始的yaw
-            yaw_new = yaw_old + np.pi / 2  # 新坐标系下的yaw，增加90度（旋转90度）
-
-            # 更新新的姿态（r, p, y）
-            rpy_new = jnp.concatenate([rpy_old[:2], jnp.array([yaw_new])])
-
-            # 获取夹爪状态（gripper condition）
-            gripper_condition = robot_pose[i, j, 6]  # gripper condition（最后一个数值）
-
-            # 保存转换后的结果
-            robot_pose_new = robot_pose_new.at[i, j, :3].set(pos_new)  # 更新位置
-            robot_pose_new = robot_pose_new.at[i, j, 3:6].set(rpy_new)  # 更新姿态
-            robot_pose_new = robot_pose_new.at[i, j, 6].set(gripper_condition)  # 夹爪状态不变
-
-    return robot_pose_new
-
-# 执行转换
-# robot_pose_new = convert_to_new_frame(robot_pose, R_new, T)
-
-# print(robot_pose_new.shape)  # 输出新的robot_pose形状
-
-
 def main():
     link = "panda_link3"
     # global global_step, tot_success, tot_give_up
@@ -257,9 +159,10 @@ def main():
 
     cur_task = args.task
     task = get_task(cur_task)()
-    print(cur_task)
+
     robot_franka_src = get_robot("franka")
     robot_franka_dst = get_robot("g1_hand")
+
     # camera = PinholeCameraCfg(data_types=["rgb", "depth"],pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
     camera = PinholeCameraCfg(data_types=["rgb", "depth"],pos=(2.0, -2.0, 2.0), look_at=(0.0, 0.0, 0.0))
 
@@ -281,43 +184,20 @@ def main():
     )
 
     env = handler_class(scenario)
-    init_states, all_actions, all_states = get_traj(task, robot_franka_src, env.handler)
-    print("Init states:", init_states[0]['robots']['franka'])
+    init_states, _, _ = get_traj(task, robot_franka_src, env.handler)
 
-    src_robot_urdf = URDF.load("./roboverse_data/robots/franka_with_gripper_extension/urdf/franka_with_gripper_extensions.urdf")
-    src_robot = get_pk_robot(src_robot_urdf)
     tgt_robot_urdf = URDF.load(robot_franka_dst.urdf_path)
     tgt_robot = get_pk_robot(tgt_robot_urdf)
 
-    src_robot.joints.actuated_names
-    # 247 frames, inside is franka dict + dof_pos_target
-    robot_joint = all_actions[0]
-    robot_joint_list = []
-    for index, action in enumerate(robot_joint):
-        joint_angle = action['franka']['dof_pos_target']
-        robot_joint_list.append(list(joint_angle.values()))
-    robot_joint_array = np.array(robot_joint_list)
-    robot_pose = src_robot.forward_kinematics(robot_joint_array)  # [247, 26, 7]
-
-    # 旧坐标系到新坐标系的旋转矩阵（绕Z轴旋转90度）
-    # R_new = jnp.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
-
-    # # 旧机械臂与新机械臂之间的位移差
-    # T = jnp.array([0.0, -0.4947, 1.0])
-    # from copy import deepcopy
-    # robot_pose_copy = robot_pose.copy()
-    # robot_pose_torch = torch.tensor(robot_pose_copy.numpy())
-    # robot_pose = convert_to_new_frame(robot_pose, R_new, T)  # align coordinates?
-
-
-    src_robot_links_names = src_robot.links.names
+    src_robot_links_names = ["panda_hand", "panda_leftfinger", "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4", "panda_link5", "panda_link6", "panda_link7", "panda_rightfinger"]
     franka_g1 = {
     'right_hand_palm_link': 'panda_link7',
     'waist_yaw_link': 'panda_link0',
     'right_elbow_link': link,
-    "right_hand_index_1_link":"finger_link1_4", #up
-    "right_hand_middle_1_link":"finger_link2_4", #down
+    "right_hand_index_1_link":"panda_leftfinger", #up
+    "right_hand_middle_1_link":"panda_rightfinger", #down
     }
+
     target_link_names = ["right_hand_palm_link",
                         "left_hand_palm_link",
                         "waist_yaw_link",
@@ -328,76 +208,13 @@ def main():
                         "right_hand_middle_1_link"
                         ]
     # right_hand_pose = np.array([0.0, -0.3, 0.0, 1, 0, 0, 0])
+    # This is the relative pos related to waist
     left_hand_pose = np.array([0.0, 0.3, 0.0, 1, 0, 0, 0])
     right_ankle_pose = np.array([0, -0.16, -0.75, 1, 0, 0, 0])
     left_ankle_pose = np.array([0, 0.16, -0.75, 1, 0, 0, 0])
     waist_pose = np.array([0, 0, 0, 1, 0, 0, 0])
 
-    # left_hand_pose = np.array([-0.3400, -0.4600+0.3, 0.2400, 1, 0, 0, 0])
-    # right_ankle_pose = np.array([-0.3400, -0.4600-0.16, 0.2400-0.75, 1, 0, 0, 0])
-    # left_ankle_pose = np.array([0.3400, -0.4600+0.16, 0.2400-0.75, 1, 0, 0, 0])
-    # # left_ankle_pose = np.array([0, 0.16, -0.75, 1, 0, 0, 0])
-    # waist_pose = np.array([-0.3400, -0.4600,  0.2400, 1, 0, 0, 0])
-
     inds = [src_robot_links_names.index(franka_g1[name]) for name in franka_g1.keys()]
-    # print("inds:", inds)
-
-    # solutions = []
-    # for i in range(robot_pose.shape[0]):  # iterate on 156 frames
-    #     solution = pks.solve_ik_with_multiple_targets(
-    #         robot=tgt_robot,
-    #         target_link_names=target_link_names,
-    #         target_positions=np.array([
-    #                                    # right_hand_pose[:3],
-    #                                    robot_pose[i, inds[0], 4:],
-    #                                    left_hand_pose[:3],
-    #                                    waist_pose[:3],
-    #                                    right_ankle_pose[:3],
-    #                                    left_ankle_pose[:3],
-    #                                    robot_pose[i, inds[2], 4:],
-    #                                    robot_pose[i, inds[3], 4:],
-    #                                    robot_pose[i, inds[4], 4:],
-    #                                    ]),
-    #         target_wxyzs=np.array([
-    #                                # right_hand_pose[3:],
-    #                                robot_pose[i, inds[0], :4],
-    #                                left_hand_pose[3:],
-    #                                waist_pose[3:],
-    #                                right_ankle_pose[3:],
-    #                                left_ankle_pose[3:],
-    #                                robot_pose[i, inds[2], :4],
-    #                                robot_pose[i, inds[3], :4],
-    #                                robot_pose[i, inds[4], :4],
-    #                                ]),
-    #     )
-    #     # print(robot_pose[i, inds[0], 4:])
-    #     solutions.append(solution)
-
-
-    # init_dof_pos = {}
-    # for i in range(len(tgt_robot.joints.actuated_names)):
-    #     init_dof_pos[tgt_robot.joints.actuated_names[i]] = solutions[0][i]
-
-    # this can not change? since the robotic arm coordinate?
-    # init_states[0]["robots"]["g1"] = {
-    #             "pos": torch.tensor([-0.263, -0.0053, 0.0]),
-    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-    #             "dof_pos": init_dof_pos
-    #         }
-
-    # table_height = 0.75
-    # table_thickness = 0.05
-    # table_size = 1.5
-
-    # wall_dist = 3.0
-    # wall_height = 4.0
-    # wall_thickness = 0.1
-
-    # init_states[0]["robots"]["g1"] = {
-    #             "pos": torch.tensor([-0.263, -0.5, 0.0]),
-    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-    #             "dof_pos": init_dof_pos
-    #         }
 
     init_states[0]["robots"]["g1"] = {
                 "pos": torch.tensor([-0.3400, -0.4600,  0.2400]),
@@ -405,54 +222,43 @@ def main():
                 # "dof_pos": init_dof_pos
             }
 
-    # in the air?
-    # for obj in init_states[0]["objects"].keys():
-    #     if obj == "table":
-    #         init_states[0]["objects"][obj]['pos'][0] = -0.2
-    #         init_states[0]["objects"][obj]['pos'][2] = 0.6
-    #     else:
-    #         init_states[0]["objects"][obj]['pos'][0] = -0.2
-    #         init_states[0]["objects"][obj]['pos'][2] = 0.7
-
-
-    # init_states[0]["robots"]["g1"] = {
-    #             "pos": torch.tensor([0.0, -0.5, 0.2]),
-    #             "rot": torch.tensor([1.0, 0.0, 0.0, 0.7071]),
-    # }
-
     # 环境复位
     # obs, extras = env.reset()
     # 准备录像保存器
     obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting/output/replay_g1_calvin_actions_debug/{cur_task}/replay_{args.sim}.mp4")
+    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting_v2/output/replay_g1_calvin_actions_debug/{cur_task}/replay_{args.sim}.mp4")
 
+    # load isaaclab中的data
+    # [T, 1, 11, 13]
+    traj_data = np.load("/home/RoboVerse_Humanoid/humanoid_retargeting_v2/data/open_drawer_a_001.npy")
+    traj_data = np.squeeze(traj_data)
 
     solutions = []
-    for i in range(robot_pose.shape[0]):  # iterate on 156 frames
+    for i in range(traj_data.shape[0]):  # iterate on 156 frames
         solution = pks.solve_ik_with_multiple_targets(
             robot=tgt_robot,
             target_link_names=target_link_names,
             target_positions=np.array([
                                        # right_hand_pose[:3],
-                                       robot_pose[i, inds[0], 4:],
+                                       traj_data[i, inds[0], :3],
                                        left_hand_pose[:3],
                                        waist_pose[:3],
                                        right_ankle_pose[:3],
                                        left_ankle_pose[:3],
-                                       robot_pose[i, inds[2], 4:],
-                                       robot_pose[i, inds[3], 4:],
-                                       robot_pose[i, inds[4], 4:],
+                                       traj_data[i, inds[2], :3],
+                                       traj_data[i, inds[3], :3],
+                                       traj_data[i, inds[4], :3],
                                        ]),
             target_wxyzs=np.array([
                                    # right_hand_pose[3:],
-                                   robot_pose[i, inds[0], :4],
-                                   left_hand_pose[3:],
-                                   waist_pose[3:],
-                                   right_ankle_pose[3:],
-                                   left_ankle_pose[3:],
-                                   robot_pose[i, inds[2], :4],
-                                   robot_pose[i, inds[3], :4],
-                                   robot_pose[i, inds[4], :4],
+                                   traj_data[i, inds[0], 3:7],
+                                   left_hand_pose[3:7],
+                                   waist_pose[3:7],
+                                   right_ankle_pose[3:7],
+                                   left_ankle_pose[3:7],
+                                   traj_data[i, inds[2], 3:7],
+                                   traj_data[i, inds[3], 3:7],
+                                   traj_data[i, inds[4], 3:7],
                                    ]),
         )
         # print(robot_pose[i, inds[0], 4:])

@@ -43,6 +43,9 @@ class IsaaclabEnvOverwriter:
         ## XXX for initialization
         self.first_reset = True
 
+        # solve the rigidobject bug here?
+
+
     def _reset_idx(self, env: "EmptyEnv", env_ids: list[int] | None = None) -> None:
         if self.first_reset:
             log.info("Resetting for the first time, initializing randomizer")
@@ -171,9 +174,12 @@ class IsaaclabEnvOverwriter:
         try:
             from omni.isaac.core.prims import GeometryPrim
             from omni.isaac.core.utils.stage import add_reference_to_stage
+            # add
+            from omni.isaac.core.utils.prims import get_current_stage
         except ModuleNotFoundError:
             from isaacsim.core.prims import SingleGeometryPrim as GeometryPrim
             from isaacsim.core.utils.stage import add_reference_to_stage
+
 
         from .utils.ground_util import create_ground, set_ground_material, set_ground_material_scale
         from .utils.usd_util import ReflectionRandomizer, ShaderFixer
@@ -192,7 +198,7 @@ class IsaaclabEnvOverwriter:
                     "quat": self.scene.quat,
                     "scale": self.scene.scale,
                 }
-
+            # handle the rigid object bug here
             add_reference_to_stage(
                 scene_cfg_dict["filepath"],
                 SCENE_PRIM_PATH,
@@ -217,7 +223,21 @@ class IsaaclabEnvOverwriter:
                 fixer = ShaderFixer(obj.usd_path, f"/World/envs/env_0/{obj.name}")
                 fixer.fix_all()
         ## Add table
-        self.task.can_tabletop = True  # calvin, can_tabletop = False
+        # self.task.can_tabletop = True  # calvin, can_tabletop = False
+        # move ground down before add table
+        try:
+            import omni.isaac.core.utils.prims as prim_utils
+            from omni.isaac.core.prims import GeometryPrim
+        except ModuleNotFoundError:
+            import isaacsim.core.utils.prims as prim_utils
+            from isaacsim.core.prims import SingleGeometryPrim as GeometryPrim
+
+        from .utils.custom_cuboid import FixedCuboid
+        from .utils.ground_util import GROUND_PRIM_PATH
+
+        ground_prim = GeometryPrim(GROUND_PRIM_PATH, name="ground_prim")
+        ground_prim.set_world_pose(position=(0.0, 0.0, -table_height), orientation=(1.0, 0.0, 0.0, 0.0))
+
         if self.task is not None and self.task.can_tabletop and self.scenario.try_add_table:
             try:
                 import omni.isaac.core.utils.prims as prim_utils
@@ -232,6 +252,7 @@ class IsaaclabEnvOverwriter:
             ## Move ground down
             ground_prim = GeometryPrim(GROUND_PRIM_PATH, name="ground_prim")
             ground_prim.set_world_pose(position=(0.0, 0.0, -table_height), orientation=(1.0, 0.0, 0.0, 0.0))
+            # ground_prim.set_world_pose(position=(0.0, 0.0, -10.0), orientation=(1.0, 0.0, 0.0, 0.0))
 
             ## Add table
             if self.humanoid:

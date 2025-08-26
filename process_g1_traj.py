@@ -1,7 +1,7 @@
 import os
 import shutil
 
-base_path = "/home/RoboVerse_Humanoid/roboverse_data/trajs/calvin/"
+base_path = "/home/RoboVerse_Humanoid/roboverse_data/trajs/libero/"
 
 # task_list = [
 #     "basketball_in_hoop",

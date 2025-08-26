@@ -264,6 +264,7 @@ class IsaaclabHandler(BaseSimHandler):
             ],
             dim=-1,
         )
+        # here we have bug
         obj_inst.write_root_pose_to_sim(pose, env_ids=torch.tensor(env_ids, device=self.env.device))
         obj_inst.write_root_velocity_to_sim(
             torch.zeros((len(env_ids), 6), device=self.env.device, dtype=torch.float32),
@@ -289,7 +290,7 @@ class IsaaclabHandler(BaseSimHandler):
     def _set_states(self, states: list[EnvState], env_ids: list[int] | None = None) -> None:
         if env_ids is None:
             env_ids = list(range(self.num_envs))
-
+        # That's why only first states is used.
         states_flat = [states[i]["objects"] | states[i]["robots"] for i in range(self.num_envs)]
         for obj in self.objects + self.robots + self.checker.get_debug_viewers():
             if obj.name not in states_flat[0]:

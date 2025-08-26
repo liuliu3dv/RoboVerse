@@ -94,6 +94,10 @@ class MujocoHandler(BaseSimHandler):
         self._manual_pd_on = any(mode == "effort" for mode in self.robot.control_type.values())
 
         default_dof_pos = []
+        # print(joint_names)
+        # print(bk)
+        # just test
+        # 移除cfg里没有的joint
 
         for i, joint_name in enumerate(joint_names):
             i_actuator_cfg = self.robot.actuators[joint_name]
@@ -223,6 +227,8 @@ class MujocoHandler(BaseSimHandler):
         mjcf_model = mjcf.RootElement()
         if self.scenario.sim_params.dt is not None:
             mjcf_model.option.timestep = self.scenario.sim_params.dt
+
+        # Change here for the mujoco environment
 
         ## Optional: Add ground grid
         # mjcf_model.asset.add('texture', name="texplane", type="2d", builtin="checker", width=512, height=512, rgb1=[0.2, 0.3, 0.4], rgb2=[0.1, 0.2, 0.3])

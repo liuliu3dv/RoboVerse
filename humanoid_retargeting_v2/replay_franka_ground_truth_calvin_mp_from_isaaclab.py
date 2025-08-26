@@ -55,6 +55,8 @@ from metasim.cfg.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveS
 
 import multiprocessing as mp
 
+from transforms3d import quaternions, affines
+
 @dataclass
 class Args:
     random: RandomizationCfg
@@ -172,8 +174,10 @@ def main():
 
     env = handler_class(scenario)
     init_states, all_actions, all_states = get_traj(task, robot_franka_dst, env.handler)
+    # pos = [-0.3400, -0.4600,  0.2400]
+    # rot = [1., 0., 0., 0.]
     obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting/output/replay_franka_calvin_actions/{cur_task}/replay_{args.sim}.mp4")
+    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting_v2/output/replay_franka_gt_from_isaaclab_calvin_actions/{cur_task}/replay_{args.sim}.mp4")
 
     src_robot_urdf = URDF.load("./roboverse_data/robots/franka_with_gripper_extension/urdf/franka_with_gripper_extensions.urdf")
     src_robot = get_pk_robot(src_robot_urdf)
@@ -187,22 +191,68 @@ def main():
         robot_joint_list.append(list(joint_angle.values()))
     robot_joint_array = np.array(robot_joint_list)
 
-    robot_pose = src_robot.forward_kinematics(robot_joint_array)
-    src_robot_links_names = src_robot.links.names
+    # robot_pose = src_robot.forward_kinematics(robot_joint_array)  # forward obtain ee related to baselink, thus can directly ik
+    # isaaclab return world coordinate, need transfer
+    src_robot_links_names = ["basebody1_link", "basebody2_link", "cable1_link", "cable2_link", "camera_link", "fake_flange", "finger_link1_2", "finger_link1_3", "finger_link1_4", "finger_link2_2", "finger_link2_3", "finger_link2_4", "flange", "panda_grasptarget", "panda_hand", "panda_leftfinger", "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4", "panda_link5", "panda_link6", "panda_link7", "panda_link8", "panda_rightfinger"]
+    # src_robot_links_names = src_robot.links.names
+
     franka2franka = {'panda_hand': 'panda_hand', 'panda_link0': 'panda_link0'}
     target_link_names = ["panda_hand"]
     inds = [src_robot_links_names.index(franka2franka[name]) for name in target_link_names]
+
+    robot_pose = np.load("/home/RoboVerse_Humanoid/humanoid_retargeting_v2/data/open_drawer_a_001.npy")
+    robot_root_state = np.load("/home/RoboVerse_Humanoid/humanoid_retargeting_v2/data/open_drawer_a_001_root_state.npy")
+    robot_pose = np.squeeze(robot_pose)  #
+
+    robot_pose = robot_pose[:,:,0:7]
+    robot_root_state = robot_root_state[:,0:7]
+
+
+    root_poses = np.tile(robot_root_state, (64, 1))  # 复制成 (64, 7)
+    root_positions = root_poses[:, :3]  # 根链接的位置 (64, 3)
+    root_quaternions = root_poses[:, 3:]  # 根链接的旋转四元数 (64, 4)
+
+    # 创建一个存储相对位姿的数组 (64, 26, 7)
+    relative_poses = np.zeros((root_poses.shape[0], 26, 7))
+
+    # 遍历每个其他的 link（从第1个到第26个）
+    for link_index in range(robot_pose.shape[1]):
+        # 获取当前 link 的世界位姿
+        link_poses = robot_pose[:, link_index, :]  # 当前link的世界位姿 (64, 7)
+
+        # 提取位置和旋转四元数
+        link_positions = link_poses[:, :3]  # link的位置 (64, 3)
+        link_quaternions = link_poses[:, 3:]  # link的旋转四元数 (64, 4)
+
+        # 计算相对位置：link位置 - 根链接位置
+        relative_positions = link_positions - root_positions
+
+        # 计算相对旋转：link旋转四元数 * 根链接旋转四元数的共轭
+        # 旋转四元数的逆变换是共轭操作
+        relative_quaternions = np.zeros((root_quaternions.shape[0], 4))
+        for i in range(root_quaternions.shape[0]):
+            root_quaternions[i] = quaternions.qinverse(root_quaternions[i])
+        for i in range(root_quaternions.shape[0]):
+            relative_quaternions[i] = quaternions.qmult(root_quaternions[i], link_quaternions[i])
+
+
+        # 将相对位姿存入对应位置
+        relative_poses[:, link_index, :3] = relative_positions  # 位置
+        relative_poses[:, link_index, 3:] = relative_quaternions  # 旋转
 
     solutions = []
     for i in range(robot_pose.shape[0]):
         solution = pks.solve_ik_with_multiple_targets(
             robot=tgt_robot,
             target_link_names=target_link_names,
-            target_positions=np.array([robot_pose[i, inds[0], 4:]]),
-            target_wxyzs=np.array([robot_pose[i, inds[0], 0:4]]),
+            target_positions=np.array([robot_pose[i, inds[0], 0:3]]),
+            target_wxyzs=np.array([robot_pose[i, inds[0], 3:7]]),
         )
         solutions.append(solution)
 
+    # robot_arm_pos_list = []
+    # robot_arm_name = None
+    # solutions = robot_joint_list
     for solution in solutions:
         robot_obj = scenario.robots[0]
         actions = [
@@ -215,6 +265,19 @@ def main():
         ]
         obs, reward, success, time_out, extras = env.step(actions)
         obs_saver.add(obs)
+        # body_names = obs.robots['franka'].body_names
+        # body_state = obs.robots['franka'].body_state  # [x,y,z,wxyz]
+        # robot_arm_pos_list.append(body_state)
+        # robot_arm_name = body_names
+
+
+    # data_list = [tensor.cpu().numpy() for tensor in robot_arm_pos_list]
+    # data_array = np.array(data_list)
+    # np.save('./humanoid_retargeting_v2/data/open_drawer_a_001.npy', data_array)
+
+    # import json
+    # with open('./humanoid_retargeting_v2/data/franka_body_names.json', 'w') as json_file:
+    #     json.dump(robot_arm_name, json_file)
 
     obs_saver.save()
     env.close()
@@ -222,20 +285,8 @@ def main():
 
 if __name__ == "__main__":
     task_list = [
-        # "basketball_in_hoop",
-        # "beat_the_buzz",  # has bug
-        # "block_pyramid",
-        # "change_clock",
-        # "close_fridge",
-        # "empty_dishwasher",
-        # "insert_onto_square_peg",
-        # "lamp_on",
-        # "light_bulb_in",
-        # "meat_on_grill",
-        # "open_box",
-        # "reach_and_drag" # bug
-        # "take_cup_out_from_cabinet"  # AttributeError: 'RigidObject' object has no attribute '_data'. Did you mean: 'data'?
-        "lift_blue_block_slider_a"
+
+        "open_drawer_a"
     ]
 
     mp.set_start_method("spawn", force=True)

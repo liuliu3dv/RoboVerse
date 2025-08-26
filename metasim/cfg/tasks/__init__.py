@@ -164,7 +164,6 @@ def __getattr__(name):
 
     if name.startswith("GraspNet") and name.endswith("Cfg"):
         from .graspnet import __getattr__ as graspnet_getattr
-
         return graspnet_getattr(name)
 
     elif name.startswith("GAPartManip") and name.endswith("Cfg"):
