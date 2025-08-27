@@ -140,7 +140,6 @@ class LightRandomizer(BaseRandomizerType):
             self._seed = random.randint(0, 2**32 - 1)
 
         self._rng = random.Random(self._seed)
-        logger.debug(f"LightRandomizer for '{cfg.light_name}' using seed {self._seed}")
 
     def bind_handler(self, handler, *args: Any, **kwargs):
         """Bind the handler to the randomizer."""
@@ -298,7 +297,7 @@ class LightRandomizer(BaseRandomizerType):
                 intensity_attr = light_prim.GetAttribute("inputs:intensity")
                 if intensity_attr:
                     intensity_attr.Set(new_intensity)
-                    logger.info(f"Set {light_type} light '{self.cfg.light_name}' intensity to {new_intensity:.1f}")
+
                 else:
                     logger.warning(f"Could not find intensity attribute for {light_type} light {self.cfg.light_name}")
 
@@ -317,18 +316,14 @@ class LightRandomizer(BaseRandomizerType):
                 # Use color temperature
                 temperature = self._generate_random_value(self.cfg.color.temperature_range, self.cfg.color.distribution)
                 rgb = self._kelvin_to_rgb(temperature)
-                logger.info(
-                    f"🌡️ Set {light_type} light '{self.cfg.light_name}' color temperature to {temperature:.0f}K -> RGB({rgb[0]:.2f}, {rgb[1]:.2f}, {rgb[2]:.2f})"
-                )
+
             elif self.cfg.color.color_range:
                 # Use RGB values
                 r = self._generate_random_value(self.cfg.color.color_range[0], self.cfg.color.distribution)
                 g = self._generate_random_value(self.cfg.color.color_range[1], self.cfg.color.distribution)
                 b = self._generate_random_value(self.cfg.color.color_range[2], self.cfg.color.distribution)
                 rgb = (r, g, b)
-                logger.info(
-                    f"Set {light_type} light '{self.cfg.light_name}' color to RGB({rgb[0]:.2f}, {rgb[1]:.2f}, {rgb[2]:.2f})"
-                )
+
             else:
                 return
 
@@ -354,7 +349,7 @@ class LightRandomizer(BaseRandomizerType):
 
             # Skip position randomization for distant lights (they don't have meaningful position)
             if light_type == "distant":
-                logger.debug(f"Skipping position randomization for distant light {self.cfg.light_name}")
+                #                 logger.debug(f"Skipping position randomization for distant light {self.cfg.light_name}")
                 return
 
             if self.cfg.position.position_range:
@@ -404,9 +399,9 @@ class LightRandomizer(BaseRandomizerType):
                 from pxr import Gf
 
                 translate_attr.Set(Gf.Vec3d(*new_pos))
-                logger.info(
-                    f"Set {light_type} light '{self.cfg.light_name}' position to ({new_pos[0]:.1f}, {new_pos[1]:.1f}, {new_pos[2]:.1f})"
-                )
+                # logger.info(
+                #     f"Set {light_type} light '{self.cfg.light_name}' position to ({new_pos[0]:.1f}, {new_pos[1]:.1f}, {new_pos[2]:.1f})"
+                # )
 
         except Exception as e:
             logger.warning(f"Failed to randomize position for light {self.cfg.light_name}: {e}")
@@ -455,7 +450,7 @@ class LightRandomizer(BaseRandomizerType):
                 from pxr import Gf
 
                 rotate_attr.Set(Gf.Vec3d(*new_rot))
-                logger.debug(f"Set {light_type} light orientation to {new_rot}")
+        #                 logger.debug(f"Set {light_type} light orientation to {new_rot}")
 
         except Exception as e:
             logger.warning(f"Failed to randomize orientation for light {self.cfg.light_name}: {e}")

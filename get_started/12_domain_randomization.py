@@ -34,10 +34,38 @@ from roboverse_pack.randomization import (
     MassRandomizer,
     MaterialPresets,
     MaterialRandomizer,
+    ObjectPresets,
+    ObjectRandomizer,
 )
 from roboverse_pack.randomization.presets.light_presets import LightScenarios
 
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
+
+
+def log_randomization_result(
+    randomizer_type: str, obj_name: str, property_name: str, before_value, after_value, unit: str = ""
+):
+    """Log randomization results in a consistent format."""
+    if isinstance(before_value, torch.Tensor):
+        before_str = str(before_value.cpu().numpy().round(3))
+    else:
+        before_str = str(before_value)
+
+    if isinstance(after_value, torch.Tensor):
+        after_str = str(after_value.cpu().numpy().round(3))
+    else:
+        after_str = str(after_value)
+
+    log.info(f"  [{randomizer_type}] {obj_name}.{property_name}: {before_str} -> {after_str} {unit}")
+
+
+def log_randomization_header(randomizer_name: str, description: str = ""):
+    """Log a consistent header for randomization sections."""
+    log.info("=" * 60)
+    if description:
+        log.info(f"{randomizer_name}: {description}")
+    else:
+        log.info(randomizer_name)
 
 
 def run_domain_randomization(args):
@@ -239,33 +267,62 @@ def run_domain_randomization(args):
     obs = env.get_states(mode="dict")
     obs_saver.add(obs)
 
-    # initialize randomizers
-    cube_mass_config = MassRandomCfg(
-        obj_name="cube",
-        range=(0.3, 0.7),
-        operation="abs",
-        distribution="uniform",
-    )
-    cube_mass_randomizer = MassRandomizer(cube_mass_config)
-    cube_mass_randomizer.bind_handler(env)
+    # Initialize object randomizers based on user choice
+    if args.use_object_randomizer:
+        log.info("================================================")
+        log.info("Using NEW ObjectRandomizer (unified approach)")
 
-    franka_friction_config = FrictionRandomCfg(
-        obj_name="franka",
-        range=(0.5, 1.5),
-        operation="add",
-        distribution="gaussian",
-    )
-    franka_friction_randomizer = FrictionRandomizer(franka_friction_config)
-    franka_friction_randomizer.bind_handler(env)
+        # Cube: Grasping target with comprehensive randomization
+        cube_randomizer = ObjectRandomizer(ObjectPresets.grasping_target("cube"), seed=args.seed)
+        cube_randomizer.bind_handler(env)
 
-    franka_mass_config = MassRandomCfg(
-        obj_name="franka",
-        range=(0.2, 0.4),
-        operation="abs",
-        distribution="log_uniform",
-    )
-    franka_mass_randomizer = MassRandomizer(franka_mass_config)
-    franka_mass_randomizer.bind_handler(env)
+        # Sphere: Bouncy object with varied physics and pose
+        sphere_randomizer = ObjectRandomizer(ObjectPresets.bouncy_object("sphere"), seed=args.seed)
+        sphere_randomizer.bind_handler(env)
+
+        # Robot: Base randomization for payload simulation
+        franka_randomizer = ObjectRandomizer(ObjectPresets.robot_base("franka"), seed=args.seed)
+        franka_randomizer.bind_handler(env)
+
+        # Store for later use
+        object_randomizers = [cube_randomizer, sphere_randomizer, franka_randomizer]
+        individual_randomizers = []
+
+    else:
+        log.info("================================================")
+        log.info("Using LEGACY individual randomizers (mass/friction separate)")
+
+        # Legacy individual randomizers
+        cube_mass_config = MassRandomCfg(
+            obj_name="cube",
+            range=(0.3, 0.7),
+            operation="abs",
+            distribution="uniform",
+        )
+        cube_mass_randomizer = MassRandomizer(cube_mass_config)
+        cube_mass_randomizer.bind_handler(env)
+
+        franka_friction_config = FrictionRandomCfg(
+            obj_name="franka",
+            range=(0.5, 1.5),
+            operation="add",
+            distribution="gaussian",
+        )
+        franka_friction_randomizer = FrictionRandomizer(franka_friction_config)
+        franka_friction_randomizer.bind_handler(env)
+
+        franka_mass_config = MassRandomCfg(
+            obj_name="franka",
+            range=(0.2, 0.4),
+            operation="abs",
+            distribution="log_uniform",
+        )
+        franka_mass_randomizer = MassRandomizer(franka_mass_config)
+        franka_mass_randomizer.bind_handler(env)
+
+        # Store for later use
+        individual_randomizers = [cube_mass_randomizer, franka_friction_randomizer, franka_mass_randomizer]
+        object_randomizers = []
 
     # Initialize material randomizers with different strategies
 
@@ -400,10 +457,22 @@ def run_domain_randomization(args):
     camera_randomizer.bind_handler(env)
     camera_randomizers = [camera_randomizer]
 
-    # Get cube mass using randomizer
-    cube_mass = cube_mass_randomizer.get_body_mass("cube")
-    robot_friction = franka_friction_randomizer.get_body_friction("franka")
-    robot_mass = franka_mass_randomizer.get_body_mass("franka")
+    # Get initial object properties for comparison
+    if args.use_object_randomizer:
+        # Get properties using ObjectRandomizer
+        cube_properties = cube_randomizer.get_properties()
+        sphere_properties = sphere_randomizer.get_properties()
+        franka_properties = franka_randomizer.get_properties()
+
+        # Extract individual values for legacy logging
+        cube_mass = cube_properties.get("mass", torch.tensor([0.0]))
+        robot_friction = franka_properties.get("friction", torch.tensor([[0.0]]))
+        robot_mass = franka_properties.get("mass", torch.tensor([0.0]))
+    else:
+        # Get using individual randomizers (legacy)
+        cube_mass = cube_mass_randomizer.get_body_mass("cube")
+        robot_friction = franka_friction_randomizer.get_body_friction("franka")
+        robot_mass = franka_mass_randomizer.get_body_mass("franka")
 
     # Get initial material and light properties for comparison
     initial_cube_physical = cube_material_randomizer.get_physical_properties()
@@ -440,54 +509,117 @@ def run_domain_randomization(args):
         "cameras": initial_camera_properties,
     }
 
-    # run randomization for cube mass
-    cube_mass_randomizer()
-    randomized_cube_mass = cube_mass_randomizer.get_body_mass("cube")
-    log.info("================================================")
-    log.info("randomizing cube mass by uniform distribution")
-    log.info(f"  Before: {initial_values['cube_mass'].cpu().numpy().round(3)} kg")
-    log.info(f"  After:  {randomized_cube_mass.cpu().numpy().round(3)} kg")
+    # Run object randomization based on chosen approach
+    if args.use_object_randomizer:
+        log_randomization_header("OBJECT RANDOMIZATION", "Unified ObjectRandomizer approach")
 
-    # run randomization for franka friction
-    franka_friction_randomizer()
-    randomized_robot_friction = franka_friction_randomizer.get_body_friction("franka")
-    log.info("================================================")
-    log.info("randomizing franka friction by gaussian distribution")
-    log.info(f"  Before: {initial_values['franka_friction'][0].cpu().numpy().round(3)}")
-    log.info(f"  After:  {randomized_robot_friction[0].cpu().numpy().round(3)}")
+        # Randomize cube (grasping target preset)
+        log.info("Cube (grasping target preset):")
+        cube_randomizer()
+        cube_new_props = cube_randomizer.get_properties()
+        if "mass" in cube_new_props and "mass" in cube_properties:
+            log_randomization_result("Object", "cube", "mass", cube_properties["mass"], cube_new_props["mass"], "kg")
+        if "friction" in cube_new_props and "friction" in cube_properties:
+            log_randomization_result(
+                "Object", "cube", "friction", cube_properties["friction"][0], cube_new_props["friction"][0], ""
+            )
+        if "position" in cube_new_props and "position" in cube_properties:
+            log_randomization_result(
+                "Object", "cube", "position", cube_properties["position"], cube_new_props["position"], "m"
+            )
 
-    # run randomization for franka mass
-    franka_mass_randomizer()
-    randomized_sphere_mass = franka_mass_randomizer.get_body_mass("franka")
-    log.info("================================================")
-    log.info("randomizing franka mass by log_uniform distribution")
-    log.info(f"  Before: {initial_values['franka_mass'].cpu().numpy().round(3)} kg")
-    log.info(f"  After:  {randomized_sphere_mass.cpu().numpy().round(3)} kg")
+        # Randomize sphere (bouncy object preset)
+        log.info("Sphere (bouncy object preset):")
+        sphere_randomizer()
+        sphere_new_props = sphere_randomizer.get_properties()
+        if "mass" in sphere_new_props and "mass" in sphere_properties:
+            log_randomization_result(
+                "Object", "sphere", "mass", sphere_properties["mass"], sphere_new_props["mass"], "kg"
+            )
+        if "restitution" in sphere_new_props and "restitution" in sphere_properties:
+            log_randomization_result(
+                "Object", "sphere", "restitution", sphere_properties["restitution"], sphere_new_props["restitution"], ""
+            )
+        if "position" in sphere_new_props and "position" in sphere_properties:
+            log_randomization_result(
+                "Object", "sphere", "position", sphere_properties["position"], sphere_new_props["position"], "m"
+            )
+
+        # Randomize franka (robot base preset)
+        log.info("Franka (robot base preset):")
+        franka_randomizer()
+        franka_new_props = franka_randomizer.get_properties()
+        if "mass" in franka_new_props and "mass" in franka_properties:
+            log_randomization_result(
+                "Object", "franka", "mass", franka_properties["mass"], franka_new_props["mass"], "kg"
+            )
+        if "friction" in franka_new_props and "friction" in franka_properties:
+            log_randomization_result(
+                "Object", "franka", "friction", franka_properties["friction"][0], franka_new_props["friction"][0], ""
+            )
+
+    else:
+        # Legacy individual randomizers
+        log_randomization_header("OBJECT RANDOMIZATION", "Legacy individual randomizers approach")
+
+        # run randomization for cube mass
+        cube_mass_randomizer()
+        randomized_cube_mass = cube_mass_randomizer.get_body_mass("cube")
+        log_randomization_result("Mass", "cube", "mass", initial_values["cube_mass"], randomized_cube_mass, "kg")
+
+        # run randomization for franka friction
+        franka_friction_randomizer()
+        randomized_robot_friction = franka_friction_randomizer.get_body_friction("franka")
+        log_randomization_result(
+            "Friction", "franka", "friction", initial_values["franka_friction"][0], randomized_robot_friction[0], ""
+        )
+
+        # run randomization for franka mass
+        franka_mass_randomizer()
+        randomized_sphere_mass = franka_mass_randomizer.get_body_mass("franka")
+        log_randomization_result("Mass", "franka", "mass", initial_values["franka_mass"], randomized_sphere_mass, "kg")
 
     # run material randomization
-    log.info("================================================")
-    log.info("randomizing cube material (Wood: combined mode)")
+    log_randomization_header("MATERIAL RANDOMIZATION", "Visual appearance + physics properties")
+
+    log.info("Cube (Wood material with MDL):")
     cube_material_randomizer()
     randomized_cube_physical = cube_material_randomizer.get_physical_properties()
     log.info("  Applied: Wood MDL texture + Physics properties")
     if "friction" in initial_values["cube_physical"] and "friction" in randomized_cube_physical:
-        log.info(f"  Cube friction before: {initial_values['cube_physical']['friction'][0].round(3)}")
-        log.info(f"  Cube friction after:  {randomized_cube_physical['friction'][0].round(3)}")
+        log_randomization_result(
+            "Material",
+            "cube",
+            "friction",
+            initial_values["cube_physical"]["friction"][0],
+            randomized_cube_physical["friction"][0],
+            "",
+        )
 
-    log.info("================================================")
-    log.info("randomizing sphere material (Rubber: combined mode)")
+    log.info("Sphere (Rubber material with PBR):")
     sphere_material_randomizer()
     randomized_sphere_physical = sphere_material_randomizer.get_physical_properties()
     log.info("  Applied: Rubber PBR + Physics (high bounce)")
     if "friction" in initial_values["sphere_physical"] and "friction" in randomized_sphere_physical:
-        log.info(f"  Sphere friction before: {initial_values['sphere_physical']['friction'][0].round(3)}")
-        log.info(f"  Sphere friction after:  {randomized_sphere_physical['friction'][0].round(3)}")
+        log_randomization_result(
+            "Material",
+            "sphere",
+            "friction",
+            initial_values["sphere_physical"]["friction"][0],
+            randomized_sphere_physical["friction"][0],
+            "",
+        )
     if "restitution" in initial_values["sphere_physical"] and "restitution" in randomized_sphere_physical:
-        log.info(f"  Sphere restitution before: {initial_values['sphere_physical']['restitution'][0].round(3)}")
-        log.info(f"  Sphere restitution after:  {randomized_sphere_physical['restitution'][0].round(3)}")
+        log_randomization_result(
+            "Material",
+            "sphere",
+            "restitution",
+            initial_values["sphere_physical"]["restitution"][0],
+            randomized_sphere_physical["restitution"][0],
+            "",
+        )
 
-    log.info("================================================")
-    log.info("randomizing box_base material (Metal: combined mode)")
+    log.info("Box (Metal material with MDL):")
     try:
         box_material_randomizer()
         log.info("  Applied: Metal MDL texture + Physics properties")
@@ -496,41 +628,96 @@ def run_domain_randomization(args):
         log.info("  This is expected if MDL files are not available")
 
     # run light randomization for all lights in the scenario
-    log.info("================================================")
-    log.info(f"randomizing all lights in {args.lighting_scenario} scenario")
+    log_randomization_header(
+        "LIGHT RANDOMIZATION", f"{args.lighting_scenario} scenario with {len(light_randomizers)} lights"
+    )
 
     # Initial light randomization
-    log.info("Applying initial light randomization...")
     for i, randomizer in enumerate(light_randomizers):
         try:
+            # Get initial properties
+            initial_light_props = randomizer.get_light_properties()
+
+            # Apply randomization
             randomizer()
+
+            # Get new properties
+            new_light_props = randomizer.get_light_properties()
+
             light_name = randomizer.cfg.light_name
-            log.info(f"  Light {i} ({light_name}): Randomization applied")
+            log.info(f"Light {i + 1}: {light_name}")
+
+            # Log changes
+            if "intensity" in initial_light_props and "intensity" in new_light_props:
+                log_randomization_result(
+                    "Light",
+                    light_name,
+                    "intensity",
+                    initial_light_props["intensity"],
+                    new_light_props["intensity"],
+                    "cd",
+                )
+            if "color" in initial_light_props and "color" in new_light_props:
+                log_randomization_result(
+                    "Light", light_name, "color", initial_light_props["color"], new_light_props["color"], "RGB"
+                )
+            if "position" in initial_light_props and "position" in new_light_props:
+                log_randomization_result(
+                    "Light", light_name, "position", initial_light_props["position"], new_light_props["position"], "m"
+                )
+
         except Exception as e:
-            log.warning(f"  Light {i} randomization failed: {e}")
+            log.warning(f"  Light {i + 1} randomization failed: {e}")
 
     # run camera randomization for all cameras in the scenario
-    log.info("================================================")
-    log.info(f"randomizing all cameras in {args.camera_scenario} scenario")
+    log_randomization_header(
+        "CAMERA RANDOMIZATION", f"{args.camera_scenario} mode with {len(camera_randomizers)} cameras"
+    )
 
     # Initial camera randomization
-    log.info("Applying initial camera randomization...")
     for i, randomizer in enumerate(camera_randomizers):
         try:
+            # Get initial properties
+            initial_camera_props = randomizer.get_camera_properties()
+
+            # Apply randomization
             randomizer()
+
+            # Get new properties
+            new_camera_props = randomizer.get_camera_properties()
+
             camera_name = randomizer.cfg.camera_name
-            log.info(f"  Camera {i} ({camera_name}): Randomization applied")
-            # Log camera properties for debugging
-            props = randomizer.get_camera_properties()
-            if props:
-                log.info(f"    Position: {props.get('position', 'N/A')}")
-                log.info(f"    Focal length: {props.get('focal_length', 'N/A')} cm")
+            log.info(f"Camera {i + 1}: {camera_name}")
+
+            # Log changes
+            if "position" in initial_camera_props and "position" in new_camera_props:
+                log_randomization_result(
+                    "Camera",
+                    camera_name,
+                    "position",
+                    initial_camera_props["position"],
+                    new_camera_props["position"],
+                    "m",
+                )
+            if "focal_length" in initial_camera_props and "focal_length" in new_camera_props:
+                log_randomization_result(
+                    "Camera",
+                    camera_name,
+                    "focal_length",
+                    initial_camera_props["focal_length"],
+                    new_camera_props["focal_length"],
+                    "cm",
+                )
+            if "look_at" in initial_camera_props and "look_at" in new_camera_props:
+                log_randomization_result(
+                    "Camera", camera_name, "look_at", initial_camera_props["look_at"], new_camera_props["look_at"], "m"
+                )
+
         except Exception as e:
-            log.warning(f"  Camera {i} randomization failed: {e}")
+            log.warning(f"  Camera {i + 1} randomization failed: {e}")
 
     # Run simulation for a few steps with video recording
-    log.info("================================================")
-    log.info("Running simulation with randomized materials...")
+    log_randomization_header("SIMULATION", "Running with periodic re-randomization")
 
     for step in range(100):
         log.debug(f"Simulation step {step}")
@@ -540,29 +727,45 @@ def run_domain_randomization(args):
 
         # Apply randomization every 10 steps to show material and lighting changes very frequently
         if step % 10 == 0 and step > 0:
-            log.info(f"  Step {step}: Re-randomizing materials and lighting...")
+            log.info(f"Step {step}: Re-applying all randomizations")
             try:
+                # Randomize objects based on chosen approach
+                if args.use_object_randomizer:
+                    # Use ObjectRandomizer
+                    for i, randomizer in enumerate(object_randomizers):
+                        randomizer()
+                        log.info(f"  Applied ObjectRandomizer {i + 1}")
+                else:
+                    # Use individual randomizers (legacy)
+                    for i, randomizer in enumerate(individual_randomizers):
+                        randomizer()
+                        log.info(f"  Applied individual randomizer {i + 1}")
+
                 # Randomize materials
                 cube_material_randomizer()
                 sphere_material_randomizer()
                 box_material_randomizer()
+                log.info("  Applied material randomization (3 objects)")
 
                 # Randomize all lights in the scenario
                 for randomizer in light_randomizers:
                     randomizer()
+                log.info(f"  Applied light randomization ({len(light_randomizers)} lights)")
 
                 # Randomize all cameras in the scenario
                 for randomizer in camera_randomizers:
                     randomizer()
+                log.info(f"  Applied camera randomization ({len(camera_randomizers)} cameras)")
 
             except Exception as e:
                 log.warning(f"  Randomization failed at step {step}: {e}")
 
     # Save video and close
-    log.info("================================================")
+    log_randomization_header("COMPLETION", "Saving results and cleanup")
     log.info("Saving video and closing simulation...")
     obs_saver.save()
     env.close()
+    log.info("Domain randomization demo completed successfully!")
 
 
 def main():
@@ -585,6 +788,10 @@ def main():
         ] = "combined"
         """Choose camera randomization mode: combined, position_only, orientation_only, look_at_only, intrinsics_only, or image_only"""
 
+        ## Object randomization approach
+        use_object_randomizer: bool = True
+        """Use the new unified ObjectRandomizer instead of individual Mass/Friction randomizers"""
+
         ## Others
         num_envs: int = 1
         headless: bool = False
@@ -599,8 +806,18 @@ def main():
     """Main function to run the domain randomization demo."""
     log.info("Starting Domain Randomization Demo")
     log.info("This demo showcases:")
-    log.info("  - Mass randomization (cube and franka)")
-    log.info("  - Friction randomization (franka)")
+
+    # Object randomization info
+    if args.use_object_randomizer:
+        log.info("  - NEW UNIFIED ObjectRandomizer approach:")
+        log.info("    * Cube: Grasping target (mass + friction + position + rotation)")
+        log.info("    * Sphere: Bouncy object (mass + restitution + varied position)")
+        log.info("    * Franka: Robot base (mass + friction + minimal pose adjustment)")
+    else:
+        log.info("  - LEGACY individual randomizers:")
+        log.info("    * Mass randomization (cube and franka)")
+        log.info("    * Friction randomization (franka)")
+
     log.info("  - Advanced material randomization with combined mode:")
     log.info("    * Cube: Wood (MDL + physics)")
     log.info("    * Sphere: Rubber (PBR + physics, high bounce)")
@@ -651,6 +868,10 @@ def main():
     log.info("  --camera-scenario image_only       # Only randomize resolution/aspect ratio")
     log.info("  --camera-scenario combined         # All micro-adjustments (default)")
     log.info("Note: Camera uses micro-adjustment mode (delta-based) to avoid jarring position changes")
+    log.info("")
+    log.info("Object randomization approaches:")
+    log.info("  --use-object-randomizer         # Use new unified ObjectRandomizer (default)")
+    log.info("  --no-use-object-randomizer      # Use legacy individual Mass/Friction randomizers")
     log.info("")
     log.info("For reproducible results:")
     log.info("  --seed 42                       # Use specific seed for reproducibility")

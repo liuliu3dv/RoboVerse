@@ -12,7 +12,8 @@ from .friction_randomizer import FrictionRandomCfg, FrictionRandomizer
 from .light_randomizer import LightRandomCfg, LightRandomizer
 from .mass_randomizer import MassRandomCfg, MassRandomizer
 from .material_randomizer import MaterialRandomCfg, MaterialRandomizer
-from .presets import CameraPresets, LightPresets, MaterialPresets
+from .object_randomizer import ObjectRandomCfg, ObjectRandomizer, PhysicsRandomCfg, PoseRandomCfg
+from .presets import CameraPresets, LightPresets, MaterialPresets, ObjectPresets
 
 __all__ = [
     "CameraImageRandomCfg",
@@ -32,4 +33,9 @@ __all__ = [
     "MaterialPresets",
     "MaterialRandomCfg",
     "MaterialRandomizer",
+    "ObjectPresets",
+    "ObjectRandomCfg",
+    "ObjectRandomizer",
+    "PhysicsRandomCfg",
+    "PoseRandomCfg",
 ]

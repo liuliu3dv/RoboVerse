@@ -160,7 +160,7 @@ class CameraRandomizer(BaseRandomizerType):
             # Create unique seed for this camera
             camera_seed = seed + sum(ord(c) for c in cfg.camera_name)
             self._rng = random.Random(camera_seed)
-            logger.debug(f"CameraRandomizer for '{cfg.camera_name}' using seed {camera_seed}")
+
         else:
             self._rng = random.Random()
 
@@ -178,7 +178,6 @@ class CameraRandomizer(BaseRandomizerType):
 
         # Store all transform operations to preserve them exactly
         ops = xformable.GetOrderedXformOps()
-        logger.info(f"Current transform ops: {[op.GetOpType() for op in ops]}")
 
         # Extract position and compute actual final transform
         position = None
@@ -191,7 +190,6 @@ class CameraRandomizer(BaseRandomizerType):
 
             if op_type == UsdGeom.XformOp.TypeTranslate:
                 position = op_value
-                logger.debug(f"Found translate: {position}")
 
         # Get the ACTUAL final transform matrix (this combines all ops)
         world_transform = xformable.ComputeLocalToWorldTransform(0.0)
@@ -221,9 +219,6 @@ class CameraRandomizer(BaseRandomizerType):
             position = Gf.Vec3d(final_translation)
             logger.warning("No translate op found, using computed position")
 
-        logger.debug(f"Transform ops: {all_ops}")
-        logger.debug(f"Final computed - position: {final_translation}, rotation: {final_rotation}")
-
         # Return position from ops but store all ops for preservation
         return position, final_rotation, all_ops
 
@@ -244,7 +239,7 @@ class CameraRandomizer(BaseRandomizerType):
             if translate_op:
                 old_position = translate_op.Get()
                 translate_op.Set(new_position)
-                logger.info(f"Updated translate op: {old_position} → {new_position}")
+
             else:
                 logger.error("No translate operation found! Cannot update position safely.")
                 raise ValueError("No translate operation found in transform stack")
@@ -273,10 +268,7 @@ class CameraRandomizer(BaseRandomizerType):
                 logger.error("No TypeOrient operation found for rotation delta")
                 return
 
-            logger.info(f"Current quaternion: {current_quat}")
-            logger.info(
-                f"Applying small rotation delta: pitch={delta_rotation[0]:+.2f}°, yaw={delta_rotation[1]:+.2f}°, roll={delta_rotation[2]:+.2f}°"
-            )
+            # Debug info removed for cleaner output
 
             # Convert small delta rotation to quaternion using USD rotation utilities
             pitch_rad = math.radians(delta_rotation[0])
@@ -294,8 +286,8 @@ class CameraRandomizer(BaseRandomizerType):
             # Compose quaternions: new_quat = current_quat * delta_quat
             new_quat = current_quat * delta_quat
 
-            logger.info(f"Delta quaternion: {delta_quat}")
-            logger.info(f"New quaternion: {new_quat}")
+            #             logger.info(f"Delta quaternion: {delta_quat}")
+            #             logger.info(f"New quaternion: {new_quat}")
 
             # Update the TypeOrient operation
             self._update_orient_only(xformable, new_quat)
@@ -323,7 +315,7 @@ class CameraRandomizer(BaseRandomizerType):
             if orient_op:
                 old_quat = orient_op.Get()
                 orient_op.Set(new_quaternion)
-                logger.info(f"Updated TypeOrient: {old_quat} → {new_quaternion}")
+            #                 logger.info(f"Updated TypeOrient: {old_quat} → {new_quaternion}")
             else:
                 logger.error("No TypeOrient operation found! Cannot update orientation safely.")
                 raise ValueError("No TypeOrient operation found in transform stack")
@@ -431,10 +423,10 @@ class CameraRandomizer(BaseRandomizerType):
                 # Apply delta to current position
                 new_pos = Gf.Vec3d(current_pos[0] + dx, current_pos[1] + dy, current_pos[2] + dz)
 
-                logger.info(f"Adjusted camera '{self.cfg.camera_name}' position by ({dx:+.2f}, {dy:+.2f}, {dz:+.2f})")
-                logger.info(
-                    f"  from ({current_pos[0]:.2f}, {current_pos[1]:.2f}, {current_pos[2]:.2f}) to ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f})"
-                )
+                # logger.info(f"Adjusted camera '{self.cfg.camera_name}' position by ({dx:+.2f}, {dy:+.2f}, {dz:+.2f})")
+                # logger.info(
+                #     f"  from ({current_pos[0]:.2f}, {current_pos[1]:.2f}, {current_pos[2]:.2f}) to ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f})"
+                # )
 
             elif self.cfg.position.position_range:
                 # Absolute positioning mode
@@ -445,9 +437,9 @@ class CameraRandomizer(BaseRandomizerType):
                     self._sample_value(position_range[2], self.cfg.position.distribution),
                 )
 
-                logger.info(
-                    f"Set camera '{self.cfg.camera_name}' to absolute position ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f})"
-                )
+                # logger.info(
+                #     f"Set camera '{self.cfg.camera_name}' to absolute position ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f})"
+                # )
 
             else:
                 logger.warning(f"No position range configured for camera '{self.cfg.camera_name}'")
@@ -483,9 +475,9 @@ class CameraRandomizer(BaseRandomizerType):
 
             delta_rotation = Gf.Vec3f(delta_pitch, delta_yaw, delta_roll)
 
-            logger.info(
-                f"Applying rotation delta to camera '{self.cfg.camera_name}': pitch={delta_pitch:+.1f}°, yaw={delta_yaw:+.1f}°, roll={delta_roll:+.1f}°"
-            )
+            # logger.info(
+            #     f"Applying rotation delta to camera '{self.cfg.camera_name}': pitch={delta_pitch:+.1f}°, yaw={delta_yaw:+.1f}°, roll={delta_roll:+.1f}°"
+            # )
 
             # Apply rotation delta to existing rotation
             self._add_rotation_delta(xformable, delta_rotation)
@@ -507,9 +499,9 @@ class CameraRandomizer(BaseRandomizerType):
 
             # Get original camera configuration
             original_pos, original_look_at = self._get_original_camera_config(camera_prim)
-            logger.debug(
-                f"Original config: pos=({original_pos[0]:.2f}, {original_pos[1]:.2f}, {original_pos[2]:.2f}), target=({original_look_at[0]:.2f}, {original_look_at[1]:.2f}, {original_look_at[2]:.2f})"
-            )
+            # logger.debug(
+            #     f"Original config: pos=({original_pos[0]:.2f}, {original_pos[1]:.2f}, {original_pos[2]:.2f}), target=({original_look_at[0]:.2f}, {original_look_at[1]:.2f}, {original_look_at[2]:.2f})"
+            # )
 
             if self.cfg.look_at.use_spherical and self.cfg.look_at.spherical_range:
                 # Spherical coordinate mode - move camera in orbit around target
@@ -527,10 +519,10 @@ class CameraRandomizer(BaseRandomizerType):
                 # Move camera position (small orbital adjustment from ORIGINAL position)
                 new_pos = Gf.Vec3d(original_pos[0] + dx, original_pos[1] + dy, original_pos[2] + dz)
 
-                logger.info(f"Camera '{self.cfg.camera_name}' orbital move by ({dx:+.2f}, {dy:+.2f}, {dz:+.2f})")
-                logger.info(
-                    f"  from original ({original_pos[0]:.2f}, {original_pos[1]:.2f}, {original_pos[2]:.2f}) to ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f})"
-                )
+                # logger.info(f"Camera '{self.cfg.camera_name}' orbital move by ({dx:+.2f}, {dy:+.2f}, {dz:+.2f})")
+                # logger.info(
+                #     f"  from original ({original_pos[0]:.2f}, {original_pos[1]:.2f}, {original_pos[2]:.2f}) to ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f})"
+                # )
 
             elif self.cfg.look_at.look_at_range:
                 # Absolute positioning mode
@@ -541,9 +533,9 @@ class CameraRandomizer(BaseRandomizerType):
                     self._sample_value(look_at_range[2], self.cfg.look_at.distribution),
                 )
 
-                logger.info(
-                    f"Camera '{self.cfg.camera_name}' moved to absolute position ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f})"
-                )
+                # logger.info(
+                #     f"Camera '{self.cfg.camera_name}' moved to absolute position ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f})"
+                # )
 
             else:
                 logger.warning(f"No look-at range configured for camera '{self.cfg.camera_name}'")
@@ -558,9 +550,9 @@ class CameraRandomizer(BaseRandomizerType):
             # Apply absolute quaternion rotation (no delta calculation needed)
             self._update_orient_only(xformable, target_quat)
 
-            logger.info(
-                f"Camera '{self.cfg.camera_name}' moved to ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f}) looking at ({original_look_at[0]:.2f}, {original_look_at[1]:.2f}, {original_look_at[2]:.2f})"
-            )
+            # logger.info(
+            #     f"Camera '{self.cfg.camera_name}' moved to ({new_pos[0]:.2f}, {new_pos[1]:.2f}, {new_pos[2]:.2f}) looking at ({original_look_at[0]:.2f}, {original_look_at[1]:.2f}, {original_look_at[2]:.2f})"
+            # )
 
         except Exception as e:
             logger.error(f"Failed to randomize camera look-at: {e}")
@@ -597,9 +589,9 @@ class CameraRandomizer(BaseRandomizerType):
 
             default_pos = Gf.Vec3d(1.5, -1.5, 1.5)
             default_target = Gf.Vec3d(0.0, 0.0, 0.0)
-            logger.debug(
-                f"Using default camera config: pos=({default_pos[0]}, {default_pos[1]}, {default_pos[2]}), target=({default_target[0]}, {default_target[1]}, {default_target[2]})"
-            )
+            # logger.debug(
+            #     f"Using default camera config: pos=({default_pos[0]}, {default_pos[1]}, {default_pos[2]}), target=({default_target[0]}, {default_target[1]}, {default_target[2]})"
+            # )
             return default_pos, default_target
 
         except Exception as e:
@@ -658,9 +650,9 @@ class CameraRandomizer(BaseRandomizerType):
         transform_matrix.SetRotate(rotation_matrix)
         quat = transform_matrix.ExtractRotation().GetQuat()
 
-        logger.debug(
-            f"Look-at quaternion: eye=({eye_pos[0]:.2f}, {eye_pos[1]:.2f}, {eye_pos[2]:.2f}) -> target=({target_pos[0]:.2f}, {target_pos[1]:.2f}, {target_pos[2]:.2f}) = {quat}"
-        )
+        # logger.debug(
+        #     f"Look-at quaternion: eye=({eye_pos[0]:.2f}, {eye_pos[1]:.2f}, {eye_pos[2]:.2f}) -> target=({target_pos[0]:.2f}, {target_pos[1]:.2f}, {target_pos[2]:.2f}) = {quat}"
+        # )
 
         return quat
 
@@ -694,9 +686,9 @@ class CameraRandomizer(BaseRandomizerType):
         # Apply new rotation only, preserving existing position
         self._update_orient_only(xformable, target_quat)
 
-        logger.info(
-            f"Set camera '{self.cfg.camera_name}' spherical look-at: r={radius:.2f}m, θ={theta:.1f}°, φ={phi:.1f}°"
-        )
+        # logger.info(
+        #     f"Set camera '{self.cfg.camera_name}' spherical look-at: r={radius:.2f}m, θ={theta:.1f}°, φ={phi:.1f}°"
+        # )
 
     def _randomize_intrinsics(self, camera_prim):
         """Randomize camera intrinsics."""
@@ -834,9 +826,9 @@ class CameraRandomizer(BaseRandomizerType):
                 # Apply new aperture
                 camera.CreateHorizontalApertureAttr().Set(new_aperture)
 
-                logger.info(
-                    f"Set camera '{self.cfg.camera_name}' aspect ratio to {new_aspect:.2f} (aperture: {new_aperture:.1f}cm)"
-                )
+                # logger.info(
+                #     f"Set camera '{self.cfg.camera_name}' aspect ratio to {new_aspect:.2f} (aperture: {new_aperture:.1f}cm)"
+                # )
 
             elif self.cfg.image.use_aspect_ratio and self.cfg.image.width_range and self.cfg.image.height_range:
                 # Simulate resolution change through FOV adjustment
@@ -857,9 +849,9 @@ class CameraRandomizer(BaseRandomizerType):
 
                 camera.CreateFocalLengthAttr().Set(new_focal)
 
-                logger.info(
-                    f"Set camera '{self.cfg.camera_name}' virtual resolution to {new_width:.0f}x{new_height:.0f} (focal: {new_focal:.1f}cm)"
-                )
+                # logger.info(
+                #     f"Set camera '{self.cfg.camera_name}' virtual resolution to {new_width:.0f}x{new_height:.0f} (focal: {new_focal:.1f}cm)"
+                # )
 
             else:
                 logger.warning(f"Image randomization for '{self.cfg.camera_name}' has no configured ranges")
