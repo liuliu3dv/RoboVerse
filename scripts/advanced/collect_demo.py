@@ -60,6 +60,8 @@ class Args:
     """Enable material randomization (when randomization is enabled)"""
     randomize_lights: bool = True
     """Enable light randomization (when randomization is enabled)"""
+    randomize_cameras: bool = True
+    """Enable camera randomization (when randomization is enabled)"""
     randomize_physics: bool = True
     """Enable physics (mass/friction) randomization (when randomization is enabled)"""
     randomization_frequency: Literal["per_demo", "per_episode"] = "per_demo"
@@ -79,7 +81,9 @@ class Args:
 
         # Validate randomization settings
         if self.enable_randomization:
-            if not (self.randomize_materials or self.randomize_lights or self.randomize_physics):
+            if not (
+                self.randomize_materials or self.randomize_lights or self.randomize_cameras or self.randomize_physics
+            ):
                 log.warning("Randomization enabled but no randomization types selected, disabling randomization")
                 self.enable_randomization = False
 
@@ -90,6 +94,7 @@ class Args:
             log.info("Domain Randomization Configuration:")
             log.info(f"  Materials: {'✓' if self.randomize_materials else '✗'}")
             log.info(f"  Lights: {'✓' if self.randomize_lights else '✗'}")
+            log.info(f"  Cameras: {'✓' if self.randomize_cameras else '✗'}")
             log.info(f"  Physics: {'✓' if self.randomize_physics else '✗'}")
             log.info(f"  Frequency: {self.randomization_frequency}")
             log.info(f"  Seed: {self.randomization_seed if self.randomization_seed else 'Random'}")
@@ -123,6 +128,8 @@ rootutils.setup_root(__file__, pythonpath=True)
 # Import randomization components (after rootutils setup)
 try:
     from roboverse_pack.randomization import (
+        CameraPresets,
+        CameraRandomizer,
         FrictionRandomCfg,
         FrictionRandomizer,
         LightPresets,
@@ -205,6 +212,18 @@ class DomainRandomizationManager:
                     randomizer.bind_handler(self.handler)
                     self.randomizers.append(randomizer)
                     log.info(f"Added light randomizer for {light_name}")
+
+        # Camera randomization
+        if self.args.randomize_cameras:
+            cameras = getattr(self.scenario, "cameras", [])
+            if cameras:
+                for camera in cameras:
+                    camera_name = getattr(camera, "name", f"camera_{len(self.randomizers)}")
+                    config = CameraPresets.surveillance_camera(camera_name, randomization_mode="combined")
+                    randomizer = CameraRandomizer(config, seed=seed)
+                    randomizer.bind_handler(self.handler)
+                    self.randomizers.append(randomizer)
+                    log.info(f"Added camera randomizer for {camera_name}")
 
         # Physics randomization
         if self.args.randomize_physics:

@@ -24,6 +24,8 @@ from metasim.utils import configclass
 from metasim.utils.obs_utils import ObsSaver
 from metasim.utils.setup_util import get_sim_handler_class
 from roboverse_pack.randomization import (
+    CameraPresets,
+    CameraRandomizer,
     FrictionRandomCfg,
     FrictionRandomizer,
     LightPresets,
@@ -59,8 +61,10 @@ def run_domain_randomization(args):
         headless=args.headless,  # Will be overridden
     )
 
-    # Add cameras for video recording
-    scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))]
+    # Add single camera for video recording and randomization
+    scenario.cameras = [
+        PinholeCameraCfg(name="main_camera", width=1024, height=1024, pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
+    ]
 
     # Demo: Using LightScenarios for complex lighting setups
     if args.lighting_scenario == "indoor_room":
@@ -354,6 +358,48 @@ def run_domain_randomization(args):
 
         light_randomizers = [main_light_randomizer, ambient_light_randomizer]
 
+    # Initialize single camera randomizer
+    camera_randomizers = []
+
+    if args.camera_scenario == "position_only":
+        camera_randomizer = CameraRandomizer(
+            CameraPresets.surveillance_camera("main_camera", randomization_mode="position_only"), seed=args.seed
+        )
+        log.info("Using position-only camera randomization")
+    elif args.camera_scenario == "orientation_only":
+        camera_randomizer = CameraRandomizer(
+            CameraPresets.surveillance_camera("main_camera", randomization_mode="orientation_only"), seed=args.seed
+        )
+        log.info("Using orientation-only camera randomization (rotation deltas)")
+    elif args.camera_scenario == "look_at_only":
+        camera_randomizer = CameraRandomizer(
+            CameraPresets.surveillance_camera("main_camera", randomization_mode="look_at_only"), seed=args.seed
+        )
+        log.info("Using look-at-only camera randomization (target point changes)")
+    elif args.camera_scenario == "intrinsics_only":
+        camera_randomizer = CameraRandomizer(
+            CameraPresets.surveillance_camera("main_camera", randomization_mode="intrinsics_only"), seed=args.seed
+        )
+        log.info("Using intrinsics-only camera randomization")
+    elif args.camera_scenario == "image_only":
+        camera_randomizer = CameraRandomizer(
+            CameraPresets.surveillance_camera("main_camera", randomization_mode="image_only"), seed=args.seed
+        )
+        log.info("Using image-only camera randomization")
+    elif args.camera_scenario == "combined":
+        camera_randomizer = CameraRandomizer(
+            CameraPresets.surveillance_camera("main_camera", randomization_mode="combined"), seed=args.seed
+        )
+        log.info("Using combined camera randomization")
+    else:
+        camera_randomizer = CameraRandomizer(
+            CameraPresets.surveillance_camera("main_camera", randomization_mode="combined"), seed=args.seed
+        )
+        log.info("Using default camera randomization")
+
+    camera_randomizer.bind_handler(env)
+    camera_randomizers = [camera_randomizer]
+
     # Get cube mass using randomizer
     cube_mass = cube_mass_randomizer.get_body_mass("cube")
     robot_friction = franka_friction_randomizer.get_body_friction("franka")
@@ -373,6 +419,16 @@ def run_domain_randomization(args):
             log.warning(f"Failed to get initial properties for light {i}: {e}")
             initial_light_properties[f"light_{i}"] = {}
 
+    # Get initial camera properties from all camera randomizers
+    initial_camera_properties = {}
+    for i, randomizer in enumerate(camera_randomizers):
+        try:
+            properties = randomizer.get_camera_properties()
+            initial_camera_properties[f"camera_{i}"] = properties
+        except Exception as e:
+            log.warning(f"Failed to get initial properties for camera {i}: {e}")
+            initial_camera_properties[f"camera_{i}"] = {}
+
     # Store initial values for comparison
     initial_values = {
         "cube_mass": cube_mass.clone(),
@@ -381,6 +437,7 @@ def run_domain_randomization(args):
         "cube_physical": initial_cube_physical,
         "sphere_physical": initial_sphere_physical,
         "lights": initial_light_properties,
+        "cameras": initial_camera_properties,
     }
 
     # run randomization for cube mass
@@ -452,6 +509,25 @@ def run_domain_randomization(args):
         except Exception as e:
             log.warning(f"  Light {i} randomization failed: {e}")
 
+    # run camera randomization for all cameras in the scenario
+    log.info("================================================")
+    log.info(f"randomizing all cameras in {args.camera_scenario} scenario")
+
+    # Initial camera randomization
+    log.info("Applying initial camera randomization...")
+    for i, randomizer in enumerate(camera_randomizers):
+        try:
+            randomizer()
+            camera_name = randomizer.cfg.camera_name
+            log.info(f"  Camera {i} ({camera_name}): Randomization applied")
+            # Log camera properties for debugging
+            props = randomizer.get_camera_properties()
+            if props:
+                log.info(f"    Position: {props.get('position', 'N/A')}")
+                log.info(f"    Focal length: {props.get('focal_length', 'N/A')} cm")
+        except Exception as e:
+            log.warning(f"  Camera {i} randomization failed: {e}")
+
     # Run simulation for a few steps with video recording
     log.info("================================================")
     log.info("Running simulation with randomized materials...")
@@ -473,6 +549,10 @@ def run_domain_randomization(args):
 
                 # Randomize all lights in the scenario
                 for randomizer in light_randomizers:
+                    randomizer()
+
+                # Randomize all cameras in the scenario
+                for randomizer in camera_randomizers:
                     randomizer()
 
             except Exception as e:
@@ -498,6 +578,12 @@ def main():
         ## Lighting scenarios
         lighting_scenario: Literal["default", "indoor_room", "outdoor_scene", "studio", "demo"] = "default"
         """Choose lighting scenario: default, indoor_room, outdoor_scene, studio, or demo (for testing)"""
+
+        ## Camera randomization modes
+        camera_scenario: Literal[
+            "combined", "position_only", "orientation_only", "look_at_only", "intrinsics_only", "image_only"
+        ] = "combined"
+        """Choose camera randomization mode: combined, position_only, orientation_only, look_at_only, intrinsics_only, or image_only"""
 
         ## Others
         num_envs: int = 1
@@ -531,6 +617,22 @@ def main():
         log.info("    * 3 lights: rainbow_light (COLORS), disco_light (SHADOWS), shadow_light (MORE SHADOWS)")
     else:
         log.info("    * 2 lights: main_light, ambient_light")
+    log.info("  - Camera randomization (micro-adjustment mode):")
+    log.info(f"    * Mode: {args.camera_scenario}")
+    if args.camera_scenario == "combined":
+        log.info("    * ALL: position + orientation + intrinsics (small adjustments from current)")
+    elif args.camera_scenario == "position_only":
+        log.info("    * POSITION: small camera position adjustments")
+    elif args.camera_scenario == "orientation_only":
+        log.info("    * ORIENTATION: small rotation adjustments (pitch/yaw/roll deltas)")
+    elif args.camera_scenario == "look_at_only":
+        log.info("    * LOOK-AT: small target point adjustments (where camera looks)")
+    elif args.camera_scenario == "intrinsics_only":
+        log.info("    * INTRINSICS: focal length, aperture changes")
+    elif args.camera_scenario == "image_only":
+        log.info("    * IMAGE: resolution and aspect ratio changes")
+    else:
+        log.info("    * DEFAULT: combined randomization (micro-adjustments)")
     log.info("  - Flexible and extensible configuration system")
     log.info("  - Video recording and comprehensive logging")
     log.info("  - Reproducible results with --seed argument")
@@ -540,6 +642,15 @@ def main():
     log.info("  --lighting-scenario indoor_room # 3-light indoor setup")
     log.info("  --lighting-scenario outdoor_scene # 2-light outdoor setup")
     log.info("  --lighting-scenario studio      # 3-light studio setup")
+    log.info("")
+    log.info("Try different camera randomization modes (micro-adjustment by default):")
+    log.info("  --camera-scenario position_only    # Small position adjustments from current")
+    log.info("  --camera-scenario orientation_only # Small rotation adjustments (pitch/yaw/roll deltas)")
+    log.info("  --camera-scenario look_at_only     # Small target point adjustments (where camera looks)")
+    log.info("  --camera-scenario intrinsics_only  # Only randomize focal length/aperture")
+    log.info("  --camera-scenario image_only       # Only randomize resolution/aspect ratio")
+    log.info("  --camera-scenario combined         # All micro-adjustments (default)")
+    log.info("Note: Camera uses micro-adjustment mode (delta-based) to avoid jarring position changes")
     log.info("")
     log.info("For reproducible results:")
     log.info("  --seed 42                       # Use specific seed for reproducibility")
