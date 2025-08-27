@@ -235,8 +235,10 @@ class IsaaclabEnvOverwriter:
         from .utils.custom_cuboid import FixedCuboid
         from .utils.ground_util import GROUND_PRIM_PATH
 
-        ground_prim = GeometryPrim(GROUND_PRIM_PATH, name="ground_prim")
-        ground_prim.set_world_pose(position=(0.0, 0.0, -table_height), orientation=(1.0, 0.0, 0.0, 0.0))
+        # For predefined scene, this should be comment? Note this !!!
+
+        # ground_prim = GeometryPrim(GROUND_PRIM_PATH, name="ground_prim")
+        # ground_prim.set_world_pose(position=(0.0, 0.0, -table_height), orientation=(1.0, 0.0, 0.0, 0.0))
 
         if self.task is not None and self.task.can_tabletop and self.scenario.try_add_table:
             try:

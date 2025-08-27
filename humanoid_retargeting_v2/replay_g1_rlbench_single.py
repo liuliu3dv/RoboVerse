@@ -254,7 +254,7 @@ def main():
     left_ankle_pose = np.array([0, 0.16, -0.75, 1, 0, 0, 0])
     waist_pose = np.array([0, 0, 0, 1, 0, 0, 0])
     inds = [src_robot_links_names.index(franka_g1[name]) for name in franka_g1.keys()]
-    print("inds:", inds)
+    # print("inds:", inds)
     solutions = []
     for i in range(robot_pose.shape[0]):  # iterate on 156 frames
         solution = pks.solve_ik_with_multiple_targets(
