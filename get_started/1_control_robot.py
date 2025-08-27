@@ -83,6 +83,7 @@ scenario.objects = [
         usd_path="get_started/example_assets/bbq_sauce/usd/bbq_sauce.usd",
         urdf_path="get_started/example_assets/bbq_sauce/urdf/bbq_sauce.urdf",
         mjcf_path="get_started/example_assets/bbq_sauce/mjcf/bbq_sauce.xml",
+        use_vhacd=True,
     ),
     ArticulationObjCfg(
         name="box_base",
