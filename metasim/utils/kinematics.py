@@ -281,4 +281,3 @@ def get_ee_state_from_list(env_states, robot_config, tensorize: bool = False, us
 
     ee_states = torch.stack(ee_states, dim=0)
     return ee_states if tensorize else [{"ee_state": ee_states[i]} for i in range(ee_states.shape[0])]
-
