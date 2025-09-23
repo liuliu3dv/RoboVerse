@@ -433,22 +433,26 @@ if __name__ == "__main__":
     target_asset_type = AssetType.USD
 
     urdf_paths = [
-        "outputs/layouts_gens/task_0002/asset3d/apple/result/apple.urdf",
-        "outputs/layouts_gens/task_0002/asset3d/banana/result/banana.urdf",
-        "outputs/layouts_gens/task_0002/asset3d/mug/result/mug.urdf",
-        "outputs/layouts_gens/task_0002/asset3d/napkin/result/napkin.urdf",
-        "outputs/layouts_gens/task_0002/asset3d/plate/result/plate.urdf",
-        "outputs/layouts_gens/task_0002/asset3d/table/result/table.urdf",
+        "outputs/embodiedgen_assets/demo_assets/table/result/table.urdf",
+        "outputs/embodiedgen_assets/demo_assets/banana/result/banana.urdf",
+        "outputs/embodiedgen_assets/demo_assets/book/result/book.urdf",
+        "outputs/embodiedgen_assets/demo_assets/lamp/result/lamp.urdf",
+        "outputs/embodiedgen_assets/demo_assets/mug/result/mug.urdf",
+        "outputs/embodiedgen_assets/demo_assets/remote_control/result/remote_control.urdf",
+        "outputs/embodiedgen_assets/demo_assets/rubik's_cube/result/rubik's_cube.urdf",
+        "outputs/embodiedgen_assets/demo_assets/vase/result/vase.urdf",
     ]
 
     if target_asset_type == AssetType.MJCF:
         output_files = [
-            "outputs/layouts_gens/task_0000/mujoco2/apple/apple.mjcf",
-            "outputs/layouts_gens/task_0000/mujoco2/banana/banana.mjcf",
-            "outputs/layouts_gens/task_0000/mujoco2/mug/mug.mjcf",
-            "outputs/layouts_gens/task_0000/mujoco2/napkin/napkin.mjcf",
-            "outputs/layouts_gens/task_0000/mujoco2/plate/plate.mjcf",
-            "outputs/layouts_gens/task_0000/mujoco2/table/table.mjcf",
+            "outputs/embodiedgen_assets/demo_assets/table/mjcf/table.mjcf",
+            "outputs/embodiedgen_assets/demo_assets/banana/mjcf/banana.mjcf",
+            "outputs/embodiedgen_assets/demo_assets/book/mjcf/book.mjcf",
+            "outputs/embodiedgen_assets/demo_assets/lamp/mjcf/lamp.mjcf",
+            "outputs/embodiedgen_assets/demo_assets/mug/mjcf/mug.mjcf",
+            "outputs/embodiedgen_assets/demo_assets/remote_control/mjcf/remote_control.mjcf",
+            "outputs/embodiedgen_assets/demo_assets/rubik's_cube/mjcf/rubik's_cube.mjcf",
+            "outputs/embodiedgen_assets/demo_assets/vase/mjcf/vase.mjcf",
         ]
         asset_converter = AssetConverterFactory.create(
             target_type=AssetType.MJCF,
@@ -457,12 +461,14 @@ if __name__ == "__main__":
 
     elif target_asset_type == AssetType.USD:
         output_files = [
-            "outputs/layouts_gens/task_0000/isaac2/apple/apple.usd",
-            "outputs/layouts_gens/task_0000/isaac2/banana/banana.usd",
-            "outputs/layouts_gens/task_0000/isaac2/mug/mug.usd",
-            "outputs/layouts_gens/task_0000/isaac2/napkin/napkin.usd",
-            "outputs/layouts_gens/task_0000/isaac2/plate/plate.usd",
-            "outputs/layouts_gens/task_0000/isaac2/table/table.usd",
+            "outputs/embodiedgen_assets/demo_assets/table/usd/table.usd",
+            "outputs/embodiedgen_assets/demo_assets/banana/usd/banana.usd",
+            "outputs/embodiedgen_assets/demo_assets/book/usd/book.usd",
+            "outputs/embodiedgen_assets/demo_assets/lamp/usd/lamp.usd",
+            "outputs/embodiedgen_assets/demo_assets/mug/usd/mug.usd",
+            "outputs/embodiedgen_assets/demo_assets/remote_control/usd/remote_control.usd",
+            "outputs/embodiedgen_assets/demo_assets/rubik's_cube/usd/rubik's_cube.usd",
+            "outputs/embodiedgen_assets/demo_assets/vase/usd/vase.usd",
         ]
         asset_converter = AssetConverterFactory.create(
             target_type=AssetType.USD,
@@ -473,8 +479,8 @@ if __name__ == "__main__":
         for urdf_path, output_file in zip(urdf_paths, output_files):
             asset_converter.convert(urdf_path, output_file)
 
-    # urdf_path = "outputs/layouts_gens/task_0000/asset3d/desk/result/desk.urdf"
-    # output_file = "outputs/layouts_gens/task_0000/asset3d/desk/test_cvt_usd/desk.usd"
+    # urdf_path = "outputs/layouts_gens/task_0000/asset3d/table/result/table.urdf"
+    # output_file = "outputs/layouts_gens/task_0000/asset3d/table/test_cvt_usd/table.usd"
 
     # asset_converter = AssetConverterFactory.create(
     #     target_type=AssetType.USD,
