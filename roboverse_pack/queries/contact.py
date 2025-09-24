@@ -66,7 +66,7 @@ class ContactData(BaseQueryType):
                     con.geom1 == self._geom2_id and con.geom2 == self._geom1_id
                 ):
                     if con.dist < 1e-6:
-                        has_contact= True
+                        has_contact = True
                         break
 
             return torch.tensor(has_contact, dtype=torch.float32, device=self.handler.device)
