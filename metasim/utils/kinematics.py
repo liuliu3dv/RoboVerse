@@ -5,8 +5,6 @@ import torch
 from metasim.scenario.robot import RobotCfg
 from metasim.utils.math import matrix_from_quat
 
-# ==================== CUROBO FUNCTIONS ====================
-
 
 def get_curobo_models(robot_cfg: RobotCfg, no_gnd=False):
     """Initializes and returns the curobo kinematic model, forward kinematics function, and inverse kinematics solver for a given robot configuration.
@@ -99,15 +97,12 @@ def get_pyroki_model(robot_cfg: RobotCfg):
         """
         # Try CUDA first, fallback to CPU if JAX doesn't support CUDA
         try:
-            # Convert PyTorch to JAX via DLPack (try CUDA)
             pos = jnp.from_dlpack(pos_target)
             quat = jnp.from_dlpack(quat_target)
         except RuntimeError as e:
-            # JAX doesn't support CUDA, use CPU
             pos = jnp.from_dlpack(pos_target.cpu())
             quat = jnp.from_dlpack(quat_target.cpu())
 
-        # Solve IK
         solution = pks.solve_ik(
             pk_robot,
             ee_link_name,
@@ -115,16 +110,12 @@ def get_pyroki_model(robot_cfg: RobotCfg):
             target_position=pos,
         )
 
-        # Convert JAX to PyTorch via DLPack
         q_tensor = torch.from_dlpack(solution)
-
-        # Move to same device as input if needed
         if pos_target.is_cuda and q_tensor.device.type == "cpu":
             q_tensor = q_tensor.cuda()
 
         return q_tensor
-
-    # 预编译的 JIT 函数，避免重复编译
+    
     import jax.numpy as jnp
     import jax_dataclasses as jdc
     import jaxlie
