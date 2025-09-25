@@ -64,7 +64,11 @@ class IKSolver:
             return q_solution, ik_succ
 
         else:  # pyroki
-            q_list = [self.backend_solver["solve_ik"](ee_pos_target[i], ee_quat_target[i]) for i in range(num_envs)]
+            q_list = []
+            for i in range(num_envs):
+                seed_cfg = seed_q[i, : self.n_dof_ik]
+                q_sol = self.backend_solver["solve_ik_with_seed"](ee_pos_target[i], ee_quat_target[i], seed_cfg)
+                q_list.append(q_sol)
             q_solution = torch.stack(q_list, dim=0)[:, : self.n_dof_ik]
             ik_succ = torch.ones(num_envs, dtype=torch.bool, device=ee_pos_target.device)
             return q_solution, ik_succ
