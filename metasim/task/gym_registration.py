@@ -10,6 +10,8 @@ from gymnasium.vector import SyncVectorEnv
 from gymnasium.vector.vector_env import VectorEnv
 
 from .registry import get_task_class
+from .registry import list_tasks
+import warnings
 
 # Local fallback registry for vector entry points when Gymnasium does not
 # support the `vector_entry_point` argument in `register()`.
@@ -231,29 +233,34 @@ def _make_vector_entry_point(task_name: str) -> Callable[..., VectorEnv]:
     return _factory
 
 
-# # -------------------------
-# # Registration helpers
-# # -------------------------
-# def register_all_tasks_with_gym(prefix: str = "RoboVerse/") -> None:
-#     """Register all tasks with both single-env and vectorized entry points."""
-#     for task_name in list_tasks():
-#         env_id = f"{prefix}{task_name}"
-#         entry = _make_entry_point_single(task_name)
-#         vec_entry = _make_vector_entry_point(task_name)
-#         # Try registering with vector entry point (newer Gymnasium). If that fails
-#         # (older versions), register single entry and store vector entry locally.
-#         try:
-#             register(id=env_id, entry_point=entry, vector_entry_point=vec_entry)
-#         except TypeError:
-#             try:
-#                 register(id=env_id, entry_point=entry)
-#             except Exception:
-#                 # Ignore duplicate registrations during hot reload.
-#                 pass
-#             _VECTOR_ENTRY_POINTS[env_id] = vec_entry
-#         except Exception:
-#             # Ignore duplicate registrations during hot reload.
-#             pass
+# -------------------------
+# Registration helpers
+# -------------------------
+def register_all_tasks_with_gym(prefix: str = "RoboVerse/") -> None:
+    """Register all known tasks for both gymnasium.make and gymnasium.make_vec.
+
+    This is safe to call multiple times.
+    """
+    for task_name in list_tasks():
+        env_id = f"{prefix}{task_name}"
+        entry = _make_entry_point_single(task_name)
+        vec_entry = _make_vector_entry_point(task_name)
+        try:
+            register(id=env_id, entry_point=entry, vector_entry_point=vec_entry)
+        except TypeError:
+            try:
+                register(id=env_id, entry_point=entry)
+            except Exception:
+                pass
+            _VECTOR_ENTRY_POINTS[env_id] = vec_entry
+            try:
+                spec_ = _find_spec(env_id)
+                spec_.vector_entry_point = vec_entry  # type: ignore[attr-defined]
+            except Exception:
+                pass
+        except Exception:
+            # Ignore duplicate registrations during hot reload.
+            pass
 
 
 def register_task_with_gym(task_name: str, env_id: str | None = None) -> str:
@@ -266,11 +273,24 @@ def register_task_with_gym(task_name: str, env_id: str | None = None) -> str:
         register(id=env_id, entry_point=entry, vector_entry_point=vec_entry)
     except TypeError:
         try:
+            # Older Gymnasium versions do not support vector_entry_point as a kwarg.
+            # Register the single-env entry first.
             register(id=env_id, entry_point=entry)
         except Exception:
             # Ignore duplicate registrations during hot reload.
             pass
+        # Store locally for our make_vec fallback.
         _VECTOR_ENTRY_POINTS[env_id] = vec_entry
+        # Additionally, attach the vector entry point to the spec if available so
+        # gymnasium.make_vec can discover it on older versions.
+        try:
+            spec_ = _find_spec(env_id)
+            # Some Gymnasium versions allow arbitrary attributes on EnvSpec.
+            # Use direct attribute assignment to avoid linter warnings about setattr.
+            spec_.vector_entry_point = vec_entry  # type: ignore[attr-defined]
+        except Exception:
+            # Best-effort: make_vec helper will still work using our local registry.
+            pass
     except Exception:
         # Ignore duplicate registrations during hot reload.
         pass
@@ -282,32 +302,29 @@ def make_vec(
     num_envs: int,
     **kwargs: Any,
 ) -> VectorEnv:
-    """Instantiate a vectorized roboverse task.
+    """Deprecated: use gymnasium.make_vec(env_id, num_envs=..., ...) instead.
 
-    Args:
-        env_id: The environment ID to register.
-        num_envs: The number of environments to create.
-        **kwargs: Additional keyword arguments to pass to the environment creator.
-
-    Returns:
-        VectorEnv: The vectorized environment.
+    This wrapper will attempt to ensure the Gymnasium spec has a vector entry
+    point, register it if missing, then forward the call to gymnasium.make_vec.
     """
-    # Prefer locally stored vector entry (for older Gymnasium without
-    # vector_entry_point support). Fall back to spec, then to building a
-    # vector adapter directly from the task name.
-    env_creator: Callable[..., VectorEnv] | None = _VECTOR_ENTRY_POINTS.get(env_id)
+    warnings.warn(
+        "metasim.task.gym_registration.make_vec is deprecated; use gymnasium.make_vec instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    if env_creator is None:
-        try:
-            spec_ = _find_spec(env_id)
-            env_creator = getattr(spec_, "vector_entry_point", None)
-        except Exception:
-            env_creator = None
+    # Ensure vector entry point is available for env_id
+    try:
+        spec_ = _find_spec(env_id)
+        vec_ep = getattr(spec_, "vector_entry_point", None)
+    except Exception:
+        spec_ = None
+        vec_ep = None
 
-    if env_creator is None:
-        # Derive task name from the env_id and build a vector entry on the fly.
+    if vec_ep is None:
+        # Try to register this specific task lazily
         task_name = env_id.split("/", 1)[1] if "/" in env_id else env_id
-        env_creator = _make_vector_entry_point(task_name)
+        register_task_with_gym(task_name, env_id=env_id)
 
-    env = env_creator(num_envs=num_envs, **kwargs)
-    return env
+    # Forward to Gymnasium
+    return gym.make_vec(env_id, num_envs=num_envs, **kwargs)

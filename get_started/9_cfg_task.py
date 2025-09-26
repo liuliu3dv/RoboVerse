@@ -21,7 +21,7 @@ log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 import torch
 
 from metasim.scenario.cameras import PinholeCameraCfg
-from metasim.task.gym_registration import make_vec
+from gymnasium import make_vec
 from metasim.utils import configclass
 from metasim.utils.obs_utils import ObsSaver
 
@@ -73,10 +73,10 @@ def main():
     )
 
     env_id = f"RoboVerse/{args.task}"
-
     env = make_vec(
         env_id,
         num_envs=args.num_envs,
+        # vectorization_mode=None,
         simulator=args.sim,
         headless=args.headless,
         cameras=[camera] if args.save_video else [],
