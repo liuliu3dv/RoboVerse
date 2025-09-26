@@ -41,35 +41,24 @@ class GymEnvWrapper(gym.Env):
         # Force single environment when created via gym.make.
         scenario_kwargs["num_envs"] = 1
 
-        self._device = (
-            torch.device(device)
-            if device is not None
-            else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-        )
-
         self.task_cls = get_task_class(task_name)
         updated_scenario_cfg = self.task_cls.scenario.update(**scenario_kwargs)
         self.scenario = updated_scenario_cfg
         self.task_env = self.task_cls(updated_scenario_cfg)
         self.action_space = self.task_env.action_space
         self.observation_space = self.task_env.observation_space
-
         # Instance-level metadata; declare autoreset mode with the official enum
         self.metadata = dict(getattr(self, "metadata", {}))
         self.metadata["autoreset_mode"] = (
             AutoresetMode.SAME_STEP if AutoresetMode is not None else "same-step"
         )  # If enum missing, string fallback (may still warn on older Gymnasium)
+        self.device = self.task_env.device
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
         """Reset the environment and return the initial observation."""
         super().reset(seed=seed)
         obs, info = self.task_env.reset()
-
-        if torch.is_tensor(obs):
-            obs = obs.detach().cpu().numpy()
-        if obs.ndim == 2 and obs.shape[0] == 1:
-            obs = obs[0]
-        return obs, {}
+        return obs, info
 
     def step(self, action):
         """Step the environment with the given action."""
@@ -100,27 +89,13 @@ class GymVectorEnvAdapter(VectorEnv):
     def __init__(
         self,
         task_name: str,
-        num_envs: int,
-        device: str | torch.device | None = None,
         **scenario_kwargs: Any,
     ) -> None:
-        # Delegate num_envs to the backend.
-        scenario_kwargs["num_envs"] = int(num_envs)
-
-        self._device = (
-            torch.device(device)
-            if device is not None
-            else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-        )
-
         self.task_cls = get_task_class(task_name)
         updated_scenario_cfg = self.task_cls.scenario.update(**scenario_kwargs)
         self.task_env = self.task_cls(updated_scenario_cfg)
         self.scenario = updated_scenario_cfg
-        # scenario = ScenarioCfg(**scenario_kwargs)
-        # self.task_env = load_task(task_name, scenario, device=self._device)
-        # self.scenario = self.task_env.scenario
-        # Use positional args to be compatible across Gymnasium versions.
+        self.device = self.task_env.device
         try:
             super().__init__(self.task_env.num_envs, self.task_env.observation_space, self.task_env.action_space)
         except TypeError:
@@ -141,9 +116,7 @@ class GymVectorEnvAdapter(VectorEnv):
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
         """Reset all environments and return initial observations."""
-        # super().reset(seed=seed)
         obs, info = self.task_env.reset()
-        # VectorEnv API: return (obs_batch, infos_list) where len(infos) == num_envs.
         return obs, info
 
     def step_async(self, actions) -> None:
@@ -152,34 +125,9 @@ class GymVectorEnvAdapter(VectorEnv):
 
     def step_wait(self):
         """Wait for the step to complete and return results."""
-        if self._pending_actions is None:
-            raise RuntimeError("step_async must be called before step_wait.")
-
-        out = self.task_env.step(self._pending_actions)
-        if len(out) != 5:
-            raise RuntimeError(
-                f"Backend returned {len(out)} items; expected 5 (obs, reward, terminated, truncated, info)."
-            )
-
-        obs, reward, terminated, truncated, info = out  # 'truncated' may be 'timeout' internally.
-
-        # Ensure infos is a list[dict] of length num_envs.
-        if info is None:
-            infos = [{} for _ in range(self.num_envs)]
-        elif isinstance(info, dict):
-            infos = [info.copy() for _ in range(self.num_envs)]
-        else:
-            infos = list(info)
-            if len(infos) != self.num_envs:
-                # Broadcast a single dict if needed.
-                if len(infos) == 1 and isinstance(infos[0], dict):
-                    infos = [infos[0].copy() for _ in range(self.num_envs)]
-                else:
-                    raise RuntimeError(f"Expected {self.num_envs} infos, got {len(infos)}.")
-
-        # Clear pending actions.
-        self._pending_actions = None
-        return obs, reward, terminated, truncated, infos
+        obs, reward, terminated, truncated, info = self.task_env.step(self._pending_actions)
+        self._pending_actions = None  # Clear pending actions.
+        return obs, reward, terminated, truncated, info
 
     def step(self, actions):
         """Synchronous step composed from step_async + step_wait (required by Gym)."""
