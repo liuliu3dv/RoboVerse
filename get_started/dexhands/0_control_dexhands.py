@@ -18,8 +18,9 @@ rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 import torch
-import metasim          # noqa: F401
 from gymnasium import make_vec
+
+import metasim  # noqa: F401
 
 # Ensure the new env class is imported so its @register_task decorators run.
 # Adjust the import path if you place xhand_env.py elsewhere.

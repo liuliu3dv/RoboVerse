@@ -19,9 +19,9 @@ log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 
 import torch
-import metasim          # noqa: F401
 from gymnasium import make_vec
 
+import metasim  # noqa: F401
 from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.utils import configclass
 from metasim.utils.obs_utils import ObsSaver
