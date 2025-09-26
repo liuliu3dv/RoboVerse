@@ -19,6 +19,7 @@ log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 
 import torch
+import metasim          # noqa: F401
 from gymnasium import make_vec
 
 from metasim.scenario.cameras import PinholeCameraCfg
