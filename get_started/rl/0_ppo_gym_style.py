@@ -25,7 +25,7 @@ log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 # Ensure reaching tasks are registered exactly once from the canonical module
 # from metasim.task.gym_registration import make_vec
 from gymnasium import make_vec
-import metasim
+
 from metasim.utils.obs_utils import ObsSaver
 
 

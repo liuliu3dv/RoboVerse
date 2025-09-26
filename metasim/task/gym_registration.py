@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any, Callable
 
 import gymnasium as gym
@@ -9,9 +10,7 @@ from gymnasium.envs.registration import _find_spec, register
 from gymnasium.vector import SyncVectorEnv
 from gymnasium.vector.vector_env import VectorEnv
 
-from .registry import get_task_class
-from .registry import list_tasks
-import warnings
+from .registry import get_task_class, list_tasks
 
 # Local fallback registry for vector entry points when Gymnasium does not
 # support the `vector_entry_point` argument in `register()`.
