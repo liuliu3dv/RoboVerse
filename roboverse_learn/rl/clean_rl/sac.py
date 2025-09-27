@@ -26,6 +26,7 @@ from gymnasium import make_vec
 import metasim  # noqa: F401
 
 from roboverse_learn.rl.clean_rl.buffer import ReplayBuffer
+from roboverse_learn.rl.episode_tracker import EpisodeTracker
 
 
 @dataclass
@@ -243,7 +244,12 @@ if __name__ == "__main__":
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
     obs = obs.to(device)
-    for global_step in range(args.total_timesteps):
+    global_step = 0
+
+    # Initialize episode tracker
+    episode_tracker = EpisodeTracker(args.num_envs, device)
+
+    while global_step < args.total_timesteps:
         # ALGO LOGIC: put action logic here
         if global_step < args.learning_starts:
             actions = torch.tensor([envs.single_action_space.sample() for _ in range(envs.num_envs)], device=device)
@@ -260,8 +266,12 @@ if __name__ == "__main__":
         true_next_obs = torch.where(truncations[:, None] > 0, infos["observations"]["raw"]["obs"], next_obs)
         rb.add(obs.cpu().numpy(), true_next_obs.cpu().numpy(), actions.cpu().numpy(), rewards.cpu().numpy(), terminations.cpu().numpy(), infos)
 
+        # Update episode tracker
+        episode_tracker.update(rewards, terminations, truncations)
+
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
         obs = next_obs
+        global_step += args.num_envs
 
         # ALGO LOGIC: training.
         if global_step > args.learning_starts:
@@ -323,7 +333,15 @@ if __name__ == "__main__":
                 writer.add_scalar("losses/qf_loss", qf_loss.item() / 2.0, global_step)
                 writer.add_scalar("losses/actor_loss", actor_loss.item(), global_step)
                 writer.add_scalar("losses/alpha", alpha, global_step)
-                print("SPS:", int(global_step / (time.time() - start_time)))
+
+                # Log episode statistics
+                avg_return, avg_length = episode_tracker.get_stats()
+                if episode_tracker.get_episode_count() > 0:
+                    writer.add_scalar("charts/avg_episodic_return", avg_return, global_step)
+                    writer.add_scalar("charts/avg_episodic_length", avg_length, global_step)
+                    print(f"SPS: {int(global_step / (time.time() - start_time))}, avg_return: {avg_return:.2f}, avg_length: {avg_length:.1f}, timesteps: {global_step}")
+                else:
+                    print(f"SPS: {int(global_step / (time.time() - start_time))}, timesteps: {global_step}")
                 writer.add_scalar(
                     "charts/SPS",
                     int(global_step / (time.time() - start_time)),

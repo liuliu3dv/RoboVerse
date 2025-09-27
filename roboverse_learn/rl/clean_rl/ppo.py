@@ -25,6 +25,8 @@ rootutils.setup_root(__file__, pythonpath=True)
 from gymnasium import make_vec
 import metasim  # noqa: F401
 
+from roboverse_learn.rl.episode_tracker import EpisodeTracker
+
 
 @dataclass
 class Args:
@@ -68,7 +70,7 @@ class Args:
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
-    num_envs: int = 128
+    num_envs: int = 2048
     """the number of parallel game environments"""
     num_steps: int = 16
     """the number of steps to run in each environment per policy rollout"""
@@ -78,7 +80,7 @@ class Args:
     """the discount factor gamma"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation"""
-    num_minibatches: int = 32
+    num_minibatches: int = 64
     """the number of mini-batches"""
     update_epochs: int = 10
     """the K epochs to update the policy"""
@@ -126,6 +128,8 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
+
+
 
 
 class Agent(nn.Module):
@@ -214,6 +218,9 @@ if __name__ == "__main__":
     next_obs = next_obs.to(device)
     next_done = torch.zeros(args.num_envs, dtype=torch.bool, device=device)
 
+    # Initialize episode tracker
+    episode_tracker = EpisodeTracker(args.num_envs, device)
+
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
@@ -239,12 +246,8 @@ if __name__ == "__main__":
             rewards[step] = reward.view(-1)
             dones[step] = next_done
 
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    if info and "episode" in info:
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+            # Update episode tracker
+            episode_tracker.update(reward.view(-1), terminations, truncations)
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -337,7 +340,15 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        print("SPS:", int(global_step / (time.time() - start_time)))
+
+        # Log episode statistics
+        avg_return, avg_length = episode_tracker.get_stats()
+        if episode_tracker.get_episode_count() > 0:
+            writer.add_scalar("charts/avg_episodic_return", avg_return, global_step)
+            writer.add_scalar("charts/avg_episodic_length", avg_length, global_step)
+            print(f"SPS: {int(global_step / (time.time() - start_time))}, avg_return: {avg_return:.2f}, avg_length: {avg_length:.1f}, timesteps: {global_step}")
+        else:
+            print(f"SPS: {int(global_step / (time.time() - start_time))}, timesteps: {global_step}")
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
     if args.save_model:
