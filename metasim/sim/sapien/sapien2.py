@@ -385,7 +385,7 @@ class Sapien2Handler(BaseSimHandler):
                 rot = torch.tensor(pose.q)
                 vel = torch.zeros(3)
                 ang_vel = torch.zeros(3)
-                log.warning("Sapien2 does not support getting velocity of articulation")
+                log.warning("Sapien2 does not support getting velocity of articulations")
             else:
                 assert isinstance(obj_inst, sapien_core.Actor)
                 pos = torch.tensor(pose.p)

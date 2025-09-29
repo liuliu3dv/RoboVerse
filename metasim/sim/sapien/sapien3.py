@@ -13,9 +13,13 @@ import xml.etree.ElementTree as ET
 from copy import deepcopy
 
 import numpy as np
-import sapien
-import sapien.core as sapien_core
-import sapien.physx as physx
+
+try:
+    import sapien
+    import sapien.core as sapien_core
+    import sapien.pysapien.physx as physx
+except ImportError:
+    pass
 import torch
 from loguru import logger as log
 from packaging.version import parse as parse_version
@@ -43,6 +47,13 @@ __all__ = [
 ]
 
 
+def replace_package_url(file_path: str, local_dir: str = "roboverse_data") -> str:
+    if file_path.startswith("package://"):
+        file_path = file_path[len("package://") :]
+        file_path = os.path.normpath(os.path.join(local_dir, file_path))
+    return file_path
+
+
 def load_actor_from_urdf(
     scene: sapien.Scene,
     file_path: str,
@@ -68,11 +79,13 @@ def load_actor_from_urdf(
 
     visual_mesh = root.find(".//visual/geometry/mesh")
     visual_file = visual_mesh.get("filename")
+    visual_file = replace_package_url(visual_file, "")
     visual_scale = visual_mesh.get("scale", "1.0 1.0 1.0")
     visual_scale = np.array([float(x) for x in visual_scale.split()]) * np.array(scale)
 
     collision_mesh = root.find(".//collision/geometry/mesh")
     collision_file = collision_mesh.get("filename")
+    collision_file = replace_package_url(collision_file, "")
     collision_scale = collision_mesh.get("scale", "1.0 1.0 1.0")
     collision_scale = np.array([float(x) for x in collision_scale.split()]) * np.array(scale)
 
@@ -81,8 +94,10 @@ def load_actor_from_urdf(
 
     visual_file = os.path.join(file_dir, visual_file)
     collision_file = os.path.join(file_dir, collision_file)
-    static_fric = root.find(".//collision/gazebo/mu1").text
-    dynamic_fric = root.find(".//collision/gazebo/mu2").text
+    static_fric = root.find(".//collision/gazebo/mu1")
+    static_fric = static_fric.text if static_fric is not None else "0.0"
+    dynamic_fric = root.find(".//collision/gazebo/mu2")
+    dynamic_fric = dynamic_fric.text if dynamic_fric is not None else "0.0"
 
     material = physx.PhysxMaterial(
         static_friction=np.clip(float(static_fric), 0.1, 0.7),
