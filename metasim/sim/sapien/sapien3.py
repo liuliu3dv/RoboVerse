@@ -81,8 +81,10 @@ def load_actor_from_urdf(
 
     visual_file = os.path.join(file_dir, visual_file)
     collision_file = os.path.join(file_dir, collision_file)
-    static_fric = root.find(".//collision/gazebo/mu1").text
-    dynamic_fric = root.find(".//collision/gazebo/mu2").text
+    mu1 = root.find(".//collision/gazebo/mu1")
+    mu2 = root.find(".//collision/gazebo/mu2")
+    static_fric = mu1.text if mu1 is not None else 0.5
+    dynamic_fric = mu2.text if mu2 is not None else 0.5
 
     material = physx.PhysxMaterial(
         static_friction=np.clip(float(static_fric), 0.1, 0.7),
