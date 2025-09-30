@@ -38,7 +38,7 @@ class BaseSimHandler(ABC):
         self.cameras = scenario.cameras
         self.sensors = scenario.sensors
         self.objects = scenario.objects
-        self.checker = scenario.checker
+        self.checker = scenario.checker  # JointPosChecker(obj_name='box_base', joint_name='box_joint', mode='le', radian_threshold=-0.24434609527920614)
         self.object_dict = {obj.name: obj for obj in self.objects + self.robots + self.checker.get_debug_viewers()}
         """A dict mapping object names to object cfg instances. It includes objects, robot, and checker debug viewers."""
         self._state_cache_expire = True

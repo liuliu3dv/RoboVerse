@@ -43,10 +43,18 @@ class G1HandCfg(BaseRobotCfg):
         # for lock waist
         # 'waist_roll_joint': BaseActuatorCfg(stiffness=200, damping=5),
         # 'waist_pitch_joint': BaseActuatorCfg(stiffness=200, damping=5),
+
+
         "left_shoulder_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "left_shoulder_roll_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "left_shoulder_yaw_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "left_elbow_joint": BaseActuatorCfg(stiffness=40, damping=10),
+
+        # "left_shoulder_pitch_joint": BaseActuatorCfg(stiffness=0, damping=1),
+        # "left_shoulder_roll_joint": BaseActuatorCfg(stiffness=0, damping=1),
+        # "left_shoulder_yaw_joint": BaseActuatorCfg(stiffness=0, damping=1),
+        # "left_elbow_joint": BaseActuatorCfg(stiffness=0, damping=1),
+
         'left_wrist_roll_joint': BaseActuatorCfg(stiffness=40, damping=10),
         'left_wrist_pitch_joint': BaseActuatorCfg(stiffness=40, damping=10),
         'left_wrist_yaw_joint': BaseActuatorCfg(stiffness=40, damping=10),
@@ -57,10 +65,16 @@ class G1HandCfg(BaseRobotCfg):
         'left_hand_middle_1_joint': BaseActuatorCfg(stiffness=40, damping=10),
         'left_hand_index_0_joint': BaseActuatorCfg(stiffness=40, damping=10),
         'left_hand_index_1_joint': BaseActuatorCfg(stiffness=40, damping=10),
+
         "right_shoulder_pitch_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "right_shoulder_roll_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "right_shoulder_yaw_joint": BaseActuatorCfg(stiffness=40, damping=10),
         "right_elbow_joint": BaseActuatorCfg(stiffness=40, damping=10),
+        # "right_shoulder_pitch_joint": BaseActuatorCfg(stiffness=0, damping=1),
+        # "right_shoulder_roll_joint": BaseActuatorCfg(stiffness=0, damping=1),
+        # "right_shoulder_yaw_joint": BaseActuatorCfg(stiffness=0, damping=1),
+        # "right_elbow_joint": BaseActuatorCfg(stiffness=0, damping=1),
+
         'right_wrist_roll_joint': BaseActuatorCfg(stiffness=40, damping=10),
         'right_wrist_pitch_joint': BaseActuatorCfg(stiffness=40, damping=10),
         'right_wrist_yaw_joint': BaseActuatorCfg(stiffness=40, damping=10),
@@ -72,109 +86,355 @@ class G1HandCfg(BaseRobotCfg):
         'right_hand_index_0_joint': BaseActuatorCfg(stiffness=40, damping=10),
         'right_hand_index_1_joint': BaseActuatorCfg(stiffness=40, damping=10),
     }
+
     joint_limits: dict[str, tuple[float, float]] = {
         # "floating_base_joint": (-2.5307, 2.8798),
 
+        # Legs
         "left_hip_pitch_joint": (-2.5307, 2.8798),
         "left_hip_roll_joint": (-0.5236, 2.9671),
         "left_hip_yaw_joint": (-2.7576, 2.7576),
         "left_knee_joint": (-0.087267, 2.8798),
         "left_ankle_pitch_joint": (-0.87267, 0.5236),
         "left_ankle_roll_joint": (-0.2618, 0.2618),
+
         "right_hip_pitch_joint": (-2.5307, 2.8798),
         "right_hip_roll_joint": (-2.9671, 0.5236),
         "right_hip_yaw_joint": (-2.7576, 2.7576),
         "right_knee_joint": (-0.087267, 2.8798),
         "right_ankle_pitch_joint": (-0.87267, 0.5236),
         "right_ankle_roll_joint": (-0.2618, 0.2618),
+
+        # Waist
         "waist_yaw_joint": (-2.618, 2.618),
+        # 如果解锁腰部 pitch/roll 可加：
+        # "waist_pitch_joint": (-0.785, 0.785),
+        # "waist_roll_joint": (-0.785, 0.785),
+
+        # Arms
         "left_shoulder_pitch_joint": (-3.0892, 2.6704),
         "left_shoulder_roll_joint": (-1.5882, 2.2515),
         "left_shoulder_yaw_joint": (-2.618, 2.618),
         "left_elbow_joint": (-1.0472, 2.0944),
+
         "right_shoulder_pitch_joint": (-3.0892, 2.6704),
         "right_shoulder_roll_joint": (-2.2515, 1.5882),
         "right_shoulder_yaw_joint": (-2.618, 2.618),
         "right_elbow_joint": (-1.0472, 2.0944),
+
+        # Wrists
+        "left_wrist_roll_joint": (-1.5708, 1.5708),   # ±90°
+        "left_wrist_pitch_joint": (-1.0472, 1.0472), # ±60°
+        "left_wrist_yaw_joint": (-1.5708, 1.5708),   # ±90°
+
+        "right_wrist_roll_joint": (-1.5708, 1.5708),
+        "right_wrist_pitch_joint": (-1.0472, 1.0472),
+        "right_wrist_yaw_joint": (-1.5708, 1.5708),
+
+        # Fingers (Thumb: opposition, flexion; Middle/Index: flexion)
+        "left_hand_thumb_0_joint": (-0.7854, 0.7854),   # base abduction/adduction (±45°)
+        "left_hand_thumb_1_joint": (0.0, 1.5708),       # MCP flexion (0–90°)
+        "left_hand_thumb_2_joint": (0.0, 1.5708),       # IP flexion (0–90°)
+
+        "left_hand_middle_0_joint": (0.0, 1.5708),      # MCP flexion (0–90°)
+        "left_hand_middle_1_joint": (0.0, 1.5708),      # PIP flexion (0–90°)
+        "left_hand_index_0_joint": (0.0, 1.5708),       # MCP flexion (0–90°)
+        "left_hand_index_1_joint": (0.0, 1.5708),       # PIP flexion (0–90°)
+
+        "right_hand_thumb_0_joint": (-0.7854, 0.7854),
+        "right_hand_thumb_1_joint": (0.0, 1.5708),
+        "right_hand_thumb_2_joint": (0.0, 1.5708),
+
+        "right_hand_middle_0_joint": (0.0, 1.5708),
+        "right_hand_middle_1_joint": (0.0, 1.5708),
+        "right_hand_index_0_joint": (0.0, 1.5708),
+        "right_hand_index_1_joint": (0.0, 1.5708),
     }
 
-    torque_limits: dict[str, float] = {  # = target angles [rad] when action = 0.0
-        # "floating_base_joint": 50,
-
+    torque_limits: dict[str, float] = {
+        # Legs
         "left_hip_pitch_joint": 88,
         "left_hip_roll_joint": 139,
         "left_hip_yaw_joint": 88,
         "left_knee_joint": 139,
         "left_ankle_pitch_joint": 50,
         "left_ankle_roll_joint": 50,
+
         "right_hip_pitch_joint": 88,
         "right_hip_roll_joint": 139,
         "right_hip_yaw_joint": 88,
         "right_knee_joint": 139,
         "right_ankle_pitch_joint": 50,
         "right_ankle_roll_joint": 50,
+
+        # Waist
         "waist_yaw_joint": 88,
+        # "waist_pitch_joint": 88,   # 如果启用
+        # "waist_roll_joint": 88,    # 如果启用
+
+        # Arms
         "left_shoulder_pitch_joint": 25,
         "left_shoulder_roll_joint": 25,
         "left_shoulder_yaw_joint": 25,
         "left_elbow_joint": 25,
+
         "right_shoulder_pitch_joint": 25,
         "right_shoulder_roll_joint": 25,
         "right_shoulder_yaw_joint": 25,
         "right_elbow_joint": 25,
+
+        # Wrists
+        "left_wrist_roll_joint": 10,
+        "left_wrist_pitch_joint": 10,
+        "left_wrist_yaw_joint": 10,
+
+        "right_wrist_roll_joint": 10,
+        "right_wrist_pitch_joint": 10,
+        "right_wrist_yaw_joint": 10,
+
+        # Fingers (小力矩即可)
+        "left_hand_thumb_0_joint": 5,
+        "left_hand_thumb_1_joint": 5,
+        "left_hand_thumb_2_joint": 5,
+        "left_hand_middle_0_joint": 5,
+        "left_hand_middle_1_joint": 5,
+        "left_hand_index_0_joint": 5,
+        "left_hand_index_1_joint": 5,
+
+        "right_hand_thumb_0_joint": 5,
+        "right_hand_thumb_1_joint": 5,
+        "right_hand_thumb_2_joint": 5,
+        "right_hand_middle_0_joint": 5,
+        "right_hand_middle_1_joint": 5,
+        "right_hand_index_0_joint": 5,
+        "right_hand_index_1_joint": 5,
     }
 
-    default_joint_positions: dict[str, float] = {  # = target angles [rad] when action = 0.0
-        # "floating_base_joint": 0.0,
 
+    default_joint_positions: dict[str, float] = {
+        # Legs (轻微屈膝站立)
         "left_hip_pitch_joint": -0.4,
-        "left_hip_roll_joint": 0,
+        "left_hip_roll_joint": 0.0,
         "left_hip_yaw_joint": 0.0,
         "left_knee_joint": 0.8,
         "left_ankle_pitch_joint": -0.4,
-        "left_ankle_roll_joint": 0,
+        "left_ankle_roll_joint": 0.0,
+
         "right_hip_pitch_joint": -0.4,
-        "right_hip_roll_joint": 0,
+        "right_hip_roll_joint": 0.0,
         "right_hip_yaw_joint": 0.0,
         "right_knee_joint": 0.8,
         "right_ankle_pitch_joint": -0.4,
-        "right_ankle_roll_joint": 0,
+        "right_ankle_roll_joint": 0.0,
+
+        # Waist
         "waist_yaw_joint": 0.0,
+        # "waist_pitch_joint": 0.0,
+        # "waist_roll_joint": 0.0,
+
+        # Arms (自然下垂)
         "left_shoulder_pitch_joint": 0.0,
         "left_shoulder_roll_joint": 0.0,
         "left_shoulder_yaw_joint": 0.0,
         "left_elbow_joint": 0.0,
+
         "right_shoulder_pitch_joint": 0.0,
         "right_shoulder_roll_joint": 0.0,
         "right_shoulder_yaw_joint": 0.0,
         "right_elbow_joint": 0.0,
+
+        # Wrists (中立位)
+        "left_wrist_roll_joint": 0.0,
+        "left_wrist_pitch_joint": 0.0,
+        "left_wrist_yaw_joint": 0.0,
+
+        "right_wrist_roll_joint": 0.0,
+        "right_wrist_pitch_joint": 0.0,
+        "right_wrist_yaw_joint": 0.0,
+
+        # Fingers (张开)
+        "left_hand_thumb_0_joint": 0.0,
+        "left_hand_thumb_1_joint": 0.0,
+        "left_hand_thumb_2_joint": 0.0,
+        "left_hand_middle_0_joint": 0.0,
+        "left_hand_middle_1_joint": 0.0,
+        "left_hand_index_0_joint": 0.0,
+        "left_hand_index_1_joint": 0.0,
+
+        "right_hand_thumb_0_joint": 0.0,
+        "right_hand_thumb_1_joint": 0.0,
+        "right_hand_thumb_2_joint": 0.0,
+        "right_hand_middle_0_joint": 0.0,
+        "right_hand_middle_1_joint": 0.0,
+        "right_hand_index_0_joint": 0.0,
+        "right_hand_index_1_joint": 0.0,
     }
 
-    control_type: dict[str, Literal["position", "effort"]] = {
-        # "floating_base_joint": "effort",
 
+    control_type: dict[str, Literal["position", "effort"]] = {
+        # Legs
         "left_hip_pitch_joint": "effort",
         "left_hip_roll_joint": "effort",
         "left_hip_yaw_joint": "effort",
         "left_knee_joint": "effort",
         "left_ankle_pitch_joint": "effort",
         "left_ankle_roll_joint": "effort",
+
         "right_hip_pitch_joint": "effort",
         "right_hip_roll_joint": "effort",
         "right_hip_yaw_joint": "effort",
         "right_knee_joint": "effort",
         "right_ankle_pitch_joint": "effort",
         "right_ankle_roll_joint": "effort",
+
+        # Waist
         "waist_yaw_joint": "effort",
+        # "waist_pitch_joint": "effort",
+        # "waist_roll_joint": "effort",
+
+        # Arms
         "left_shoulder_pitch_joint": "effort",
         "left_shoulder_roll_joint": "effort",
         "left_shoulder_yaw_joint": "effort",
         "left_elbow_joint": "effort",
+
         "right_shoulder_pitch_joint": "effort",
         "right_shoulder_roll_joint": "effort",
         "right_shoulder_yaw_joint": "effort",
         "right_elbow_joint": "effort",
+
+        # Wrists
+        "left_wrist_roll_joint": "effort",
+        "left_wrist_pitch_joint": "effort",
+        "left_wrist_yaw_joint": "effort",
+
+        "right_wrist_roll_joint": "effort",
+        "right_wrist_pitch_joint": "effort",
+        "right_wrist_yaw_joint": "effort",
+
+        # Fingers
+        "left_hand_thumb_0_joint": "effort",
+        "left_hand_thumb_1_joint": "effort",
+        "left_hand_thumb_2_joint": "effort",
+        "left_hand_middle_0_joint": "effort",
+        "left_hand_middle_1_joint": "effort",
+        "left_hand_index_0_joint": "effort",
+        "left_hand_index_1_joint": "effort",
+
+        "right_hand_thumb_0_joint": "effort",
+        "right_hand_thumb_1_joint": "effort",
+        "right_hand_thumb_2_joint": "effort",
+        "right_hand_middle_0_joint": "effort",
+        "right_hand_middle_1_joint": "effort",
+        "right_hand_index_0_joint": "effort",
+        "right_hand_index_1_joint": "effort",
     }
+
+
+    # joint_limits: dict[str, tuple[float, float]] = {
+    #     # "floating_base_joint": (-2.5307, 2.8798),
+
+    #     "left_hip_pitch_joint": (-2.5307, 2.8798),
+    #     "left_hip_roll_joint": (-0.5236, 2.9671),
+    #     "left_hip_yaw_joint": (-2.7576, 2.7576),
+    #     "left_knee_joint": (-0.087267, 2.8798),
+    #     "left_ankle_pitch_joint": (-0.87267, 0.5236),
+    #     "left_ankle_roll_joint": (-0.2618, 0.2618),
+    #     "right_hip_pitch_joint": (-2.5307, 2.8798),
+    #     "right_hip_roll_joint": (-2.9671, 0.5236),
+    #     "right_hip_yaw_joint": (-2.7576, 2.7576),
+    #     "right_knee_joint": (-0.087267, 2.8798),
+    #     "right_ankle_pitch_joint": (-0.87267, 0.5236),
+    #     "right_ankle_roll_joint": (-0.2618, 0.2618),
+    #     "waist_yaw_joint": (-2.618, 2.618),
+    #     "left_shoulder_pitch_joint": (-3.0892, 2.6704),
+    #     "left_shoulder_roll_joint": (-1.5882, 2.2515),
+    #     "left_shoulder_yaw_joint": (-2.618, 2.618),
+    #     "left_elbow_joint": (-1.0472, 2.0944),
+    #     "right_shoulder_pitch_joint": (-3.0892, 2.6704),
+    #     "right_shoulder_roll_joint": (-2.2515, 1.5882),
+    #     "right_shoulder_yaw_joint": (-2.618, 2.618),
+    #     "right_elbow_joint": (-1.0472, 2.0944),
+    # }
+
+
+    # torque_limits: dict[str, float] = {  # = target angles [rad] when action = 0.0
+    #     # "floating_base_joint": 50,
+
+    #     "left_hip_pitch_joint": 88,
+    #     "left_hip_roll_joint": 139,
+    #     "left_hip_yaw_joint": 88,
+    #     "left_knee_joint": 139,
+    #     "left_ankle_pitch_joint": 50,
+    #     "left_ankle_roll_joint": 50,
+    #     "right_hip_pitch_joint": 88,
+    #     "right_hip_roll_joint": 139,
+    #     "right_hip_yaw_joint": 88,
+    #     "right_knee_joint": 139,
+    #     "right_ankle_pitch_joint": 50,
+    #     "right_ankle_roll_joint": 50,
+    #     "waist_yaw_joint": 88,
+    #     "left_shoulder_pitch_joint": 25,
+    #     "left_shoulder_roll_joint": 25,
+    #     "left_shoulder_yaw_joint": 25,
+    #     "left_elbow_joint": 25,
+    #     "right_shoulder_pitch_joint": 25,
+    #     "right_shoulder_roll_joint": 25,
+    #     "right_shoulder_yaw_joint": 25,
+    #     "right_elbow_joint": 25,
+    # }
+
+    # default_joint_positions: dict[str, float] = {  # = target angles [rad] when action = 0.0
+    #     # "floating_base_joint": 0.0,
+
+    #     "left_hip_pitch_joint": -0.4,
+    #     "left_hip_roll_joint": 0,
+    #     "left_hip_yaw_joint": 0.0,
+    #     "left_knee_joint": 0.8,
+    #     "left_ankle_pitch_joint": -0.4,
+    #     "left_ankle_roll_joint": 0,
+    #     "right_hip_pitch_joint": -0.4,
+    #     "right_hip_roll_joint": 0,
+    #     "right_hip_yaw_joint": 0.0,
+    #     "right_knee_joint": 0.8,
+    #     "right_ankle_pitch_joint": -0.4,
+    #     "right_ankle_roll_joint": 0,
+    #     "waist_yaw_joint": 0.0,
+    #     "left_shoulder_pitch_joint": 0.0,
+    #     "left_shoulder_roll_joint": 0.0,
+    #     "left_shoulder_yaw_joint": 0.0,
+    #     "left_elbow_joint": 0.0,
+    #     "right_shoulder_pitch_joint": 0.0,
+    #     "right_shoulder_roll_joint": 0.0,
+    #     "right_shoulder_yaw_joint": 0.0,
+    #     "right_elbow_joint": 0.0,
+    # }
+
+    # control_type: dict[str, Literal["position", "effort"]] = {
+    #     # "floating_base_joint": "effort",
+
+    #     "left_hip_pitch_joint": "effort",
+    #     "left_hip_roll_joint": "effort",
+    #     "left_hip_yaw_joint": "effort",
+    #     "left_knee_joint": "effort",
+    #     "left_ankle_pitch_joint": "effort",
+    #     "left_ankle_roll_joint": "effort",
+    #     "right_hip_pitch_joint": "effort",
+    #     "right_hip_roll_joint": "effort",
+    #     "right_hip_yaw_joint": "effort",
+    #     "right_knee_joint": "effort",
+    #     "right_ankle_pitch_joint": "effort",
+    #     "right_ankle_roll_joint": "effort",
+    #     "waist_yaw_joint": "effort",
+    #     "left_shoulder_pitch_joint": "effort",
+    #     "left_shoulder_roll_joint": "effort",
+    #     "left_shoulder_yaw_joint": "effort",
+    #     "left_elbow_joint": "effort",
+    #     "right_shoulder_pitch_joint": "effort",
+    #     "right_shoulder_roll_joint": "effort",
+    #     "right_shoulder_yaw_joint": "effort",
+    #     "right_elbow_joint": "effort",
+    # }
 
 
     # actuators: dict[str, BaseActuatorCfg] = {

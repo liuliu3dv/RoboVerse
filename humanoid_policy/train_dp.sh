@@ -1,0 +1,12 @@
+python /home/RoboVerse_Humanoid/humanoid_policy/train.py --config-name=humanoid_dp.yaml \
+task.name=humanoid_close_box_rnadom_0 \
+task.dataset.zarr_path=humanoid_policy/data_policy/humanoid_close_box_random_0_100.zarr \
+training.seed=42 \
+horizon=8 \
+n_obs_steps=3 \
+n_action_steps=4 \
+training.num_epochs=200 \
+policy_runner.obs.obs_type=joint_pos \
+policy_runner.action.action_type=joint_pos \
+policy_runner.action.delta=0 \
+training.device=cuda:0

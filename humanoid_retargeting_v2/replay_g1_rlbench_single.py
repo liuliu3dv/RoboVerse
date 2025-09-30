@@ -149,10 +149,9 @@ def run_task(task_name: str):
 
 def main():
     link = "panda_link3"
+    scene = "tapwater_scene_131"
     # global global_step, tot_success, tot_give_up
     handler_class = get_sim_env_class(SimType("isaaclab"))
-    # task = get_task("open_box")()
-    # task_name = "LiftBlueBlockSliderA"
     cur_task = "close_box"
     task = get_task(cur_task)()
     print(cur_task)
@@ -192,7 +191,7 @@ def main():
         # TODO retarget task
         task=task,
         robots=[robot_franka_dst],
-        scene=args.scene,
+        scene=scene,
         # objects=objects,
         cameras=[camera],
         random=args.random,
@@ -298,7 +297,7 @@ def main():
     # obs, extras = env.reset()
     # 准备录像保存器
     obs, extras = env.reset(states=init_states)
-    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting_v2/output/replay_g1_rlbench_actions/{cur_task}/replay_{args.sim}.mp4")
+    obs_saver = ObsSaver(video_path=f"./humanoid_retargeting_v2/output/replay_g1_rlbench_actions/{cur_task}/replay_{args.sim}_tapwater.mp4")
 
     for step, solution in enumerate(solutions):
         robot_obj = scenario.robots[0]
