@@ -127,19 +127,19 @@ init_states = [
                 "pos": torch.tensor([0.3, -0.2, 0.05]),
                 "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
             },
-                "sphere": {
-                    "pos": torch.tensor([0.4, -0.6, 0.05]),
-                    "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-                },
-                "bbq_sauce": {
-                    "pos": torch.tensor([0.7, -0.3, 0.14]),
-                    "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
-                },
-                "box_base": {
-                    "pos": torch.tensor([0.5, 0.2, 0.1]),
-                    "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
-                    "dof_pos": {"box_joint": 0.0},
-                },
+            "sphere": {
+                "pos": torch.tensor([0.4, -0.6, 0.05]),
+                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+            },
+            "bbq_sauce": {
+                "pos": torch.tensor([0.7, -0.3, 0.14]),
+                "rot": torch.tensor([1.0, 0.0, 0.0, 0.0]),
+            },
+            "box_base": {
+                "pos": torch.tensor([0.5, 0.2, 0.1]),
+                "rot": torch.tensor([0.0, 0.7071, 0.0, 0.7071]),
+                "dof_pos": {"box_joint": 0.0},
+            },
         },
         "robots": {
             "franka": {

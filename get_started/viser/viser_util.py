@@ -43,10 +43,10 @@ QUAT_NORMALIZE_EPSILON = 1e-6  # Epsilon for quaternion normalization
 
 def normalize_quaternion(quat: list[float]) -> list[float]:
     """Normalize a quaternion to unit length.
-    
+
     Args:
         quat: Quaternion in [w, x, y, z] format
-        
+
     Returns:
         Normalized quaternion in [w, x, y, z] format
     """
@@ -59,10 +59,10 @@ def normalize_quaternion(quat: list[float]) -> list[float]:
 
 def patch_urdf_mesh_paths_to_absolute(urdf_path: str) -> str:
     """Convert relative mesh paths in URDF to absolute paths.
-    
+
     Args:
         urdf_path: Path to the URDF file
-        
+
     Returns:
         Path to the patched URDF file (temporary file if modifications were made)
     """
@@ -111,10 +111,10 @@ def patch_urdf_mesh_paths_to_absolute(urdf_path: str) -> str:
 
 def load_urdf_with_patch(urdf_path: str) -> tuple[Any, str]:
     """Load URDF file with automatic mesh path patching.
-    
+
     Args:
         urdf_path: Path to the URDF file
-        
+
     Returns:
         Tuple of (URDF object, patched URDF path)
     """
@@ -127,7 +127,7 @@ def load_urdf_with_patch(urdf_path: str) -> tuple[Any, str]:
 
 class ViserVisualizer:
     """Interactive 3D visualizer for robots and objects using viser.
-    
+
     This class provides comprehensive visualization and control capabilities including:
     - Loading and displaying URDF models (robots and objects)
     - Primitive shape visualization (cubes, spheres, cylinders)
@@ -135,11 +135,11 @@ class ViserVisualizer:
     - IK (Inverse Kinematics) control with visual targets
     - Trajectory playback and recording
     - Camera controls and preset views
-    
+
     Args:
         port: Port number for the viser server (default: 8080)
     """
-    
+
     def __init__(self, port: int = 8080) -> None:
         self.server = viser.ViserServer(port=port)
         self._urdf_handles = {}
@@ -175,17 +175,15 @@ class ViserVisualizer:
         self._ik_orientation_frames = {}  # robot_name -> orientation visualization frame
         self._env_handler = None  # reference to environment handler for getting current states
 
-    def add_urdf(
-        self, name: str, urdf_path: str, scale: float = 1.0, root_node_name: str | None = None
-    ) -> Any | None:
+    def add_urdf(self, name: str, urdf_path: str, scale: float = 1.0, root_node_name: str | None = None) -> Any | None:
         """Add a URDF model to the scene.
-        
+
         Args:
             name: Name identifier for the URDF model
             urdf_path: Path to the URDF file
             scale: Scale factor for the model (default: 1.0)
             root_node_name: Root node name in the scene graph (default: "/{name}")
-            
+
         Returns:
             URDF handle if successful, None otherwise
         """
@@ -214,11 +212,11 @@ class ViserVisualizer:
 
     def add_frame(self, name: str, show_axes: bool = True) -> Any:
         """Add a coordinate frame to the scene.
-        
+
         Args:
             name: Name of the frame
             show_axes: Whether to show the axes (default: True)
-            
+
         Returns:
             Frame handle
         """
@@ -228,7 +226,7 @@ class ViserVisualizer:
 
     def add_grid(self) -> Any:
         """Add a ground grid to the scene.
-        
+
         Returns:
             Grid handle
         """
@@ -236,7 +234,7 @@ class ViserVisualizer:
 
     def visualize_scenario_items(self, items: list | dict, item_states: dict | None = None) -> None:
         """Visualize a collection of scenario items (objects or robots).
-        
+
         Args:
             items: List or dict of item configurations to visualize
             item_states: Optional dict mapping item names to their states (pos, rot, etc.)
@@ -432,9 +430,9 @@ class ViserVisualizer:
 
     def update_item_pose(self, name: str, state: dict) -> None:
         """Update the pose of a visualized item.
-        
+
         Supports both URDF models and primitive objects rendered via visualize_item.
-        
+
         Args:
             name: Name of the item to update
             state: State dict containing 'pos', 'rot', and optionally 'dof_pos' for articulated objects
@@ -446,7 +444,6 @@ class ViserVisualizer:
             urdf_handle = self._urdf_handles[name]
             # update base frame
             frame_name = f"/{name}_frame"
-
 
             if frame_name in self._frame_handles:
                 frame = self._frame_handles[frame_name]
@@ -493,9 +490,9 @@ class ViserVisualizer:
 
     def load_trajectory(self, trajectory_path: str) -> bool:
         """Load a trajectory file for playback.
-        
+
         Supports .pkl, .pkl.gz, .json, and .yaml formats.
-        
+
         Args:
             trajectory_path: Path to the trajectory file
         """
@@ -1609,7 +1606,7 @@ class ViserVisualizer:
 
     def enable_trajectory_playback(self) -> None:
         """Enable trajectory playback controls in the GUI.
-        
+
         Provides controls for loading, playing, pausing, and seeking through trajectories
         for all connected clients.
         """
@@ -1838,7 +1835,7 @@ class ViserVisualizer:
 
     def enable_joint_control(self) -> None:
         """Enable joint control GUI with sliders for each robot joint.
-        
+
         Allows direct control of robot joint positions via interactive sliders
         for all connected clients.
         """
@@ -2046,9 +2043,7 @@ class ViserVisualizer:
             self._ik_target_positions[robot_name] = DEFAULT_IK_TARGET_POS.copy()
             self._ik_target_orientations[robot_name] = DEFAULT_IK_TARGET_QUAT.copy()
 
-            logger.info(
-                f"IK solver ({solver}) setup for robot {robot_name} with {ik_solver.n_dof_ik} DOF"
-            )
+            logger.info(f"IK solver ({solver}) setup for robot {robot_name} with {ik_solver.n_dof_ik} DOF")
             return True
 
         except Exception as e:
@@ -2111,9 +2106,7 @@ class ViserVisualizer:
 
             if ik_succ[0]:
                 # Compose full joint command with gripper
-                gripper_widths = torch.tensor(
-                    [[DEFAULT_GRIPPER_OPEN_WIDTH] * ik_solver.ee_n_dof], device=device
-                )
+                gripper_widths = torch.tensor([[DEFAULT_GRIPPER_OPEN_WIDTH] * ik_solver.ee_n_dof], device=device)
                 action_dicts = ik_solver.compose_joint_action(
                     q_solution, gripper_widths, current_q=seed_q, return_dict=True
                 )
@@ -2293,7 +2286,7 @@ class ViserVisualizer:
 
     def enable_ik_control(self) -> None:
         """Enable IK control GUI for target-based robot control.
-        
+
         Provides controls for setting target end-effector positions and orientations,
         with visual markers showing the target pose, for all connected clients.
         """
