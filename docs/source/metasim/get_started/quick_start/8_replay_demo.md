@@ -17,7 +17,7 @@ task could also be:
 ## States replay
 
 ```bash
-python scripts/advanced/replay_demo.py --sim=isaacsim--task=CloseBox --num_envs 4 --object-states
+python scripts/advanced/replay_demo.py --sim=isaacsim --task=CloseBox --num_envs 4 --object-states
 ```
 task could also be:
 - `CloseBox`
