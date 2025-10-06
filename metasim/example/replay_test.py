@@ -39,9 +39,8 @@ from metasim.utils.kinematics import get_ee_state
 class Args:
     """Replay trajectory for a given task."""
 
-    task: str = "pick_cube"
+    task: str = "kitchen_open_bottom_drawer"
     robot: str = "franka"
-    scene: str | None = None
     render: RenderCfg = RenderCfg()
 
     sim: Literal["isaaclab", "isaacgym", "genesis", "pybullet", "sapien2", "sapien3", "mujoco", "mjx", "isaacsim"] = (
@@ -127,10 +126,9 @@ class ObsSaver:  # noqa: D101
 
 def main():  # noqa: D103
     task_cls = get_task_class(args.task)
-    camera = PinholeCameraCfg(pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
+    camera = PinholeCameraCfg(pos=(2.0, 0, 1.5), look_at=(0.0, 0.0, 1.0))
     scenario = task_cls.scenario.update(
         robots=[args.robot],
-        scene=args.scene,
         cameras=[camera],
         render=args.render,
         simulator=args.sim,

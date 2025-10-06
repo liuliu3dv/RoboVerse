@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import pickle
 import sys
 import time
+from datetime import datetime
 from typing import Literal
 
 try:
@@ -22,6 +24,7 @@ from metasim.task.registry import get_task_class
 from metasim.utils import configclass
 from metasim.utils.demo_util import get_traj
 from metasim.utils.ik_solver import IKSolver, process_gripper_command
+from metasim.utils.kinematics import get_ee_state
 from metasim.utils.math import matrix_from_euler, quat_apply, quat_from_matrix, quat_inv, quat_mul
 from metasim.utils.teleop_utils import PygameKeyboardClient, process_kb_input
 
@@ -30,9 +33,8 @@ log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 @configclass
 class Args:
-    task: str = "stack_cube"
+    task: str = "kitchen_open_bottom_drawer"
     robot: str = "franka"
-    scene: str | None = None
     render: RenderCfg = RenderCfg()
 
     ## Handlers
@@ -59,13 +61,13 @@ def main():
     camera = PinholeCameraCfg(pos=(1.5, -1.5, 1.5), look_at=(0.0, 0.0, 0.0))
     scenario = task_cls.scenario.update(
         robots=[args.robot],
-        scene=args.scene,
         cameras=[camera],
         render=args.render,
         simulator=args.sim,
         renderer=args.renderer,
         num_envs=args.num_envs,
         headless=args.headless,
+        decimation=50
     )
 
     num_envs: int = scenario.num_envs
@@ -100,6 +102,10 @@ def main():
     for line, instruction in enumerate(keyboard_client.instructions):
         log.info(f"{line:2d}: {instruction}")
 
+    # Initialize list to store collected states
+    collected_states = []
+    log.info("Press 'C' key to save current joint positions and EE state")
+
     step = 0
     running = True
     while running:
@@ -112,6 +118,27 @@ def main():
             log.debug("Exiting simulation...")
             running = False
             break
+
+        # Check if 'C' key is pressed to save current state
+        if keyboard_client.is_pressed(pygame.K_c):
+            # Get current joint positions
+            reorder_idx = env.handler.get_joint_reindex(scenario.robots[0].name)
+            inverse_reorder_idx = [reorder_idx.index(i) for i in range(len(reorder_idx))]
+            curr_robot_q = obs.robots[scenario.robots[0].name].joint_pos[:, inverse_reorder_idx]
+
+            # Get end-effector state
+            ee_state = get_ee_state(obs, scenario.robots[0], tensorize=True, use_rpy=True)
+
+            # Save to list
+            state_data = {
+                "step": step,
+                "joint_pos": curr_robot_q[0].cpu().tolist(),  # Save first env only
+                "ee_state": ee_state[0].cpu().tolist(),  # [pos(3), rpy(3), grip(1)]
+            }
+            collected_states.append(state_data)
+            log.success(
+                f"Saved state {len(collected_states)}: joint_pos={len(state_data['joint_pos'])} dims, ee_state={len(state_data['ee_state'])} dims"
+            )
 
         keyboard_client.draw_instructions()
 
@@ -131,7 +158,7 @@ def main():
         curr_ee_pos = quat_apply(quat_inv(robot_quat), curr_ee_pos - robot_pos)
         curr_ee_quat_local = quat_mul(quat_inv(robot_quat), curr_ee_quat)
 
-        d_pos, d_rot_local, close_gripper = process_kb_input(keyboard_client, dpos=0.01, drot=0.05)
+        d_pos, d_rot_local, close_gripper = process_kb_input(keyboard_client, dpos=0.002, drot=0.01)
         d_pos_tensor = torch.tensor(d_pos, dtype=torch.float32, device=device)
         d_rot_tensor = torch.tensor(d_rot_local, dtype=torch.float32, device=device)
 
@@ -161,6 +188,22 @@ def main():
 
     keyboard_client.close()
     env.close()
+
+    # Save collected states to file
+    if collected_states:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = "teleop_output"
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(output_dir, f"teleop_states_{timestamp}.pkl")
+
+        with open(output_file, "wb") as f:
+            pickle.dump(collected_states, f)
+
+        log.success(f"Saved {len(collected_states)} states to {output_file}")
+        log.info(f"To load: states = pickle.load(open('{output_file}', 'rb'))")
+    else:
+        log.info("No states were collected (press 'C' to collect states)")
+
     sys.exit()
 
 

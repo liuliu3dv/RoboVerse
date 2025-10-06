@@ -2,7 +2,7 @@
 """Checker config classes."""
 
 # from .base_checker import BaseChecker
-# from .checker_operators import AndOp, NotOp, OrOp
+from .checker_operators import AndOp, DrawerOpenChecker, NotOp, OrOp
 from .checkers import (
     DetectedChecker,
     EmptyChecker,
@@ -18,13 +18,14 @@ from .detectors import (
 )
 
 __all__ = [
-    # "AndOp",
+    "AndOp",
     "BaseChecker",
     "DetectedChecker",
+    "DrawerOpenChecker",
     "JointPosChecker",
     "JointPosShiftChecker",
-    # "NotOp",
-    # "OrOp",
+    "NotOp",
+    "OrOp",
     "PositionShiftChecker",
     "Relative3DSphereDetector",
     "RelativeBboxDetector",

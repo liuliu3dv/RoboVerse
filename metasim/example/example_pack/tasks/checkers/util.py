@@ -61,7 +61,6 @@ def get_dof_pos(
         joint_tensor = ts.robots[obj_name].joint_pos
     else:
         raise KeyError(f"{obj_name} not found")
-
     j_idx = handler._get_joint_names(obj_name).index(joint_name)
     env_tensor = torch.tensor(env_ids, dtype=torch.long, device=joint_tensor.device)
     dof_pos = joint_tensor.index_select(0, env_tensor)[:, j_idx]
