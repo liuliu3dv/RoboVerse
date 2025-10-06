@@ -23,6 +23,7 @@ class Libero90BaseTask(BaseTaskEnv):
     task_desc = None
     checker = None
     traj_filepath = None
+    decimation = 30
 
     def __init__(self, scenario: ScenarioCfg, device: str | torch.device | None = None) -> None:
         check_and_download_single(self.traj_filepath)

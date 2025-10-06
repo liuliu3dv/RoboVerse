@@ -54,15 +54,15 @@ def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_nam
             #
             # Actual structure (verified from Kitchen Scene 1 data):
             # qpos 部分 (索引 0-25, 共26维):
-            #   idx[0]         - 时间戳 (timestamp, seconds, +0.05 per step @ 20Hz)
-            #   idx[1:8]       - 机器人7个关节 (panda_joint1-7, 略异于obs/joint_states)
-            #   idx[8:10]      - 夹爪2个关节 (panda_finger_joint1-2, 接近obs/gripper_states)
-            #   idx[9]         - 未使用 (padding or reserved)
-            #   idx[10:13]     - 黑碗位置 (akita_black_bowl x,y,z)
-            #   idx[13:17]     - 黑碗四元数 (akita_black_bowl w,x,y,z)
-            #   idx[17:20]     - 盘子位置 (plate x,y,z)
-            #   idx[20:24]     - 盘子四元数 (plate w,x,y,z)
-            #   idx[24:26]     - 未使用/填充 (padding)
+            #   idx[0]         - 时间戳 (timestamp in seconds, +0.05 per step @ 20Hz)
+            #   idx[1:8]       - 机器人7个关节位置 (panda_joint1-7, 与obs/joint_states略有差异)
+            #   idx[8]         - 夹爪相关状态 (与obs/gripper_states接近但不完全一致)
+            #   idx[9]         - 抽屉滑动位置 (drawer joint, 验证: 随任务进展从-0.034变化到-0.040)
+            #   idx[10:13]     - 黑碗位置 (akita_black_bowl x,y,z) ← 提取索引10,11,12
+            #   idx[13:17]     - 黑碗四元数 (akita_black_bowl w,x,y,z) ← 提取索引13,14,15,16
+            #   idx[17:20]     - 盘子位置 (plate x,y,z) ← 提取索引17,18,19
+            #   idx[20:24]     - 盘子四元数 (plate w,x,y,z) ← 提取索引20,21,22,23
+            #   idx[24:26]     - 未使用/填充 (padding, always 0)
             #
             # 注意:
             #   - 抽屉位置不在qpos中，可能在场景固定参数或另外的结构中
@@ -78,10 +78,6 @@ def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_nam
             #   [45-47] - 盘子角速度 (plate angular velocity x,y,z)
             #   [48-50] - 未使用/填充 (padding)
 
-            # Extract drawer position (main task object)
-            drawer_pos = 0.0  # Drawer is fixed, only joint position matters
-            drawer_joint_pos = states[0, 9]  # Bottom drawer slide position
-
             # Extract bowl state
             bowl_pos = states[0, 10:13].tolist()  # [x, y, z]
             bowl_quat = states[0, 13:17].tolist()  # [w, x, y, z]
@@ -90,10 +86,8 @@ def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_nam
             plate_pos = states[0, 17:20].tolist()  # [x, y, z]
             plate_quat = states[0, 20:24].tolist()  # [w, x, y, z]
 
-            print(states[0])
-
             # Robot base is fixed (mounted on table), position is implicit
-            robot_pos = [-0.66, 0.0, 0.912]  # Base position (fixed)
+            robot_pos = [-0.66, 0.0, 0.900]  # Base position (fixed)
             robot_rot = [1.0, 0.0, 0.0, 0.0]  # Base rotation (identity)
 
             # Build joint positions dictionary from joint_states
@@ -116,20 +110,22 @@ def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_nam
                     "rot": robot_rot,
                     "dof_pos": robot_dof_pos,
                 },
-                "wooden_cabinet": {  # Cabinet with drawers
-                    "pos": [0.00102559, -0.29300899, 0.905],  # Fixed position on table (from BDDL)
-                    "rot": [0, 0.000000e00, 0.000000e00, 1.000000e00],
+                "wooden_cabinet": {  # Cabinet with drawers (fixed, no movable joints in this task)
+                    "pos": [0.0, -0.29, 0.905],  # Fixed position on table (from BDDL)
+                    "rot": [0.0, 0.0, 0.0, 1.0],  # Identity quaternion (w,x,y,z)
                     "dof_pos": {
-                        "bottom_level": float(drawer_joint_pos),  # Bottom drawer position
+                        "top_level": 0.0,  # Bottom drawer positio
+                        "middle_level": 0.0,  # Bottom drawer position
+                        "bottom_level": 0.0,  # Bottom drawer position
                     },
                 },
                 "akita_black_bowl": {
-                    "pos": [-0.00568576, 0.01078732, 0.90],
-                    "rot": [7.07106785e-01, -2.20655841e-05, 1.74663862e-06, 7.07106777e-01],
+                    "pos": bowl_pos,  # Extract from states
+                    "rot": bowl_quat,  # Extract from states
                 },
                 "plate": {
-                    "pos": [0.02411016, 0.23273392, 0.90244668],
-                    "rot": [7.07106785e-01, -2.20655841e-05, 1.74663862e-06, 7.07106777e-01],
+                    "pos": plate_pos,  # Extract from states
+                    "rot": plate_quat,  # Extract from states
                 },
             }
 
@@ -154,8 +150,7 @@ def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_nam
                 }
                 episode_actions.append(action)
 
-                # Extract states for this timestep
-                drawer_joint_pos_t = float(states[t, 9])
+                # Extract object states for this timestep from mujoco state
                 bowl_pos_t = states[t, 10:13].tolist()
                 bowl_quat_t = states[t, 13:17].tolist()
                 plate_pos_t = states[t, 17:20].tolist()
@@ -180,18 +175,18 @@ def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_nam
                         "rot": robot_rot,
                         "dof_pos": robot_dof_pos_t,
                     },
-                    "wooden_cabinet_1": {
-                        "pos": [0.0, -0.3, 0.0],
-                        "rot": [0.0, 0.0, 1.0, 0.0],
+                    "wooden_cabinet": {
+                        "pos": [0.0, -0.29, 0.905],
+                        "rot": [1.0, 0.0, 0.0, 0.0],
                         "dof_pos": {
-                            "drawer_bottom": drawer_joint_pos_t,
+                            "bottom_level": 0.0,  # Bottom drawer position
                         },
                     },
-                    "akita_black_bowl_1": {
+                    "akita_black_bowl": {
                         "pos": bowl_pos_t,
                         "rot": bowl_quat_t,
                     },
-                    "plate_1": {
+                    "plate": {
                         "pos": plate_pos_t,
                         "rot": plate_quat_t,
                     },
@@ -262,7 +257,7 @@ def main():
     )
     parser.add_argument("--task_name", type=str, default="libero_90_kitchen_scene1", help="Name of the task")
     parser.add_argument("--robot_name", type=str, default="franka", help="Name of the robot")
-    parser.add_argument("--num_demos", type=int, default=3, help="Maximum number of demos to convert (None for all)")
+    parser.add_argument("--num_demos", type=int, default=50, help="Maximum number of demos to convert (None for all)")
 
     args = parser.parse_args()
 

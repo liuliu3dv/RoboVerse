@@ -76,7 +76,7 @@ def _suffix_path(p: str | None, suffix: str) -> str | None:
 
 
 def get_actions(all_actions, action_idx: int, num_envs: int, robot: RobotCfg):  # noqa: D103
-    envs_actions = all_actions[:num_envs]
+    envs_actions = all_actions[2:3]
     return [
         env_actions[action_idx] if action_idx < len(env_actions) else env_actions[-1] for env_actions in envs_actions
     ]
@@ -167,6 +167,7 @@ def main():  # noqa: D103
     while True:
         log.debug(f"[ACT] Step {step}")
         t1 = time.time()
+        # actions = get_actions(all_actions, step, num_envs, scenario.robots[0])
         actions = get_actions(all_actions, step, num_envs, scenario.robots[0])
         obs, reward, success, time_out, extras = env.step(actions)
         log.trace(f"Time to step: {time.time() - t1:.2f}s")

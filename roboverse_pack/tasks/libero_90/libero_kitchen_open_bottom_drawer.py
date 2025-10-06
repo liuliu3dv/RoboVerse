@@ -55,6 +55,7 @@ class LiberoKitchenOpenBottomDrawerTask(Libero90BaseTask):
             # Note: kitchen_table is handled by the scene/arena
             ArticulationObjCfg(
                 name="wooden_cabinet",
+                fix_base_link= True,
                 usd_path="roboverse_data/assets/libero/COMMON/articulated_objects/wooden_cabinet/usd/wooden_cabinet.usd",
                 urdf_path="roboverse_data/assets/libero/COMMON/articulated_objects/wooden_cabinet/urdf/wooden_cabinet.urdf",
                 mjcf_path="roboverse_data/assets/libero/COMMON/articulated_objects/wooden_cabinet/mjcf/wooden_cabinet.xml",
@@ -82,8 +83,8 @@ class LiberoKitchenOpenBottomDrawerTask(Libero90BaseTask):
     checker = JointPosChecker(
         obj_name="wooden_cabinet",
         joint_name="bottom_level",  # Assuming this is the joint name
-        mode="ge",  # greater than or equal to
-        radian_threshold=0.1,  # Minimum opening distance (in radians)
+        mode="le",  # greater than or equal to
+        radian_threshold=-0.1,  # Minimum opening distance (in radians)
     )
 
     # Trajectory file path

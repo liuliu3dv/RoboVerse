@@ -18,7 +18,7 @@ from metasim.scenario.render import RenderCfg
 class Args:
     render: RenderCfg = field(default_factory=RenderCfg)
     """Renderer options"""
-    task: str = "pick_butter"
+    task: str = "kitchen_open_bottom_drawer"
     """Task name"""
     robot: str = "franka"
     """Robot name"""
@@ -32,7 +32,7 @@ class Args:
     """Maximum number of demos to collect, None for all demos"""
     retry_num: int = 0
     """Number of retries for a failed demo"""
-    headless: bool = True
+    headless: bool = False
     """Run in headless mode"""
     table: bool = True
     """Try to add a table"""
@@ -42,8 +42,6 @@ class Args:
     """Split to collect"""
     cust_name: str | None = None
     """Custom name for the dataset"""
-    scene: str | None = None
-    """Scene name"""
     run_all: bool = True
     """Rollout all trajectories, overwrite existing demos"""
     run_unfinished: bool = False
@@ -661,7 +659,6 @@ def main():
     camera = PinholeCameraCfg(data_types=["rgb", "depth"], pos=(1.5, 0.0, 1.5), look_at=(0.0, 0.0, 0.0))
     scenario = task_cls.scenario.update(
         robots=[args.robot],
-        scene=args.scene,
         cameras=[camera],
         render=args.render,
         simulator=args.sim,
