@@ -67,7 +67,7 @@ def main():
         renderer=args.renderer,
         num_envs=args.num_envs,
         headless=args.headless,
-        decimation=50
+        decimation=50,
     )
 
     num_envs: int = scenario.num_envs

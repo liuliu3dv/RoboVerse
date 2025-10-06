@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
-"""
-Convert LIBERO HDF5 demonstration data to RoboVerse trajectory format
-"""
+"""Convert LIBERO HDF5 demonstration data to RoboVerse trajectory format"""
 
 import argparse
 import json
 import os
 import pickle
-from pathlib import Path
 
 import h5py
-import numpy as np
 from tqdm import tqdm
 
 
 def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_name="franka", num_demos=None):
-    """
-    Convert LIBERO HDF5 demonstration data to RoboVerse trajectory format
+    """Convert LIBERO HDF5 demonstration data to RoboVerse trajectory format
 
     Args:
         hdf5_path: Path to the LIBERO HDF5 file
@@ -25,7 +20,6 @@ def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_nam
         robot_name: Name of the robot (default: "franka")
         num_demos: Maximum number of demos to convert (None for all)
     """
-
     print(f"Converting {hdf5_path} to RoboVerse trajectory format")
     print(f"Output directory: {output_dir}")
 
@@ -243,7 +237,7 @@ def convert_libero_to_roboverse_traj(hdf5_path, output_dir, task_name, robot_nam
     with open(metadata_file, "w") as f:
         json.dump(traj_data["metadata"], f, indent=2)
 
-    print(f"Conversion completed!")
+    print("Conversion completed!")
     print(f"Total episodes: {len(demo_keys)}")
     print(f"Trajectory file: {traj_file}")
     print(f"Metadata file: {metadata_file}")

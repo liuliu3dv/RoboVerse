@@ -1,27 +1,26 @@
 #!/usr/bin/env python3
-"""
-使用LIBERO原版环境replay演示数据
+"""使用LIBERO原版环境replay演示数据
 
 这个脚本加载LIBERO的HDF5演示数据，并在仿真器中播放
 """
 
-import sys
-import os
 import argparse
-import h5py
-import numpy as np
+import os
+import sys
 import time
+
+import h5py
 
 # 添加LIBERO路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "roboverse_data/LIBERO"))
 
 try:
-    from libero.libero.envs import *
     from libero.libero import get_libero_path
+    from libero.libero.envs import *
 
     print("✓ LIBERO导入成功")
 except ImportError as e:
-    print(f"✗ 错误: 无法导入LIBERO模块")
+    print("✗ 错误: 无法导入LIBERO模块")
     print(f"  {e}")
     print("\n请确保:")
     print("  1. robosuite已安装: pip install robosuite")
@@ -30,8 +29,7 @@ except ImportError as e:
 
 
 def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
-    """
-    Replay一个演示
+    """Replay一个演示
 
     Args:
         hdf5_path: HDF5文件路径
@@ -39,9 +37,8 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
         render: 是否渲染
         speed: 播放速度倍率
     """
-
     print(f"\n{'=' * 80}")
-    print(f"Replay LIBERO演示")
+    print("Replay LIBERO演示")
     print(f"{'=' * 80}")
     print(f"\nHDF5文件: {hdf5_path}")
     print(f"演示索引: {demo_index}")
@@ -60,7 +57,7 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
         problem_name = env_args["problem_name"]
         env_kwargs = env_args["env_kwargs"]
 
-        print(f"\n环境信息:")
+        print("\n环境信息:")
         print(f"  名称: {env_name}")
         print(f"  任务: {problem_name}")
         print(f"  机器人: {env_kwargs['robots']}")
@@ -74,7 +71,7 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
                 # 构建新路径
                 new_bddl = f"roboverse_data/LIBERO/libero/libero/bddl_files/libero_90/{task_name}"
                 if os.path.exists(new_bddl):
-                    print(f"  修正BDDL路径:")
+                    print("  修正BDDL路径:")
                     print(f"    旧: {old_bddl}")
                     print(f"    新: {new_bddl}")
                     env_kwargs["bddl_file_name"] = new_bddl
@@ -84,7 +81,7 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
         # 更新环境参数以支持渲染
         # 注意：如果use_camera_obs=True，必须has_offscreen_renderer=True
         use_camera = env_kwargs.get("use_camera_obs", False)
-        
+
         if use_camera:
             # 有相机观测时，必须使用offscreen renderer
             env_kwargs["has_offscreen_renderer"] = True
@@ -93,7 +90,7 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
             # 没有相机观测时，可以只用renderer
             env_kwargs["has_renderer"] = render
             env_kwargs["has_offscreen_renderer"] = False
-        
+
         if render or use_camera:
             if "camera_names" not in env_kwargs or not env_kwargs["camera_names"]:
                 env_kwargs["camera_names"] = ["agentview"]
@@ -103,7 +100,7 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
                 env_kwargs["camera_widths"] = 512
 
         # 创建环境
-        print(f"\n创建环境...")
+        print("\n创建环境...")
         try:
             env = TASK_MAPPING[problem_name](**env_kwargs)
             print("✓ 环境创建成功")
@@ -129,7 +126,7 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
         actions = demo["actions"][:]
         states = demo["states"][:]
 
-        print(f"\n演示数据:")
+        print("\n演示数据:")
         print(f"  步数: {len(actions)}")
         print(f"  动作维度: {actions.shape[1]}")
         print(f"  状态维度: {states.shape[1]}")
@@ -137,7 +134,7 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
             env.render()
             env.render()
         # Reset环境并设置初始状态
-        print(f"\n开始replay...")
+        print("\n开始replay...")
         env.reset()
 
         # 设置初始状态
@@ -154,7 +151,7 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
             env.render()
             env.render()
         # Replay每一步
-        print(f"\nReplay中...")
+        print("\nReplay中...")
         step_time = 1.0 / (20.0 * speed)  # 假设20Hz控制频率
         env.render()
         success_count = 0
@@ -187,14 +184,14 @@ def replay_demo(hdf5_path, demo_index=0, render=True, speed=1.0):
 
         # 保持显示一段时间
         if render:
-            print(f"\n保持显示3秒...")
+            print("\n保持显示3秒...")
             time.sleep(3)
 
         # 关闭环境
         env.close()
 
         print(f"\n{'=' * 80}")
-        print(f"Replay完成!")
+        print("Replay完成!")
         print(f"  总步数: {len(actions)}")
         print(f"  成功标记数: {success_count}")
         print(f"{'=' * 80}")
