@@ -65,7 +65,7 @@ def client_example(remote_host="localhost", port=8888, auto_start_remote=False, 
     if auto_start_remote and remote_host != "localhost":
         print(f"Auto-starting remote server on {remote_host}...")
         # 配置ji_12远程路径
-        remote_path = "/home/ghr/RoboVerse/get_started/14_remote_isaac_local_mujoco"
+        remote_path = "/datasets/v2p/current/murphy/dev/RoboVerse/get_started/14_remote_isaac_local_mujoco"
         ssh_host = "ji_12"  # SSH配置中的Host名称
         if not env.auto_start_remote_server(ssh_host, remote_path, task_name, num_envs):
             print("Failed to auto-start remote server")
@@ -100,7 +100,7 @@ def test_ji_12_connection():
     ssh_host = "ji_12"
     remote_host = "em12.ist.berkeley.edu"
     port = 8888
-    remote_path = "/home/ghr/RoboVerse/get_started/14_remote_isaac_local_mujoco"
+    remote_path = "/datasets/v2p/current/murphy/dev/RoboVerse/get_started/14_remote_isaac_local_mujoco"
 
     print("=" * 60)
     print("🚀 Testing Remote Connection to ji_12")

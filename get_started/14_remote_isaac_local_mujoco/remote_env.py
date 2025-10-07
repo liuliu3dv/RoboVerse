@@ -113,6 +113,7 @@ class RemoteEnv:
             ssh_cmd = [
                 "ssh",
                 ssh_host,
+                f"source ~/anaconda3/etc/profile.d/conda.sh && "
                 f"cd {remote_script_path} && "
                 f"conda activate roboverse && "
                 f"python example.py server --task {task_name} --num_envs {num_envs}",
@@ -123,14 +124,54 @@ class RemoteEnv:
 
             # Wait for server to start
             print("Waiting for remote server to start...")
-            time.sleep(5)
+            time.sleep(10)  # 增加等待时间让服务器完全启动
 
-            print("Remote server started successfully")
+            # Check if there are any errors
+            import select
+
+            if select.select([self.remote_process.stderr], [], [], 0)[0]:
+                error_output = self.remote_process.stderr.read()
+                if error_output:
+                    print(f"⚠️  Remote server stderr: {error_output}")
+                    return False
+
+            print("✅ Remote server started successfully")
             return True
 
         except Exception as e:
             print(f"Failed to start remote server: {e}")
             return False
+
+    def check_remote_log(self, ssh_host, remote_log_path, lines=20):
+        """Check remote server log file."""
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["ssh", ssh_host, f"tail -{lines} {remote_log_path}"], capture_output=True, text=True, timeout=5
+            )
+            if result.stdout:
+                return result.stdout
+            return None
+        except Exception as e:
+            print(f"Failed to check remote log: {e}")
+            return None
+
+    def check_remote_process(self, ssh_host, process_name="simple_test_server"):
+        """Check if remote process is running."""
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["ssh", ssh_host, f"ps aux | grep {process_name} | grep -v grep"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.stdout.strip() if result.stdout else None
+        except Exception as e:
+            print(f"Failed to check remote process: {e}")
+            return None
 
     def close(self):
         """Close connection."""
