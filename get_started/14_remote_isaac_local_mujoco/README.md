@@ -1,222 +1,186 @@
-# 远程环境通讯
+# 远程环境通讯 (Remote Environment)
 
-简洁的远程环境包装，让你可以像使用本地环境一样使用远程环境。
+**核心思路**：远程运行真实任务，本地同步渲染
 
-## 核心文件
+## 🎯 工作流程
 
-- `remote_server.py` - 远程服务器，包装本地环境
-- `remote_env.py` - 远程环境包装器，看起来像本地环境
-- `simple_protocol.py` - 简化的通讯协议
-- `example.py` - 完整使用示例
+```
+┌──────────────────────┐         ┌──────────────────────┐
+│  Remote (IsaacSim)   │         │  Local (MuJoCo)      │
+├──────────────────────┤         ├──────────────────────┤
+│ 1. Load trajectory   │         │ 1. Create MuJoCo env │
+│ 2. Reset env         │────────>│ 2. Connect to remote │
+│ 3. Step with action  │  state  │ 3. Set state         │
+│ 4. Get state         │────────>│ 4. Render            │
+│ 5. Repeat...         │         │ 5. Save video        │
+└──────────────────────┘         └──────────────────────┘
+```
+
+**关键**：远程step一步 → 立即获取state → 本地set_state → 渲染
+
+## 📦 核心文件
+
+- `remote_env.py` (287行) - 远程环境客户端
+- `remote_server.py` (145行) - 通用服务器
+- `task_server.py` (136行) - 任务服务器（真实环境）
+- `simple_protocol.py` (45行) - 通讯协议
+- `remote_replay_sync.py` (240行) - 同步replay示例
+
+**总计**: 853行核心代码
 
 ## 🚀 快速开始
 
-### 方法1: 一键启动（推荐）
-
 ```bash
-# 本地一键启动，自动连接远程服务器
-python example.py --auto_start_remote --remote_host your_server_ip
+# 运行同步replay（推荐）
+python remote_replay_sync.py
 ```
 
-### 方法2: 分步启动
+这会：
+1. 在远程服务器运行IsaacSim环境
+2. 加载真实轨迹（traj文件）
+3. 远程执行actions
+4. 实时同步states到本地MuJoCo
+5. 本地渲染并保存视频
 
-#### 1. 启动服务端（远程机器）
-```bash
-# 方法1: 使用脚本
-./start_server.sh
+## 💻 使用示例
 
-# 方法2: 直接运行
-python example.py server
-```
+### 基本用法
 
-#### 2. 启动客户端（本地机器）
-```bash
-# 方法1: 使用脚本
-./start_client.sh remote_host_ip 8888
-
-# 方法2: 直接运行
-python example.py
-```
-
-## 🔧 使用方法
-
-### 服务端（远程机器）
-```python
-from remote_server import RemoteServer
-
-# 创建你的本地环境
-env = create_local_env("stack_cube")
-
-# 创建服务器并设置环境
-server = RemoteServer(port=8888)
-server.set_environment(env)
-server.start()
-```
-
-### 客户端（本地机器）
 ```python
 from remote_env import RemoteEnv
 
-# 创建远程环境
-env = RemoteEnv("server_host", 8888)
-env.connect()
-
-# 像本地环境一样使用
-obs = env.reset()
-obs, reward, done, info = env.step(action)
-state = env.get_state()
-```
-
-## 🌟 新功能：本地启动远程服务器
-
-现在可以直接在本地启动远程服务器，无需手动在远程机器上操作：
-
-### 使用SSH自动启动
-```python
-from remote_env import RemoteEnv
-
-# 自动启动远程服务器
-env = RemoteEnv("remote_host", 8888)
-env.auto_start_remote_server(
-    ssh_host="user@remote_host",
-    remote_script_path="/path/to/RoboVerse/get_started/14_remote_isaac_local_mujoco",
-    task_name="stack_cube"
-)
-
-# 连接并使用
-env.connect()
-obs = env.reset()
-```
-
-### 命令行一键启动
-```bash
-# 自动启动远程服务器并连接
-python example.py --auto_start_remote --remote_host user@server_ip --task stack_cube
-```
-
-## 📋 环境配置
-
-### 服务端环境要求
-- 安装RoboVerse: `pip install -e .`
-- 激活conda环境: `conda activate roboverse`
-- 确保有GPU（如果使用IsaacSim）
-
-### 客户端环境要求
-- 只需要基本的Python环境
-- 不需要GPU（除非本地也要渲染）
-
-## 🐛 常见问题
-
-### 1. 连接失败
-```bash
-# 检查服务端是否启动
-netstat -tlnp | grep 8888
-
-# 检查防火墙
-sudo ufw status
-```
-
-### 2. 环境初始化失败
-```bash
-# 检查RoboVerse是否正确安装
-python -c "import metasim; print('OK')"
-
-# 检查任务是否存在
-python -c "from metasim.task.registry import get_task_class; print(get_task_class('stack_cube'))"
-```
-
-### 3. 端口被占用
-```bash
-# 查看端口使用
-lsof -i :8888
-
-# 杀死占用进程
-kill -9 <PID>
-```
-
-### 4. SSH自动启动失败
-```bash
-# 确保SSH密钥已配置
-ssh-copy-id user@remote_host
-
-# 测试SSH连接
-ssh user@remote_host "ls"
-```
-
-## 🎯 使用场景
-
-### 场景1: IsaacSim服务端 + MuJoCo客户端
-```bash
-# 远程机器（有GPU）- 自动启动
-python example.py --auto_start_remote --remote_host gpu_server
-
-# 本地机器
-python example.py
-```
-
-### 场景2: MuJoCo服务端 + 无渲染客户端
-```bash
-# 远程机器
-python example.py server
-
-# 本地机器（只做控制，不渲染）
-python -c "
-from remote_env import RemoteEnv
-env = RemoteEnv('remote_ip', 8888)
-env.connect()
-# 你的控制逻辑
-"
-```
-
-### 场景3: 自定义环境
-```python
-# 服务端
-class MyCustomEnv:
-    def step(self, action):
-        # 你的step逻辑
-        return obs, reward, done, info
+# 创建远程环境（自动SSH隧道）
+with RemoteEnv(
+    remote_host="pabrtxl2.ist.berkeley.edu",
+    ssh_host="rll_6000_2",
+    use_tunnel=True,
+    python_path="/path/to/python",
+    remote_script_path="/path/to/scripts"
+) as remote_env:
+    # 启动远程服务器
+    remote_env.start_remote_server(
+        server_script="task_server.py",
+        task_name="stack_cube",
+        simulator="isaacsim"
+    )
     
-    def reset(self):
-        # 你的reset逻辑
-        return obs
+    # 设置隧道并连接
+    remote_env.setup_tunnel()
+    remote_env.connect()
     
-    def get_state(self):
-        # 你的get_state逻辑
-        return state
-
-server = RemoteServer()
-server.set_environment(MyCustomEnv())
-server.start()
+    # 创建本地环境
+    local_env = create_local_mujoco_env()
+    
+    # 同步replay
+    obs = remote_env.reset()
+    for action in trajectory_actions:
+        # 远程执行
+        obs, reward, done, info = remote_env.step(action)
+        
+        # 获取state并同步到本地
+        state = remote_env.get_state()
+        local_env.handler.set_states(state)
+        local_env.handler.refresh_render()
 ```
 
-## 🔧 高级用法
+## 🔧 配置
 
-### 1. 多客户端连接
-服务端天然支持多客户端，每个客户端都会收到相同的环境状态。
+### SSH配置 (~/.ssh/config)
 
-### 2. 自定义协议
-可以扩展 `simple_protocol.py` 添加新的消息类型。
+```
+Host rll_6000_2
+    HostName pabrtxl2.ist.berkeley.edu
+    User ghr
+    IdentityFile ~/.ssh/id_rsa
+```
 
-### 3. 错误处理
-客户端会自动处理网络断开，并尝试重连。
+### 服务器配置
 
-### 4. 批量操作
+在 `remote_replay_sync.py` 中修改：
+
 ```python
-# 批量step操作
-actions = [action1, action2, action3]
-results = env.batch_step(actions)
+config = {
+    "remote_host": "pabrtxl2.ist.berkeley.edu",
+    "ssh_host": "rll_6000_2",
+    "python_path": "/datasets/v2p/current/murphy/dev/lab/bin/python",
+    "remote_script_path": "/path/to/scripts",
+    "task": "stack_cube",  # 任务名称
+    "simulator": "isaacsim",  # 远程simulator
+}
 ```
 
-## 📊 性能优化
+## 📊 性能
 
-- **网络延迟**: 使用本地网络或云服务器
-- **批量操作**: 减少网络往返次数
-- **状态缓存**: 避免重复获取相同状态
-- **异步操作**: 并行处理多个请求
+基于 rll_6000_2 测试：
+- Reset: ~60ms
+- Step: ~95ms
+- Get State: ~20ms
+- 100步任务: ~10秒
 
-## 特点
+## 🎯 关键特性
 
-- **简洁**: 只有4个核心文件
-- **通用**: 可以包装任何有 `step()`, `reset()`, `get_state()` 方法的环境
-- **透明**: 远程环境接口和本地环境完全一样
-- **自动化**: 支持一键启动远程服务器
+### 1. 同步Replay
+- 远程step → 立即本地set_state
+- 实时渲染
+- 无需等待收集完成
+
+### 2. 真实轨迹
+- 从traj文件加载真实actions
+- 使用真实的任务环境
+- 真实的reward和done
+
+### 3. 自动化
+- 自动SSH隧道
+- 自动服务器管理
+- 自动资源清理
+
+### 4. 监控
+- 日志监控
+- 进程检查
+- 错误处理
+
+## 🐛 故障排查
+
+### 连接失败
+```bash
+# 检查SSH
+ssh rll_6000_2 "echo test"
+
+# 检查端口
+ssh rll_6000_2 "netstat -tlnp | grep 8888"
+```
+
+### 服务器启动失败
+```bash
+# 查看日志
+ssh rll_6000_2 "cat /path/to/server.log"
+
+# 检查进程
+ssh rll_6000_2 "ps aux | grep task_server"
+```
+
+### 轨迹文件不存在
+```bash
+# 检查traj文件
+ls roboverse_data/trajs/
+```
+
+## 📝 注意事项
+
+1. **环境一致性**: 远程和本地的任务配置要一致
+2. **轨迹文件**: 确保traj文件存在
+3. **网络延迟**: 远程操作有~95ms延迟
+4. **资源清理**: 使用context manager自动清理
+
+## 🎉 优势
+
+- **利用远程GPU**: 运行高精度IsaacSim
+- **本地可视化**: MuJoCo低延迟渲染
+- **真实轨迹**: 使用真实的demo数据
+- **同步实时**: 边执行边渲染，无需等待
+
+## 📚 文档
+
+- `README.md` (本文件) - 快速开始
+- `USAGE.md` - 详细API文档
+- `FINAL_SUMMARY.md` - 项目总结
