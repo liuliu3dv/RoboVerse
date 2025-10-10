@@ -31,12 +31,11 @@ rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 from scipy.spatial.transform import Rotation as R
 
-from metasim.constants import SimType
 from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.utils import configclass
 from metasim.utils.obs_utils import ObsSaver
-from metasim.utils.setup_util import get_sim_handler_class
+from metasim.utils.setup_util import get_handler
 
 
 @configclass
@@ -50,7 +49,7 @@ class Args:
 
     ## Others
     num_envs: int = 1
-    headless: bool = True
+    headless: bool = False
     solver: Literal["curobo", "pyroki"] = "pyroki"
 
     def __post_init__(self):
@@ -68,6 +67,7 @@ scenario = ScenarioCfg(
     simulator=args.sim,
     headless=args.headless,
     num_envs=args.num_envs,
+    decimation=4,
 )
 
 # add cameras
@@ -78,8 +78,7 @@ scenario.cameras = [PinholeCameraCfg(width=1024, height=1024, pos=(1.5, -0.5, 1.
 scenario.objects = []
 
 log.info(f"Using simulator: {args.sim}")
-env_class = get_sim_handler_class(SimType(args.sim))
-env = env_class(scenario)
+handler = get_handler(scenario)
 
 init_states = [
     {
@@ -106,12 +105,11 @@ init_states = [
 ]
 robot = scenario.robots[0]
 
-# Setup IK solver
-ik_solver = setup_ik_solver(robot, args.solver)
+# Setup IK solver, disable seed for pyroki
+ik_solver = setup_ik_solver(robot, args.solver, use_seed=False)
 
-env.launch()
-env.set_states(init_states)
-obs = env.get_states(mode="tensor")
+handler.set_states(init_states)
+obs = handler.get_states(mode="tensor")
 os.makedirs("get_started/output", exist_ok=True)
 
 ## Main loop
@@ -120,14 +118,23 @@ obs_saver.add(obs)
 
 
 def move_to_pose(
-    obs, obs_saver, ik_solver, robot, scenario, ee_pos_target, ee_quat_target, steps=10, open_gripper=False
+    obs,
+    obs_saver,
+    ik_solver,
+    robot,
+    scenario,
+    inverse_reorder_idx,
+    ee_pos_target,
+    ee_quat_target,
+    steps=10,
+    open_gripper=False,
 ):
     """Move the robot to the target pose."""
-    curr_robot_q = obs.robots[robot.name].joint_pos
+    # IK solver expects original joint order, but state uses alphabetical order
+    curr_robot_q = obs.robots[robot.name].joint_pos[:, inverse_reorder_idx]
 
     # Solve IK using the unified interface
-    seed_q = curr_robot_q if args.solver == "curobo" else None
-    q_solution, ik_succ = ik_solver.solve_ik_batch(ee_pos_target, ee_quat_target, seed_q)
+    q_solution, ik_succ = ik_solver.solve_ik_batch(ee_pos_target, ee_quat_target, curr_robot_q)
 
     # Process gripper command
     from metasim.utils.ik_solver import process_gripper_command
@@ -136,25 +143,25 @@ def move_to_pose(
     gripper_widths = process_gripper_command(gripper_open_tensor, robot, ee_pos_target.device)
 
     # Compose full joint command
-    q = ik_solver.compose_full_joint_command(q_solution, gripper_widths, current_q=curr_robot_q)
-
-    actions = [
-        {robot.name: {"dof_pos_target": dict(zip(robot.actuators.keys(), q[i_env].tolist()))}}
-        for i_env in range(scenario.num_envs)
-    ]
+    actions = ik_solver.compose_joint_action(q_solution, gripper_widths, current_q=curr_robot_q, return_dict=True)
     for i in range(steps):
-        env.set_dof_targets(actions)
-        env.simulate()
-        obs = env.get_states(mode="tensor")
+        handler.set_dof_targets(actions)
+        handler.simulate()
+        obs = handler.get_states(mode="tensor")
         obs_saver.add(obs)
     return obs
 
+
+# Calculate joint reordering once
+# IK solver expects original joint order, but state uses alphabetical order
+reorder_idx = handler.get_joint_reindex(robot.name)
+inverse_reorder_idx = [reorder_idx.index(i) for i in range(len(reorder_idx))]
 
 step = 0
 robot_joint_limits = scenario.robots[0].joint_limits
 for step in range(4):
     log.debug(f"Step {step}")
-    states = env.get_states()
+    states = handler.get_states()
     rotation_transform_for_franka = torch.tensor(
         [
             [0.0, 0.0, 1.0],
@@ -199,7 +206,16 @@ for step in range(4):
     ee_quat_target[0] = torch.tensor(quat, device="cuda:0")
 
     obs = move_to_pose(
-        obs, obs_saver, ik_solver, robot, scenario, ee_pos_target, ee_quat_target, steps=100, open_gripper=True
+        obs,
+        obs_saver,
+        ik_solver,
+        robot,
+        scenario,
+        inverse_reorder_idx,
+        ee_pos_target,
+        ee_quat_target,
+        steps=100,
+        open_gripper=True,
     )
     step += 1
 

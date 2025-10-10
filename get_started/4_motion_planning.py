@@ -21,7 +21,7 @@ rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 
-from metasim.constants import PhysicStateType, SimType
+from metasim.constants import PhysicStateType
 from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.scenario.objects import (
     ArticulationObjCfg,
@@ -32,7 +32,7 @@ from metasim.scenario.objects import (
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.utils import configclass
 from metasim.utils.obs_utils import ObsSaver
-from metasim.utils.setup_util import get_sim_handler_class
+from metasim.utils.setup_util import get_handler
 
 
 @configclass
@@ -66,6 +66,7 @@ class Args:
 args = tyro.cli(Args)
 
 # IK solver imports are now handled in the unified solver
+log.info(f"Using IK solver: {args.solver}")
 
 # initialize scenario
 scenario = ScenarioCfg(
@@ -110,9 +111,7 @@ scenario.objects = [
 ]
 
 log.info(f"Using simulator: {args.sim}")
-env_class = get_sim_handler_class(SimType(args.sim))
-env = env_class(scenario)
-env.launch()
+handler = get_handler(scenario)
 
 if args.robot == "franka":
     robot_dict = {
@@ -186,8 +185,8 @@ from metasim.utils.ik_solver import process_gripper_command, setup_ik_solver
 # Setup unified IK solver
 ik_solver = setup_ik_solver(robot, args.solver)
 
-env.set_states(init_states)
-obs = env.get_states(mode="tensor")
+handler.set_states(init_states)
+obs = handler.get_states(mode="tensor")
 os.makedirs("get_started/output", exist_ok=True)
 
 ## Main loop
@@ -198,7 +197,7 @@ step = 0
 robot_joint_limits = scenario.robots[0].joint_limits
 for step in range(200):
     log.debug(f"Step {step}")
-    states = env.get_states()
+    states = handler.get_states()
 
     if scenario.robots[0].name == "franka":
         x_target = 0.3 + 0.1 * (step / 100)
@@ -224,8 +223,11 @@ for step in range(200):
             device="cuda:0",
         )
 
-    # Get current robot state for curobo seeding
-    curr_robot_q = states.robots[robot.name].joint_pos.cuda() if args.solver == "curobo" else None
+    # Get current robot state for seeding
+    # IK solver expects original joint order, but state uses alphabetical order
+    reorder_idx = handler.get_joint_reindex(scenario.robots[0].name)
+    inverse_reorder_idx = [reorder_idx.index(i) for i in range(len(reorder_idx))]
+    curr_robot_q = obs.robots[scenario.robots[0].name].joint_pos[:, inverse_reorder_idx]
 
     # Solve IK
     q_solution, ik_succ = ik_solver.solve_ik_batch(ee_pos_target, ee_quat_target, curr_robot_q)
@@ -234,15 +236,12 @@ for step in range(200):
     gripper_binary = torch.ones(scenario.num_envs, device="cuda:0")  # all open
     gripper_widths = process_gripper_command(gripper_binary, robot, "cuda:0")
     # Compose full joint command
-    q_full = ik_solver.compose_full_joint_command(q_solution, gripper_widths, curr_robot_q)
+    actions = ik_solver.compose_joint_action(q_solution, gripper_widths, curr_robot_q, return_dict=True)
 
-    # Create actions
-    actions = ik_solver.create_actions_dict(q_full)
-
-    env.set_dof_targets(actions)
-    env.simulate()
-    obs = env.get_states(mode="tensor")
-    # obs, reward, success, time_out, extras = env.step(actions)
+    handler.set_dof_targets(actions)
+    handler.simulate()
+    obs = handler.get_states(mode="tensor")
+    # obs, reward, success, time_out, extras = handler.step(actions)
 
     obs_saver.add(obs)
     step += 1

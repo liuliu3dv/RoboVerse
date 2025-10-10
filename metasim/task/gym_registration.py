@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any, Callable
 
 import gymnasium as gym
@@ -9,7 +10,7 @@ from gymnasium.envs.registration import _find_spec, register
 from gymnasium.vector import SyncVectorEnv
 from gymnasium.vector.vector_env import VectorEnv
 
-from .registry import get_task_class
+from .registry import get_task_class, list_tasks
 
 # Local fallback registry for vector entry points when Gymnasium does not
 # support the `vector_entry_point` argument in `register()`.
@@ -39,20 +40,13 @@ class GymEnvWrapper(gym.Env):
     ) -> None:
         # Force single environment when created via gym.make.
         scenario_kwargs["num_envs"] = 1
-
-        self._device = (
-            torch.device(device)
-            if device is not None
-            else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-        )
-
+        self.device = device
         self.task_cls = get_task_class(task_name)
         updated_scenario_cfg = self.task_cls.scenario.update(**scenario_kwargs)
         self.scenario = updated_scenario_cfg
-        self.task_env = self.task_cls(updated_scenario_cfg)
+        self.task_env = self.task_cls(updated_scenario_cfg, device)
         self.action_space = self.task_env.action_space
         self.observation_space = self.task_env.observation_space
-
         # Instance-level metadata; declare autoreset mode with the official enum
         self.metadata = dict(getattr(self, "metadata", {}))
         self.metadata["autoreset_mode"] = (
@@ -63,54 +57,12 @@ class GymEnvWrapper(gym.Env):
         """Reset the environment and return the initial observation."""
         super().reset(seed=seed)
         obs, info = self.task_env.reset()
-
-        if torch.is_tensor(obs):
-            obs = obs.detach().cpu().numpy()
-        if obs.ndim == 2 and obs.shape[0] == 1:
-            obs = obs[0]
-        return obs, {}
+        return obs, info
 
     def step(self, action):
         """Step the environment with the given action."""
-        # Three cases: numpy -> tensor, list-of-dict -> stacked tensor, torch -> move to device
-        if isinstance(action, torch.Tensor):
-            action_t = action.to(self._device)
-        elif isinstance(action, np.ndarray):
-            action_t = torch.as_tensor(action, dtype=torch.float32, device=self._device)
-        elif isinstance(action, list):
-            robot = self.scenario.robots[0]
-            joint_names = list(robot.joint_limits.keys())
-
-            if len(action) != 1:
-                raise ValueError(f"Single-env wrapper expects exactly 1 action dict, got {len(action)}")
-
-            vec = torch.tensor(
-                [action[0][robot.name]["dof_pos_target"][jn] for jn in joint_names],
-                dtype=torch.float32,
-                device=self._device,
-            )
-
-            action_t = vec.unsqueeze(0)
-
-        else:
-            raise TypeError(
-                f"Unsupported action type: {type(action)}. Expected torch.Tensor, numpy.ndarray, or list/dict of action dicts."
-            )
-
-        # Ensure batch dimension for single-env backend.
-        if action_t.ndim == 1:
-            action_t = action_t.unsqueeze(0)
-
         # Backend is expected to return (obs, reward, terminated, truncated, info).
-        obs, reward, terminated, truncated, info = self.task_env.step(action_t)
-
-        # De-batch observation for single-env wrapper if needed.
-        try:
-            if hasattr(obs, "ndim") and obs.ndim >= 2 and obs.shape[0] == 1:
-                obs = obs[0]
-        except Exception:
-            pass
-
+        obs, reward, terminated, truncated, info = self.task_env.step(action)
         return obs, reward, terminated, truncated, info
 
     def render(self):
@@ -136,27 +88,14 @@ class GymVectorEnvAdapter(VectorEnv):
     def __init__(
         self,
         task_name: str,
-        num_envs: int,
         device: str | torch.device | None = None,
         **scenario_kwargs: Any,
     ) -> None:
-        # Delegate num_envs to the backend.
-        scenario_kwargs["num_envs"] = int(num_envs)
-
-        self._device = (
-            torch.device(device)
-            if device is not None
-            else (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-        )
-
         self.task_cls = get_task_class(task_name)
         updated_scenario_cfg = self.task_cls.scenario.update(**scenario_kwargs)
-        self.task_env = self.task_cls(updated_scenario_cfg)
+        self.task_env = self.task_cls(updated_scenario_cfg, device)
         self.scenario = updated_scenario_cfg
-        # scenario = ScenarioCfg(**scenario_kwargs)
-        # self.task_env = load_task(task_name, scenario, device=self._device)
-        # self.scenario = self.task_env.scenario
-        # Use positional args to be compatible across Gymnasium versions.
+        self.device = self.task_env.device
         try:
             super().__init__(self.task_env.num_envs, self.task_env.observation_space, self.task_env.action_space)
         except TypeError:
@@ -177,67 +116,18 @@ class GymVectorEnvAdapter(VectorEnv):
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
         """Reset all environments and return initial observations."""
-        # super().reset(seed=seed)
         obs, info = self.task_env.reset()
-        # VectorEnv API: return (obs_batch, infos_list) where len(infos) == num_envs.
         return obs, info
 
     def step_async(self, actions) -> None:
         """Cache actions; convert to torch."""
-        # Three cases: numpy -> tensor, list-of-dict -> stacked tensor, torch -> move to device
-        if isinstance(actions, torch.Tensor):
-            self._pending_actions = actions.to(self._device)
-        elif isinstance(actions, np.ndarray):
-            self._pending_actions = torch.as_tensor(actions, dtype=torch.float32, device=self._device)
-        elif isinstance(actions, list):
-            robot = self.scenario.robots[0]
-            joint_names = list(robot.joint_limits.keys())
-            if len(actions) != self.num_envs:
-                raise ValueError(f"Expected {self.num_envs} action dicts, got {len(actions)}")
-            # Build a clean tensor directly without intermediate lists of tensors
-            act_dim = len(joint_names)
-            actions_tensor = torch.empty((self.num_envs, act_dim), dtype=torch.float32, device=self._device)
-            for env_index in range(self.num_envs):
-                actions_tensor[env_index] = torch.tensor(
-                    [actions[env_index][robot.name]["dof_pos_target"][jn] for jn in joint_names],
-                    dtype=torch.float32,
-                )
-            self._pending_actions = actions_tensor
-        else:
-            raise TypeError(
-                f"Unsupported action type: {type(actions)}. Expected torch.Tensor, numpy.ndarray, or list/dict of action dicts."
-            )
+        self._pending_actions = actions
 
     def step_wait(self):
         """Wait for the step to complete and return results."""
-        if self._pending_actions is None:
-            raise RuntimeError("step_async must be called before step_wait.")
-
-        out = self.task_env.step(self._pending_actions)
-        if len(out) != 5:
-            raise RuntimeError(
-                f"Backend returned {len(out)} items; expected 5 (obs, reward, terminated, truncated, info)."
-            )
-
-        obs, reward, terminated, truncated, info = out  # 'truncated' may be 'timeout' internally.
-
-        # Ensure infos is a list[dict] of length num_envs.
-        if info is None:
-            infos = [{} for _ in range(self.num_envs)]
-        elif isinstance(info, dict):
-            infos = [info.copy() for _ in range(self.num_envs)]
-        else:
-            infos = list(info)
-            if len(infos) != self.num_envs:
-                # Broadcast a single dict if needed.
-                if len(infos) == 1 and isinstance(infos[0], dict):
-                    infos = [infos[0].copy() for _ in range(self.num_envs)]
-                else:
-                    raise RuntimeError(f"Expected {self.num_envs} infos, got {len(infos)}.")
-
-        # Clear pending actions.
-        self._pending_actions = None
-        return obs, reward, terminated, truncated, infos
+        obs, reward, terminated, truncated, info = self.task_env.step(self._pending_actions)
+        self._pending_actions = None  # Clear pending actions.
+        return obs, reward, terminated, truncated, info
 
     def step(self, actions):
         """Synchronous step composed from step_async + step_wait (required by Gym)."""
@@ -290,29 +180,34 @@ def _make_vector_entry_point(task_name: str) -> Callable[..., VectorEnv]:
     return _factory
 
 
-# # -------------------------
-# # Registration helpers
-# # -------------------------
-# def register_all_tasks_with_gym(prefix: str = "RoboVerse/") -> None:
-#     """Register all tasks with both single-env and vectorized entry points."""
-#     for task_name in list_tasks():
-#         env_id = f"{prefix}{task_name}"
-#         entry = _make_entry_point_single(task_name)
-#         vec_entry = _make_vector_entry_point(task_name)
-#         # Try registering with vector entry point (newer Gymnasium). If that fails
-#         # (older versions), register single entry and store vector entry locally.
-#         try:
-#             register(id=env_id, entry_point=entry, vector_entry_point=vec_entry)
-#         except TypeError:
-#             try:
-#                 register(id=env_id, entry_point=entry)
-#             except Exception:
-#                 # Ignore duplicate registrations during hot reload.
-#                 pass
-#             _VECTOR_ENTRY_POINTS[env_id] = vec_entry
-#         except Exception:
-#             # Ignore duplicate registrations during hot reload.
-#             pass
+# -------------------------
+# Registration helpers
+# -------------------------
+def register_all_tasks_with_gym(prefix: str = "RoboVerse/") -> None:
+    """Register all known tasks for both gymnasium.make and gymnasium.make_vec.
+
+    This is safe to call multiple times.
+    """
+    for task_name in list_tasks():
+        env_id = f"{prefix}{task_name}"
+        entry = _make_entry_point_single(task_name)
+        vec_entry = _make_vector_entry_point(task_name)
+        try:
+            register(id=env_id, entry_point=entry, vector_entry_point=vec_entry)
+        except TypeError:
+            try:
+                register(id=env_id, entry_point=entry)
+            except Exception:
+                pass
+            _VECTOR_ENTRY_POINTS[env_id] = vec_entry
+            try:
+                spec_ = _find_spec(env_id)
+                spec_.vector_entry_point = vec_entry  # type: ignore[attr-defined]
+            except Exception:
+                pass
+        except Exception:
+            # Ignore duplicate registrations during hot reload.
+            pass
 
 
 def register_task_with_gym(task_name: str, env_id: str | None = None) -> str:
@@ -325,11 +220,24 @@ def register_task_with_gym(task_name: str, env_id: str | None = None) -> str:
         register(id=env_id, entry_point=entry, vector_entry_point=vec_entry)
     except TypeError:
         try:
+            # Older Gymnasium versions do not support vector_entry_point as a kwarg.
+            # Register the single-env entry first.
             register(id=env_id, entry_point=entry)
         except Exception:
             # Ignore duplicate registrations during hot reload.
             pass
+        # Store locally for our make_vec fallback.
         _VECTOR_ENTRY_POINTS[env_id] = vec_entry
+        # Additionally, attach the vector entry point to the spec if available so
+        # gymnasium.make_vec can discover it on older versions.
+        try:
+            spec_ = _find_spec(env_id)
+            # Some Gymnasium versions allow arbitrary attributes on EnvSpec.
+            # Use direct attribute assignment to avoid linter warnings about setattr.
+            spec_.vector_entry_point = vec_entry  # type: ignore[attr-defined]
+        except Exception:
+            # Best-effort: make_vec helper will still work using our local registry.
+            pass
     except Exception:
         # Ignore duplicate registrations during hot reload.
         pass
@@ -341,32 +249,29 @@ def make_vec(
     num_envs: int,
     **kwargs: Any,
 ) -> VectorEnv:
-    """Instantiate a vectorized roboverse task.
+    """Deprecated: use gymnasium.make_vec(env_id, num_envs=..., ...) instead.
 
-    Args:
-        env_id: The environment ID to register.
-        num_envs: The number of environments to create.
-        **kwargs: Additional keyword arguments to pass to the environment creator.
-
-    Returns:
-        VectorEnv: The vectorized environment.
+    This wrapper will attempt to ensure the Gymnasium spec has a vector entry
+    point, register it if missing, then forward the call to gymnasium.make_vec.
     """
-    # Prefer locally stored vector entry (for older Gymnasium without
-    # vector_entry_point support). Fall back to spec, then to building a
-    # vector adapter directly from the task name.
-    env_creator: Callable[..., VectorEnv] | None = _VECTOR_ENTRY_POINTS.get(env_id)
+    warnings.warn(
+        "metasim.task.gym_registration.make_vec is deprecated; use gymnasium.make_vec instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    if env_creator is None:
-        try:
-            spec_ = _find_spec(env_id)
-            env_creator = getattr(spec_, "vector_entry_point", None)
-        except Exception:
-            env_creator = None
+    # Ensure vector entry point is available for env_id
+    try:
+        spec_ = _find_spec(env_id)
+        vec_ep = getattr(spec_, "vector_entry_point", None)
+    except Exception:
+        spec_ = None
+        vec_ep = None
 
-    if env_creator is None:
-        # Derive task name from the env_id and build a vector entry on the fly.
+    if vec_ep is None:
+        # Try to register this specific task lazily
         task_name = env_id.split("/", 1)[1] if "/" in env_id else env_id
-        env_creator = _make_vector_entry_point(task_name)
+        register_task_with_gym(task_name, env_id=env_id)
 
-    env = env_creator(num_envs=num_envs, **kwargs)
-    return env
+    # Forward to Gymnasium
+    return gym.make_vec(env_id, num_envs=num_envs, **kwargs)

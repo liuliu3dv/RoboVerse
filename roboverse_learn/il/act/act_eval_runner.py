@@ -15,7 +15,7 @@ from rich.logging import RichHandler
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 # from metasim.scenario.scenario import ScenarioCfg
-from metasim.utils.kinematics_utils import get_curobo_models
+from metasim.utils.kinematics import get_curobo_models
 
 from metasim.task.registry import get_task_class
 
@@ -199,7 +199,7 @@ def main():
         if args.temporal_agg:
             query_frequency = 1
             num_queries = policy_config["num_queries"]
-        max_timesteps = env.episode_length
+        max_timesteps = env.max_episode_steps
         max_timesteps = int(max_timesteps * 1)
 
     ckpt_name = args.ckpt_path.split("/")[-1]
@@ -250,7 +250,6 @@ def main():
 
                 image_list.append(np.array(obs.cameras['camera'].rgb)[0])
 
-                # act
                 qpos_numpy = np.array(obs.robots['franka'].joint_pos)
                 # qpos_numpy = np.array(obs["joint_qpos"])
                 qpos = pre_process(qpos_numpy)

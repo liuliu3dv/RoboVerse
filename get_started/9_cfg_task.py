@@ -19,9 +19,10 @@ log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 
 
 import torch
+from gymnasium import make_vec
 
+import metasim  # noqa: F401
 from metasim.scenario.cameras import PinholeCameraCfg
-from metasim.task.gym_registration import make_vec
 from metasim.utils import configclass
 from metasim.utils.obs_utils import ObsSaver
 
@@ -42,7 +43,7 @@ class Args:
         "sapien3",
         "mujoco",
         "mjx",
-    ] = "isaacsim"
+    ] = "mujoco"
 
     ## Others
     num_envs: int = 1
@@ -73,10 +74,10 @@ def main():
     )
 
     env_id = f"RoboVerse/{args.task}"
-
     env = make_vec(
         env_id,
         num_envs=args.num_envs,
+        # vectorization_mode=None,
         simulator=args.sim,
         headless=args.headless,
         cameras=[camera] if args.save_video else [],
@@ -117,7 +118,7 @@ def main():
         # Save observations for video
         if obs_saver is not None:
             try:
-                raw_states = env.env.handler.get_states()  # Access the underlying simulator
+                raw_states = env.task_env.handler.get_states()  # Access the underlying simulator
                 obs_saver.add(raw_states)
             except Exception as e:
                 log.debug(f"Could not get camera data: {e}")

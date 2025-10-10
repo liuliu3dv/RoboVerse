@@ -50,7 +50,9 @@ class ContactData(BaseQueryType):
             dist_mask = contacts.dist < 1e-6
             mask = pair_mask & dist_mask  # [num_env, nconmax]
             has_contact = jax.numpy.any(mask, axis=1)  # [num_env]
-            has_contact = torch.from_dlpack(has_contact.__dlpack__())
+            from metasim.sim.mjx.mjx_helper import j2t
+
+            has_contact = j2t(has_contact)
             return has_contact.to(dtype=torch.float32, device=self.handler.device)
 
         elif mod.startswith("metasim.sim.mujoco"):
@@ -59,16 +61,15 @@ class ContactData(BaseQueryType):
 
             nenv = self.handler.num_envs
             has_contact = np.zeros(nenv, dtype=bool)
-            for env_id in range(nenv):
-                data = self.handler.data[env_id]
-                for i in range(data.ncon):
-                    con = data.contact[i]
-                    if (con.geom1 == self._geom1_id and con.geom2 == self._geom2_id) or (
-                        con.geom1 == self._geom2_id and con.geom2 == self._geom1_id
-                    ):
-                        if con.dist < 1e-6:
-                            has_contact[env_id] = True
-                            break
+            data = self.handler.data
+            for i in range(data.ncon):
+                con = data.contact[i]
+                if (con.geom1 == self._geom1_id and con.geom2 == self._geom2_id) or (
+                    con.geom1 == self._geom2_id and con.geom2 == self._geom1_id
+                ):
+                    if con.dist < 1e-6:
+                        has_contact = True
+                        break
 
             return torch.tensor(has_contact, dtype=torch.float32, device=self.handler.device)
 
