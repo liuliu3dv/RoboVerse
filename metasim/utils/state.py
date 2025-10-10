@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from itertools import chain
 
+import numpy as np
 import torch
-from loguru import logger as log
 
 from metasim.types import Action, CameraState, DictEnvState, ObjectState, RobotState, TensorState
 
@@ -109,8 +109,16 @@ def join_tensor_states(tensor_states: list[TensorState]) -> TensorState:
 
 def _dof_tensor_to_dict(dof_tensor: torch.Tensor, joint_names: list[str]) -> dict[str, float]:
     """Convert a DOF tensor to a dictionary of joint positions."""
+    assert isinstance(dof_tensor, torch.Tensor)
     joint_names = sorted(joint_names)
     return {jn: dof_tensor[i].item() for i, jn in enumerate(joint_names)}
+
+
+def _dof_array_to_dict(dof_array, joint_names: list[str]) -> dict[str, float]:
+    """Convert a DOF array to a dictionary of joint positions."""
+    assert isinstance(dof_array, (list, np.ndarray))
+    joint_names = sorted(joint_names)
+    return {jn: dof_array[i] for i, jn in enumerate(joint_names)}
 
 
 def _body_tensor_to_dict(body_tensor: torch.Tensor, body_names: list[str]) -> dict[str, float]:
@@ -129,10 +137,6 @@ def _body_tensor_to_dict(body_tensor: torch.Tensor, body_names: list[str]) -> di
 
 def state_tensor_to_nested(handler: BaseSimHandler, tensor_state: TensorState) -> list[DictEnvState]:
     """Convert a tensor state to a list of env states. All the tensors will be converted to cpu for compatibility."""
-    log.warning(
-        "Users please ignore this message, we are working on it. For developers: You are using the very inefficient function to convert the tensorized states to old nested states. Please consider not using this function and optimize your code when number of environments is large."
-    )
-
     num_envs = next(iter(chain(tensor_state.objects.values(), tensor_state.robots.values()))).root_state.shape[0]
     env_states = []
     for env_id in range(num_envs):
@@ -360,7 +364,7 @@ def list_state_to_tensor(
     return TensorState(objects=objects, robots=robots, cameras=cameras, extras=extras)
 
 
-def adapt_actions(
+def adapt_actions_to_dict(
     handler: BaseSimHandler, actions: list[Action] | TensorState
 ) -> dict[str, dict[str, dict[str, float]]]:
     """Adapt actions to the format of single env handlers.
@@ -377,6 +381,14 @@ def adapt_actions(
                 "dof_pos_target": _dof_tensor_to_dict(actions, handler.get_joint_names(handler.robot.name))
             }
         }
-    if isinstance(actions, list):
+    elif isinstance(actions, np.ndarray):
+        if len(actions.shape) == 2:
+            actions = actions[0]
+        actions = {
+            handler.robot.name: {
+                "dof_pos_target": _dof_array_to_dict(actions, handler.get_joint_names(handler.robot.name))
+            }
+        }
+    elif isinstance(actions, list):
         actions = actions[0]
     return actions
