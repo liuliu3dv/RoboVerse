@@ -17,3 +17,11 @@ class SceneCfg:
     quat: tuple[float, float, float, float] | None = None
 
     scale: tuple[float, float, float] | None = None
+
+
+@configclass
+class GSSceneCfg:
+    """Base config class for GS scenes."""
+    with_gs_background: bool = False
+    gs_background_path: str | None = None
+    gs_background_pose_tum: tuple[float, float, float, float, float, float, float] | None = None

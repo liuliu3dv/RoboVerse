@@ -22,7 +22,8 @@ from huggingface_hub import snapshot_download
 from metasim.constants import PhysicStateType, SimType
 from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.scenario.objects import RigidObjCfg
-from metasim.scenario.scenario import ScenarioCfg
+from metasim.scenario.scenario import ScenarioCfg,GSSceneCfg
+from metasim.scenario.scene import SceneCfg
 from metasim.utils import configclass
 from metasim.utils.setup_util import get_sim_handler_class
 
@@ -41,7 +42,7 @@ class RealAssetCfg:
         "mujoco",
     ] = "mujoco"
     num_envs: int = 1
-    headless: bool = False
+    headless: bool = True
 
     def __post_init__(self):
         log.info(f"RealAssetCfg: {self}")
@@ -66,6 +67,10 @@ if __name__ == "__main__":
         headless=args.headless,
         num_envs=args.num_envs,
         simulator=args.sim,
+        gs_scene=GSSceneCfg(
+            with_gs_background=True,
+            gs_background_path="/horizon-bucket/robot_lab/users/xinjie.wang/test_space/test_render/scene_016/gs_model.ply",
+            gs_background_pose_tum=(0,0,0,0,0.9861,0,-0.16296))
     )
 
     # add cameras

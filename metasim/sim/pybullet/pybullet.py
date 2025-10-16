@@ -15,6 +15,12 @@ import pybullet as p
 import pybullet_data
 import torch
 
+from robo_splatter.models.gaussians import VanillaGaussians
+from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
+from robo_splatter.models.basic import RenderConfig
+from robo_splatter.models.camera import Camera as SplatCamera
+from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+
 from metasim.queries.base import BaseQueryType
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
 from metasim.scenario.robot import RobotCfg
@@ -43,6 +49,54 @@ class SinglePybulletHandler(BaseSimHandler):
         """
         super().__init__(scenario, optional_queries)
         self._actions_cache: list[Action] = []
+
+    def _build_gs_background(self):
+        """Build the GS background model."""
+        if self.scenario.gs_scene.gs_background_pose_tum is not None:
+            x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
+        else:
+            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
+
+        qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
+        init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
+
+        gs_model = VanillaGaussians(
+            model_path=self.scenario.gs_scene.gs_background_path,
+            device="cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+        gs_model.apply_global_transform(global_pose=init_pose)
+
+        self.gs_background = Scene(
+            render_config=RenderConfig(), background_models=gs_model
+        )
+
+    def _get_camera_params(self, view_matrix, projection_matrix, width, height):
+        """Get camera intrinsics and extrinsics directly from PyBullet matrices.
+        
+        Args:
+            view_matrix: PyBullet view matrix (16-element list, column-major)
+            projection_matrix: PyBullet projection matrix (16-element list)
+            width: image width
+            height: image height
+            
+        Returns:
+            Ks: (3, 3) intrinsic matrix
+            c2w: (4, 4) camera-to-world transformation matrix
+        """
+        # Extrinsics: convert view matrix (world-to-camera) to c2w
+        view_mat_np = np.array(view_matrix).reshape(4, 4).T
+        c2w = np.linalg.inv(view_mat_np)
+        
+        # Intrinsics: extract from projection matrix
+        proj_mat = np.array(projection_matrix).reshape(4, 4).T
+        fx = proj_mat[0, 0] * width / 2.0
+        fy = proj_mat[1, 1] * height / 2.0
+        cx = width / 2.0
+        cy = height / 2.0
+        Ks = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+        
+        return Ks, c2w
 
     def _build_pybullet(self):
         self.client = p.connect(p.DIRECT if self.headless else p.GUI)
@@ -289,6 +343,8 @@ class SinglePybulletHandler(BaseSimHandler):
         """Launch the simulation."""
         super().launch()
         self._build_pybullet()
+        if self.scenario.gs_scene.with_gs_background:
+            self._build_gs_background()
         self.already_disconnect = False
 
     def close(self):
@@ -383,19 +439,61 @@ class SinglePybulletHandler(BaseSimHandler):
         camera_states = {}
         for camera in self.cameras:
             width, height, view_matrix, projection_matrix = self.camera_ids[camera.name]
-            img_arr = p.getCameraImage(
-                width,
-                height,
-                view_matrix,
-                projection_matrix,
-                lightAmbientCoeff=0.5,
-            )
-            rgb_img = np.reshape(img_arr[2], (height, width, 4))
-            depth_img = np.reshape(img_arr[3], (height, width))
-            segmentation_mask = np.reshape(img_arr[4], (height, width))
+            
+            if self.scenario.gs_scene.with_gs_background:
+                # Extract camera parameters from PyBullet
+                Ks, c2w = self._get_camera_params(view_matrix, projection_matrix, width, height)
+                
+                # Render GS background
+                gs_cam = SplatCamera.init_from_pose_list(
+                    pose_list=c2w,
+                    camera_intrinsic=Ks,
+                    image_height=height,
+                    image_width=width,
+                    device="cuda" if torch.cuda.is_available() else "cpu"
+                )
+                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.MUJOCO)
+                
+                # Get PyBullet simulation rendering
+                img_arr = p.getCameraImage(width, height, view_matrix, projection_matrix, lightAmbientCoeff=0.5)
+                rgb_img = np.reshape(img_arr[2], (height, width, 4))
+                depth_img = np.reshape(img_arr[3], (height, width))
+                segmentation_mask = np.reshape(img_arr[4], (height, width))
+                
+                # Create foreground mask: exclude background (-1) and ground plane
+                foreground_mask = (segmentation_mask > -1) & (segmentation_mask != self.plane_id)
+                mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
+                
+                # Blend RGB: foreground objects over GS background
+                sim_color = rgb_img[:, :, :3]
+                foreground = np.concatenate([sim_color, mask[..., None]], axis=-1)
+                blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
+                rgb = torch.from_numpy(np.array(blended_rgb.copy()))
+                
+                # Compose depth: use simulation depth for foreground, GS depth for background
+                bg_depth = gs_result.depth[0, ...]
+                if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
+                    bg_depth = bg_depth[..., 0]
+                depth_comp = np.where(foreground_mask, depth_img, bg_depth)
+                depth = torch.from_numpy(depth_comp.copy())
+            else:
+                # Original PyBullet rendering without GS background
+                img_arr = p.getCameraImage(
+                    width,
+                    height,
+                    view_matrix,
+                    projection_matrix,
+                    lightAmbientCoeff=0.5,
+                )
+                rgb_img = np.reshape(img_arr[2], (height, width, 4))
+                depth_img = np.reshape(img_arr[3], (height, width))
+                segmentation_mask = np.reshape(img_arr[4], (height, width))
+                rgb = torch.from_numpy(rgb_img[:, :, :3])
+                depth = torch.from_numpy(depth_img)
+            
             state = CameraState(
-                rgb=torch.from_numpy(rgb_img[:, :, :3]).unsqueeze(0),
-                depth=torch.from_numpy(depth_img).unsqueeze(0),
+                rgb=rgb.unsqueeze(0),
+                depth=depth.unsqueeze(0),
             )
             camera_states[camera.name] = state
 

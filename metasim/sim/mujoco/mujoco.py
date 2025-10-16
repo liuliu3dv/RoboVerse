@@ -12,6 +12,12 @@ import torch
 from dm_control import mjcf
 from loguru import logger as log
 
+from robo_splatter.models.gaussians import VanillaGaussians
+from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
+from robo_splatter.models.basic import RenderConfig
+from robo_splatter.models.camera import Camera as SplatCamera
+from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveCylinderCfg, PrimitiveSphereCfg
 from metasim.scenario.robot import RobotCfg
 
@@ -60,6 +66,65 @@ class MujocoHandler(BaseSimHandler):
         self._current_action = None
         self._current_vel_target = None  # Track velocity targets
 
+    def _build_gs_background(self):
+        """Build the GS background model."""
+        if self.scenario.gs_scene.gs_background_pose_tum is not None:
+            x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
+        else:
+            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
+
+        qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
+        init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
+
+        gs_model = VanillaGaussians(
+            model_path=self.scenario.gs_scene.gs_background_path,
+            device="cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+        gs_model.apply_global_transform(global_pose=init_pose)
+
+        self.gs_background = Scene(
+            render_config=RenderConfig(), background_models=gs_model
+        )
+
+    def _get_camera_params(self, camera_id: str, camera):
+        """Get camera intrinsics and extrinsics from MuJoCo camera configuration.
+        
+        Returns:
+            Ks: (3, 3) intrinsic matrix
+            c2w: (4, 4) camera-to-world transformation matrix
+        """
+        mj_camera = self.physics.model.camera(camera_id)
+        
+        # Extrinsics: build from camera configuration
+        cam_pos = self.physics.data.cam_xpos[mj_camera.id]
+        
+        # Compute camera orientation from pos and look_at
+        forward = np.array(camera.look_at) - np.array(camera.pos)
+        forward = forward / np.linalg.norm(forward)
+        
+        world_up = np.array([0, 0, 1])
+        right = np.cross(forward, world_up)
+        right = right / np.linalg.norm(right)
+        up = np.cross(right, forward)
+        
+        # Build c2w matrix (OpenGL convention: camera looks along -Z)
+        c2w = np.eye(4)
+        c2w[:3, 0] = right
+        c2w[:3, 1] = up
+        c2w[:3, 2] = -forward  # Z axis points backward
+        c2w[:3, 3] = cam_pos
+        
+        # Intrinsics: compute from vertical FOV
+        fovy_rad = np.deg2rad(camera.vertical_fov)
+        fy = camera.height / (2 * np.tan(fovy_rad / 2))
+        fx = fy  # assume square pixels
+        cx = camera.width / 2.0
+        cy = camera.height / 2.0
+        Ks = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+        
+        return Ks, c2w
+
     def launch(self) -> None:
         model = self._init_mujoco()
         self.physics = mjcf.Physics.from_mjcf_model(model)
@@ -76,6 +141,9 @@ class MujocoHandler(BaseSimHandler):
         if not self.headless:
             self.viewer = mujoco.viewer.launch_passive(self.physics.model.ptr, self.physics.data.ptr)
             self.viewer.sync()
+
+        if self.scenario.gs_scene.with_gs_background:
+            self._build_gs_background()
 
         if self.optional_queries is None:
             self.optional_queries = {}
@@ -475,15 +543,85 @@ class MujocoHandler(BaseSimHandler):
         camera_states = {}
         for camera in self.cameras:
             camera_id = f"{camera.name}_custom"  # XXX: hard code camera id for now
-            camera_states[camera.name] = {}
-            depth = None
-            if "rgb" in camera.data_types:
-                rgb = self.physics.render(width=camera.width, height=camera.height, camera_id=camera_id, depth=False)
-                rgb = torch.from_numpy(rgb.copy()).unsqueeze(0)
-            if "depth" in camera.data_types:
-                depth = self.physics.render(width=camera.width, height=camera.height, camera_id=camera_id, depth=True)
-                depth = torch.from_numpy(depth.copy()).unsqueeze(0)
-            state = CameraState(rgb=rgb, depth=depth)
+            
+            if self.scenario.gs_scene.with_gs_background:
+                # Get camera parameters directly from MuJoCo
+                Ks, c2w = self._get_camera_params(camera_id, camera)
+                
+                # Optional debug output (commented out)
+                # print(f"[MuJoCo Camera] fx={Ks[0,0]:.2f}, fy={Ks[1,1]:.2f}, cx={Ks[0,2]:.2f}, cy={Ks[1,2]:.2f}")
+                # print(f"[MuJoCo Camera] c2w position: {c2w[:3, 3]}")
+                
+                # Build RoboSplatter camera and render GS background
+                gs_cam = SplatCamera.init_from_pose_list(
+                    pose_list=c2w,
+                    camera_intrinsic=Ks,
+                    image_height=camera.height,
+                    image_width=camera.width,
+                    device="cuda" if torch.cuda.is_available() else "cpu"
+                )
+                gs_result = self.gs_background.render(
+                    gs_cam, coord_system=RenderCoordSystem.MUJOCO
+                )
+                
+                # Render RGB, depth, and segmentation from MuJoCo
+                sim_rgb = self.physics.render(
+                    width=camera.width, height=camera.height, camera_id=camera_id, depth=False, segmentation=False
+                )
+                sim_depth = self.physics.render(
+                    width=camera.width, height=camera.height, camera_id=camera_id, depth=True, segmentation=False
+                )
+                
+                # Get segmentation mask - returns (height, width, 2) array
+                # Channel 0: geom ID (-1 = background, 0 = ground plane)
+                # Channel 1: object/body ID
+                sim_seg = self.physics.render(
+                    width=camera.width, height=camera.height, camera_id=camera_id, depth=False, segmentation=True
+                )
+                
+                # Extract geom IDs (first channel)
+                geom_ids = sim_seg[..., 0] if sim_seg.ndim == 3 else sim_seg
+                
+                # Create foreground mask: exclude background (-1) and ground plane (0)
+                # Similar to PyBullet's approach of excluding plane
+                seg_mask = np.where((geom_ids >= 1), 255, 0).astype(np.uint8)
+                
+                # Optional debug output (commented out)
+                # unique_ids = np.unique(geom_ids)
+                # print(f"[MuJoCo Debug] Segmentation shape: {sim_seg.shape}")
+                # print(f"[MuJoCo Debug] Unique geom IDs: {unique_ids[:20]}...")
+                # print(f"[MuJoCo Debug] sim_depth range: [{sim_depth.min():.3f}, {sim_depth.max():.3f}]")
+                # print(f"[MuJoCo Debug] foreground pixels: {(seg_mask > 0).sum()} / {seg_mask.size}")
+                
+                # RGB blend
+                sim_color = (sim_rgb * 255).astype(np.uint8) if sim_rgb.max() <= 1.0 else sim_rgb.astype(np.uint8)
+                foreground = np.concatenate([sim_color, seg_mask[..., None]], axis=-1)
+                blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
+                rgb = torch.from_numpy(np.array(blended_rgb.copy()))
+                
+                # Depth compose: use sim depth for foreground objects, GS depth for background
+                bg_depth = gs_result.depth[0, ...]
+                if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
+                    bg_depth = bg_depth[..., 0]
+                # Use segmentation mask to distinguish foreground (geom_id >= 1)
+                foreground_mask = (geom_ids >= 1)
+                depth_comp = np.where(foreground_mask, sim_depth, bg_depth)
+                depth = torch.from_numpy(depth_comp.copy())
+
+            else:
+                # Original MuJoCo rendering without GS background
+                depth = None
+                if "rgb" in camera.data_types:
+                    rgb = self.physics.render(width=camera.width, height=camera.height, camera_id=camera_id, depth=False)
+                    rgb = torch.from_numpy(rgb.copy())
+                if "depth" in camera.data_types:
+                    depth = self.physics.render(width=camera.width, height=camera.height, camera_id=camera_id, depth=True)
+                    depth = torch.from_numpy(depth.copy())
+            
+            state = CameraState(
+                rgb=rgb.unsqueeze(0),
+                depth=depth.unsqueeze(0) if depth is not None else None
+            )
             camera_states[camera.name] = state
         extras = self.get_extra()
         return TensorState(objects=object_states, robots=robot_states, cameras=camera_states, extras=extras)
