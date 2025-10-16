@@ -38,18 +38,23 @@ from metasim.utils.math import quat_from_euler_np
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, adapt_actions_to_dict
 
 from .sapien2 import _load_init_pose
-
-
-from robo_splatter.models.gaussians import RigidsGaussians, VanillaGaussians
-from robo_splatter.render.scenes import (
-    RenderCoordSystem,
-    RenderResult,
-    Scene,
-    SceneRenderType,
-)
-from robo_splatter.models.basic import RenderConfig
-from robo_splatter.models.camera import Camera as SplatCamera
 from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+
+# Optional: RoboSplatter imports for GS background rendering
+try:
+    from robo_splatter.models.gaussians import RigidsGaussians, VanillaGaussians
+    from robo_splatter.render.scenes import (
+        RenderCoordSystem,
+        RenderResult,
+        Scene,
+        SceneRenderType,
+    )
+    from robo_splatter.models.basic import RenderConfig
+    from robo_splatter.models.camera import Camera as SplatCamera
+    ROBO_SPLATTER_AVAILABLE = True
+except ImportError:
+    ROBO_SPLATTER_AVAILABLE = False
+    log.warning("RoboSplatter not available. GS background rendering will be disabled.")
 
 
 __all__ = [
@@ -151,9 +156,11 @@ class Sapien3Handler(BaseSimHandler):
 
         
     def _build_gs_background(self):
-        """
-        Build the GS background model.
-        """
+        """Build the GS background model."""
+        if not ROBO_SPLATTER_AVAILABLE:
+            log.error("GS background enabled but RoboSplatter not available.")
+            return
+        
         if self.scenario.gs_scene.gs_background_pose_tum is not None:
             x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
         else:
@@ -484,7 +491,7 @@ class Sapien3Handler(BaseSimHandler):
                 self._apply_action(instance, pos_target, vel_target)
 
     def _simulate(self):
-        for i in range(self.scenario.decimation):
+        for i in range(1):
             self.scene.step()
             self.scene.update_render()
             if not self.headless:
@@ -554,6 +561,7 @@ class Sapien3Handler(BaseSimHandler):
             object_states[obj.name] = state
 
         robot_states = {}
+        self._simulate()
         for robot in [self.robot]:
             robot_inst = self.object_ids[robot.name]
             assert isinstance(robot_inst, sapien_core.physx.PhysxArticulation)

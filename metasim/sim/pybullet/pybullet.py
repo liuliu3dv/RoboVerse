@@ -14,12 +14,19 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 import torch
-
-from robo_splatter.models.gaussians import VanillaGaussians
-from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
-from robo_splatter.models.basic import RenderConfig
-from robo_splatter.models.camera import Camera as SplatCamera
 from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+
+# Optional: RoboSplatter imports for GS background rendering
+try:
+    from robo_splatter.models.gaussians import VanillaGaussians
+    from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
+    from robo_splatter.models.basic import RenderConfig
+    from robo_splatter.models.camera import Camera as SplatCamera
+    ROBO_SPLATTER_AVAILABLE = True
+except ImportError:
+    ROBO_SPLATTER_AVAILABLE = False
+    import logging
+    logging.warning("RoboSplatter not available. GS background rendering will be disabled.")
 
 from metasim.queries.base import BaseQueryType
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
@@ -52,6 +59,11 @@ class SinglePybulletHandler(BaseSimHandler):
 
     def _build_gs_background(self):
         """Build the GS background model."""
+        if not ROBO_SPLATTER_AVAILABLE:
+            import logging
+            logging.error("GS background enabled but RoboSplatter not available.")
+            return
+        
         if self.scenario.gs_scene.gs_background_pose_tum is not None:
             x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
         else:

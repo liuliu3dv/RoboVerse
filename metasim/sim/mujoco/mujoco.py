@@ -11,11 +11,6 @@ import numpy as np
 import torch
 from dm_control import mjcf
 from loguru import logger as log
-
-from robo_splatter.models.gaussians import VanillaGaussians
-from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
-from robo_splatter.models.basic import RenderConfig
-from robo_splatter.models.camera import Camera as SplatCamera
 from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
 
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveCylinderCfg, PrimitiveSphereCfg
@@ -28,6 +23,17 @@ from metasim.queries.base import BaseQueryType
 from metasim.sim import BaseSimHandler
 from metasim.types import Action
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, state_tensor_to_nested
+
+# Optional: RoboSplatter imports for GS background rendering
+try:
+    from robo_splatter.models.gaussians import VanillaGaussians
+    from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
+    from robo_splatter.models.basic import RenderConfig
+    from robo_splatter.models.camera import Camera as SplatCamera
+    ROBO_SPLATTER_AVAILABLE = True
+except ImportError:
+    ROBO_SPLATTER_AVAILABLE = False
+    log.warning("RoboSplatter not available. GS background rendering will be disabled.")
 
 
 class MujocoHandler(BaseSimHandler):
@@ -68,6 +74,10 @@ class MujocoHandler(BaseSimHandler):
 
     def _build_gs_background(self):
         """Build the GS background model."""
+        if not ROBO_SPLATTER_AVAILABLE:
+            log.error("GS background enabled but RoboSplatter not available.")
+            return
+        
         if self.scenario.gs_scene.gs_background_pose_tum is not None:
             x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
         else:
@@ -545,14 +555,10 @@ class MujocoHandler(BaseSimHandler):
             camera_id = f"{camera.name}_custom"  # XXX: hard code camera id for now
             
             if self.scenario.gs_scene.with_gs_background:
-                # Get camera parameters directly from MuJoCo
+                # Extract camera parameters
                 Ks, c2w = self._get_camera_params(camera_id, camera)
                 
-                # Optional debug output (commented out)
-                # print(f"[MuJoCo Camera] fx={Ks[0,0]:.2f}, fy={Ks[1,1]:.2f}, cx={Ks[0,2]:.2f}, cy={Ks[1,2]:.2f}")
-                # print(f"[MuJoCo Camera] c2w position: {c2w[:3, 3]}")
-                
-                # Build RoboSplatter camera and render GS background
+                # Render GS background
                 gs_cam = SplatCamera.init_from_pose_list(
                     pose_list=c2w,
                     camera_intrinsic=Ks,
@@ -560,51 +566,39 @@ class MujocoHandler(BaseSimHandler):
                     image_width=camera.width,
                     device="cuda" if torch.cuda.is_available() else "cpu"
                 )
-                gs_result = self.gs_background.render(
-                    gs_cam, coord_system=RenderCoordSystem.MUJOCO
-                )
+                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.MUJOCO)
                 
-                # Render RGB, depth, and segmentation from MuJoCo
+                # Get MuJoCo simulation rendering
                 sim_rgb = self.physics.render(
-                    width=camera.width, height=camera.height, camera_id=camera_id, depth=False, segmentation=False
+                    width=camera.width, height=camera.height, camera_id=camera_id, 
+                    depth=False, segmentation=False
                 )
                 sim_depth = self.physics.render(
-                    width=camera.width, height=camera.height, camera_id=camera_id, depth=True, segmentation=False
+                    width=camera.width, height=camera.height, camera_id=camera_id, 
+                    depth=True, segmentation=False
                 )
                 
-                # Get segmentation mask - returns (height, width, 2) array
-                # Channel 0: geom ID (-1 = background, 0 = ground plane)
-                # Channel 1: object/body ID
+                # Get semantic segmentation (geom IDs and object IDs)
                 sim_seg = self.physics.render(
-                    width=camera.width, height=camera.height, camera_id=camera_id, depth=False, segmentation=True
+                    width=camera.width, height=camera.height, camera_id=camera_id, 
+                    depth=False, segmentation=True
                 )
-                
-                # Extract geom IDs (first channel)
                 geom_ids = sim_seg[..., 0] if sim_seg.ndim == 3 else sim_seg
                 
                 # Create foreground mask: exclude background (-1) and ground plane (0)
-                # Similar to PyBullet's approach of excluding plane
-                seg_mask = np.where((geom_ids >= 1), 255, 0).astype(np.uint8)
+                foreground_mask = (geom_ids >= 1)
+                seg_mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
                 
-                # Optional debug output (commented out)
-                # unique_ids = np.unique(geom_ids)
-                # print(f"[MuJoCo Debug] Segmentation shape: {sim_seg.shape}")
-                # print(f"[MuJoCo Debug] Unique geom IDs: {unique_ids[:20]}...")
-                # print(f"[MuJoCo Debug] sim_depth range: [{sim_depth.min():.3f}, {sim_depth.max():.3f}]")
-                # print(f"[MuJoCo Debug] foreground pixels: {(seg_mask > 0).sum()} / {seg_mask.size}")
-                
-                # RGB blend
+                # Blend RGB: foreground objects over GS background
                 sim_color = (sim_rgb * 255).astype(np.uint8) if sim_rgb.max() <= 1.0 else sim_rgb.astype(np.uint8)
                 foreground = np.concatenate([sim_color, seg_mask[..., None]], axis=-1)
                 blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
                 rgb = torch.from_numpy(np.array(blended_rgb.copy()))
                 
-                # Depth compose: use sim depth for foreground objects, GS depth for background
+                # Compose depth: use simulation depth for foreground, GS depth for background
                 bg_depth = gs_result.depth[0, ...]
                 if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
                     bg_depth = bg_depth[..., 0]
-                # Use segmentation mask to distinguish foreground (geom_id >= 1)
-                foreground_mask = (geom_ids >= 1)
                 depth_comp = np.where(foreground_mask, sim_depth, bg_depth)
                 depth = torch.from_numpy(depth_comp.copy())
 

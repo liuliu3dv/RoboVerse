@@ -5,6 +5,9 @@ import argparse
 import os
 from copy import deepcopy
 
+import numpy as np
+from scipy.spatial.transform import Rotation
+
 import torch
 from loguru import logger as log
 
@@ -26,6 +29,18 @@ from metasim.sim import BaseSimHandler
 from metasim.types import DictEnvState
 from metasim.utils.dict import deep_get
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState
+from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+
+# Optional: RoboSplatter imports for GS background rendering
+try:
+    from robo_splatter.models.basic import RenderConfig
+    from robo_splatter.models.camera import Camera as SplatCamera
+    from robo_splatter.models.gaussians import VanillaGaussians
+    from robo_splatter.render.scenes import RenderCoordSystem, Scene
+    ROBO_SPLATTER_AVAILABLE = True
+except ImportError:
+    ROBO_SPLATTER_AVAILABLE = False
+    log.warning("RoboSplatter not available. GS background rendering will be disabled.")
 
 
 class IsaacsimHandler(BaseSimHandler):
@@ -57,6 +72,62 @@ class IsaacsimHandler(BaseSimHandler):
             self._render_viewport = False
         else:
             self._render_viewport = True
+
+        self.gs_background = None
+
+    def _build_gs_background(self):
+        """Initialize GS background renderer if enabled in scenario config."""
+        if not self.scenario.gs_scene.with_gs_background:
+            return
+        
+        if not ROBO_SPLATTER_AVAILABLE:
+            log.error("GS background enabled but RoboSplatter not available.")
+            return
+
+        # Parse pose transformation
+        if self.scenario.gs_scene.gs_background_pose_tum is not None:
+            x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
+        else:
+            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
+
+        # Apply coordinate transform
+        qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
+        init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
+
+        # Load GS model
+        gs_model = VanillaGaussians(
+            model_path=self.scenario.gs_scene.gs_background_path,
+            device="cuda" if torch.cuda.is_available() else "cpu"
+        )
+        gs_model.apply_global_transform(global_pose=init_pose)
+        
+        self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
+
+    def _get_camera_params(self, camera, camera_inst):
+        """Get camera intrinsics and extrinsics from IsaacSim camera.
+        
+        Args:
+            camera: PinholeCameraCfg object
+            camera_inst: IsaacSim camera instance
+            
+        Returns:
+            Ks: (3, 3) intrinsic matrix
+            c2w: (4, 4) camera-to-world transformation matrix
+        """
+        # Intrinsics: from camera configuration
+        Ks = np.array(camera.intrinsics, dtype=np.float32)
+        
+        # Extrinsics: get camera pose from first environment
+        p = camera_inst.data.pos_w[0].detach().cpu().numpy()
+        q_wxyz = camera_inst.data.quat_w_world[0].detach().cpu().numpy()
+        
+        # Build c2w matrix from position and quaternion (w,x,y,z format)
+        R = Rotation.from_quat([q_wxyz[1], q_wxyz[2], q_wxyz[3], q_wxyz[0]]).as_matrix()
+        c2w = np.eye(4)
+        c2w[:3, :3] = R
+        c2w[:3, 3] = p
+        
+        return Ks, c2w
 
     def _init_scene(self) -> None:
         """
@@ -172,6 +243,9 @@ class IsaacsimHandler(BaseSimHandler):
             self.sim.render()
         for sensor in self.scene.sensors.values():
             sensor.update(dt=0)
+
+        # Initialize GS background if enabled
+        self._build_gs_background()
 
     def close(self) -> None:
         log.info("close Isaacsim Handler")
@@ -361,6 +435,43 @@ class IsaacsimHandler(BaseSimHandler):
                 instance_seg_data = instance_seg_data.squeeze(-1)
             if instance_id_seg_data is not None:
                 instance_id_seg_data = instance_id_seg_data.squeeze(-1)
+
+            # GS background blending
+            if self.scenario.gs_scene.with_gs_background and ROBO_SPLATTER_AVAILABLE and rgb_data is not None:
+                # Get camera parameters
+                Ks, c2w = self._get_camera_params(camera, camera_inst)
+                
+                # Render GS background
+                gs_cam = SplatCamera.init_from_pose_list(
+                    pose_list=c2w,
+                    camera_intrinsic=Ks,
+                    image_height=int(camera.height),
+                    image_width=int(camera.width),
+                    device="cuda" if torch.cuda.is_available() else "cpu"
+                )
+                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.ISAAC)
+                
+                # Create foreground mask from instance segmentation
+                if instance_seg_data is not None:
+                    # Exclude background (typically ID 0 or -1)
+                    seg_mask_0 = instance_seg_data[0].detach().cpu().numpy()
+                    foreground_mask = (seg_mask_0 > 0)
+                    mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
+                    
+                    # Blend RGB
+                    sim_rgb = (rgb_data[0].detach().cpu().numpy()).astype(np.uint8)
+                    foreground = np.concatenate([sim_rgb, mask[..., None]], axis=-1)
+                    blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
+                    rgb_data = torch.from_numpy(np.array(blended_rgb.copy())).unsqueeze(0).to(self.device)
+                    
+                    # Compose depth
+                    bg_depth = gs_result.depth[0, ...]
+                    if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
+                        bg_depth = bg_depth[..., 0]
+                    sim_depth = depth_data[0].detach().cpu().numpy()
+                    depth_comp = np.where(foreground_mask, sim_depth, bg_depth)
+                    depth_data = torch.from_numpy(depth_comp.copy()).unsqueeze(0).to(self.device)
+
             camera_states[camera.name] = CameraState(
                 rgb=rgb_data,
                 depth=depth_data,
