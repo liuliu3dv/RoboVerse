@@ -10,6 +10,7 @@ from scipy.spatial.transform import Rotation
 
 import torch
 from loguru import logger as log
+from PIL import Image
 
 from metasim.queries.base import BaseQueryType
 from metasim.scenario.cameras import PinholeCameraCfg
@@ -29,7 +30,7 @@ from metasim.sim import BaseSimHandler
 from metasim.types import DictEnvState
 from metasim.utils.dict import deep_get
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState
-from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+from metasim.utils.gs_util import alpha_blend_rgba_torch, quaternion_multiply
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
@@ -75,6 +76,7 @@ class IsaacsimHandler(BaseSimHandler):
 
         self.gs_background = None
 
+
     def _build_gs_background(self):
         """Initialize GS background renderer if enabled in scenario config."""
         if not self.scenario.gs_scene.with_gs_background:
@@ -104,30 +106,61 @@ class IsaacsimHandler(BaseSimHandler):
         self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
 
     def _get_camera_params(self, camera, camera_inst):
-        """Get camera intrinsics and extrinsics from IsaacSim camera.
+        """Get camera intrinsics and extrinsics for GS rendering.
+        
+        Compare IsaacSim camera pose vs look-at construction to find the correct transformation.
         
         Args:
             camera: PinholeCameraCfg object
             camera_inst: IsaacSim camera instance
             
         Returns:
-            Ks: (3, 3) intrinsic matrix
-            c2w: (4, 4) camera-to-world transformation matrix
+            Ks_t: (3, 3) intrinsic matrix as torch tensor on device
+            c2w_t: (4, 4) camera-to-world transformation matrix as torch tensor on device
         """
-        # Intrinsics: from camera configuration
+        # Get intrinsics
+        
         Ks = np.array(camera.intrinsics, dtype=np.float32)
+        Ks_t = torch.from_numpy(Ks).to(self.device)
         
-        # Extrinsics: get camera pose from first environment
-        p = camera_inst.data.pos_w[0].detach().cpu().numpy()
-        q_wxyz = camera_inst.data.quat_w_world[0].detach().cpu().numpy()
+        # # Method 1: Read from IsaacSim camera instance
+        # p_isaac = camera_inst.data.pos_w[0].detach()  # Keep as tensor
+        # q_wxyz = camera_inst.data.quat_w_world[0].detach()  # (w, x, y, z)
         
-        # Build c2w matrix from position and quaternion (w,x,y,z format)
-        R = Rotation.from_quat([q_wxyz[1], q_wxyz[2], q_wxyz[3], q_wxyz[0]]).as_matrix()
-        c2w = np.eye(4)
-        c2w[:3, :3] = R
-        c2w[:3, 3] = p
+        # # Convert quaternion to rotation matrix using torch
+        # # quaternion [w, x, y, z] -> rotation matrix
+        # w, x, y, z = q_wxyz[0], q_wxyz[1], q_wxyz[2], q_wxyz[3]
+        # R_isaac = torch.stack([
+        #     torch.stack([1 - 2*(y*y + z*z), 2*(x*y - w*z), 2*(x*z + w*y)]),
+        #     torch.stack([2*(x*y + w*z), 1 - 2*(x*x + z*z), 2*(y*z - w*x)]),
+        #     torch.stack([2*(x*z - w*y), 2*(y*z + w*x), 1 - 2*(x*x + y*y)])
+        # ]).to(self.device)
         
-        return Ks, c2w
+        # c2w_isaac = torch.eye(4, dtype=torch.float32, device=self.device)
+        # c2w_isaac[:3, :3] = R_isaac
+        # c2w_isaac[:3, 3] = p_isaac
+        
+        # Method 2: Build from look-at with -Z forward (OpenGL/MUJOCO convention)
+        pos = torch.tensor(camera.pos, dtype=torch.float32, device=self.device)
+        look = torch.tensor(camera.look_at, dtype=torch.float32, device=self.device)
+        forward = (look - pos)
+        forward = forward / torch.norm(forward)
+        up_world = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float32, device=self.device)
+        right = torch.cross(forward, up_world)
+        right = right / torch.norm(right)
+        up = torch.cross(right, forward)
+        
+        R_lookat = torch.stack([right, up, forward], dim=1)
+        # Negate Z for -Z forward convention
+        R_lookat[:, 2] = -R_lookat[:, 2]
+        
+        c2w_lookat = torch.eye(4, dtype=torch.float32, device=self.device)
+        c2w_lookat[:3, :3] = R_lookat
+        c2w_lookat[:3, 3] = pos
+        
+        # IsaacSim camera poses may not be reliable until after full scene updates.
+        # Using look-at construction directly is more stable.
+        return Ks_t, c2w_lookat
 
     def _init_scene(self) -> None:
         """
@@ -220,7 +253,7 @@ class IsaacsimHandler(BaseSimHandler):
         self._load_robots()
         self._load_sensors()
         self._load_cameras()
-        self._load_terrain()
+        # self._load_terrain()
         self._load_objects()
         self._load_lights()
         self._load_render_settings()
@@ -426,6 +459,7 @@ class IsaacsimHandler(BaseSimHandler):
         for camera in self.cameras:
             camera_inst = self.scene.sensors[camera.name]
             rgb_data = camera_inst.data.output.get("rgb", None)
+            rgba_data = camera_inst.data.output.get("rgba", None)
             depth_data = camera_inst.data.output.get("depth", None)
             instance_seg_data = deep_get(camera_inst.data.output, "instance_segmentation_fast")
             instance_seg_id2label = deep_get(camera_inst.data.info, "instance_segmentation_fast", "idToLabels")
@@ -435,42 +469,98 @@ class IsaacsimHandler(BaseSimHandler):
                 instance_seg_data = instance_seg_data.squeeze(-1)
             if instance_id_seg_data is not None:
                 instance_id_seg_data = instance_id_seg_data.squeeze(-1)
-
+            
             # GS background blending
             if self.scenario.gs_scene.with_gs_background and ROBO_SPLATTER_AVAILABLE and rgb_data is not None:
-                # Get camera parameters
-                Ks, c2w = self._get_camera_params(camera, camera_inst)
+                # Get camera parameters (already as torch tensors on device)
+                Ks_t, c2w_t = self._get_camera_params(camera, camera_inst)
                 
-                # Render GS background
-                gs_cam = SplatCamera.init_from_pose_list(
-                    pose_list=c2w,
-                    camera_intrinsic=Ks,
+                # Create GS camera and render
+                gs_cam = SplatCamera.init_from_pose_tensor(
+                    c2w=c2w_t,
+                    Ks=Ks_t,
                     image_height=int(camera.height),
                     image_width=int(camera.width),
-                    device="cuda" if torch.cuda.is_available() else "cpu"
+                    device=self.device,
                 )
-                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.ISAAC)
-                
+                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.MUJOCO)
                 # Create foreground mask from instance segmentation
                 if instance_seg_data is not None:
-                    # Exclude background (typically ID 0 or -1)
-                    seg_mask_0 = instance_seg_data[0].detach().cpu().numpy()
-                    foreground_mask = (seg_mask_0 > 0)
-                    mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
+                    # Get segmentation mask and create alpha channel (keep as tensor)
+                    seg_mask_0 = instance_seg_data[0]  # Shape: (H, W)
+                    foreground_mask = (seg_mask_0 > 0).float()  # Convert to float [0, 1]
                     
-                    # Blend RGB
-                    sim_rgb = (rgb_data[0].detach().cpu().numpy()).astype(np.uint8)
-                    foreground = np.concatenate([sim_rgb, mask[..., None]], axis=-1)
-                    blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
-                    rgb_data = torch.from_numpy(np.array(blended_rgb.copy())).unsqueeze(0).to(self.device)
+                    # Get simulation RGB (already tensor on device)
+                    sim_rgb = rgb_data[0].float() / 255.0  # Normalize to [0, 1], Shape: (H, W, 3)
                     
-                    # Compose depth
-                    bg_depth = gs_result.depth[0, ...]
+                    # Get GS background RGB
+                    gs_rgb = gs_result.rgb[0]  # Shape: (H, W, 3), BGR order
+                    if isinstance(gs_rgb, np.ndarray):
+                        gs_rgb = torch.from_numpy(gs_rgb)
+                    gs_rgb = gs_rgb.to(self.device)
+                    
+                    
+                    # Alpha blend using torch (all operations on GPU)
+                    blended_rgb = alpha_blend_rgba_torch(sim_rgb, gs_rgb, foreground_mask)
+                    
+                    # Convert back to uint8 and add batch dimension
+                    rgb_data = (blended_rgb * 255.0).clamp(0, 255).to(torch.uint8).unsqueeze(0)
+                    
+                    # Compose depth (convert to tensor operations)
+                    bg_depth = gs_result.depth[0]  # Shape: (H, W) or (H, W, 1)
+                    if isinstance(bg_depth, np.ndarray):
+                        bg_depth = torch.from_numpy(bg_depth)
+                    bg_depth = bg_depth.to(self.device)
                     if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
-                        bg_depth = bg_depth[..., 0]
-                    sim_depth = depth_data[0].detach().cpu().numpy()
-                    depth_comp = np.where(foreground_mask, sim_depth, bg_depth)
-                    depth_data = torch.from_numpy(depth_comp.copy()).unsqueeze(0).to(self.device)
+                        bg_depth = bg_depth.squeeze(-1)
+                    
+                    sim_depth = depth_data[0]  # Already tensor
+                    # Use torch.where for depth composition
+                    depth_comp = torch.where(foreground_mask > 0.5, sim_depth, bg_depth)
+                    depth_data = depth_comp.unsqueeze(0)
+
+                    # Optional: save intermediate debug outputs (temporary debug, comment out when not needed)
+                    if False:  # Set to True to enable debug saving
+                        try:
+                            step_dir = os.path.join("/home/users/nemo.liu/code/RoboSim/RoboVerse/get_started/output/gs_debug", f"step_{self._step_counter:06d}")
+                            os.makedirs(step_dir, exist_ok=True)
+                            cam_prefix = f"{camera.name}"
+                    
+                            # Convert tensors to numpy for saving
+                            sim_rgb_np = (sim_rgb * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
+                            gs_rgb_np = (gs_rgb * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
+                            mask_np = (foreground_mask * 255.0).to(torch.uint8).cpu().numpy()
+                            blended_rgb_np = (blended_rgb * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
+                            sim_depth_np = sim_depth.cpu().numpy()
+                            bg_depth_np = bg_depth.cpu().numpy()
+                            depth_comp_np = depth_comp.cpu().numpy()
+                    
+                            # Use cv2 for saving (faster than PIL)
+                            import cv2
+                            cv2.imwrite(os.path.join(step_dir, f"{cam_prefix}_sim_rgb.png"), sim_rgb_np[..., ::-1])
+                            cv2.imwrite(os.path.join(step_dir, f"{cam_prefix}_gs_rgb.png"), gs_rgb_np[..., ::-1])
+                            cv2.imwrite(os.path.join(step_dir, f"{cam_prefix}_mask.png"), mask_np)
+                            cv2.imwrite(os.path.join(step_dir, f"{cam_prefix}_blended_rgb.png"), blended_rgb_np[..., ::-1])
+                            
+                            # Save depth and camera parameters as npy
+                            np.save(os.path.join(step_dir, f"{cam_prefix}_sim_depth.npy"), sim_depth_np)
+                            np.save(os.path.join(step_dir, f"{cam_prefix}_bg_depth.npy"), bg_depth_np)
+                            np.save(os.path.join(step_dir, f"{cam_prefix}_depth_comp.npy"), depth_comp_np)
+                            np.save(os.path.join(step_dir, f"{cam_prefix}_Ks.npy"), Ks)
+                            np.save(os.path.join(step_dir, f"{cam_prefix}_c2w.npy"), c2w)
+                            
+                            # Save camera parameters as human-readable text
+                            with open(os.path.join(step_dir, f"{cam_prefix}_camera_params.txt"), "w") as f:
+                                f.write(f"Camera: {camera.name}\n")
+                                f.write(f"Position: {c2w[:3, 3]}\n")
+                                f.write(f"Intrinsics:\n{Ks}\n")
+                                f.write(f"Extrinsics c2w:\n{c2w}\n")
+                                f.write(f"Image size: {camera.width}x{camera.height}\n")
+                                f.write(f"GS RGB range: [{gs_rgb.min().item()}, {gs_rgb.max().item()}]\n")
+                                f.write(f"Sim RGB range: [{sim_rgb.min().item()}, {sim_rgb.max().item()}]\n")
+                        except Exception as e:
+                            log.warning(f"Failed to save GS debug outputs for camera {camera.name}: {e}")
+
 
             camera_states[camera.name] = CameraState(
                 rgb=rgb_data,

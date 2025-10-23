@@ -627,17 +627,6 @@ class Sapien3Handler(BaseSimHandler):
 
                 blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0,:,:,::-1])
                 rgb = torch.from_numpy(np.array(blended_rgb.copy()))
-                
-                # Debug: save images for inspection
-                # import pdb; pdb.set_trace()
-                # import os
-                # from PIL import Image
-                # debug_dir = "debug_images"
-                # os.makedirs(debug_dir, exist_ok=True)
-                # blended_rgb.save(os.path.join(debug_dir, "blended_rgb.png"))  # already PIL Image
-                # Image.fromarray(sim_color).save(os.path.join(debug_dir, "sim_color.png"))
-                # Image.fromarray(mask).save(os.path.join(debug_dir, "mask.png"))
-                # Image.fromarray(gs_result.rgb[0, :, :, ::-1]).save(os.path.join(debug_dir, "gs_rgb.png"))
 
             else:
                 rgb = torch.from_numpy(np.array(cam_inst.get_picture("Color").copy()))
