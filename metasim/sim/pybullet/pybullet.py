@@ -452,6 +452,12 @@ class SinglePybulletHandler(BaseSimHandler):
         for camera in self.cameras:
             width, height, view_matrix, projection_matrix = self.camera_ids[camera.name]
             
+            # Get PyBullet simulation rendering
+            img_arr = p.getCameraImage(width, height, view_matrix, projection_matrix, lightAmbientCoeff=0.5)
+            rgb_img = np.reshape(img_arr[2], (height, width, 4))
+            depth_img = np.reshape(img_arr[3], (height, width))
+            segmentation_mask = np.reshape(img_arr[4], (height, width))
+
             if self.scenario.gs_scene.with_gs_background:
                 # Extract camera parameters from PyBullet
                 Ks, c2w = self._get_camera_params(view_matrix, projection_matrix, width, height)
@@ -464,13 +470,8 @@ class SinglePybulletHandler(BaseSimHandler):
                     image_width=width,
                     device="cuda" if torch.cuda.is_available() else "cpu"
                 )
-                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.MUJOCO)
-                
-                # Get PyBullet simulation rendering
-                img_arr = p.getCameraImage(width, height, view_matrix, projection_matrix, lightAmbientCoeff=0.5)
-                rgb_img = np.reshape(img_arr[2], (height, width, 4))
-                depth_img = np.reshape(img_arr[3], (height, width))
-                segmentation_mask = np.reshape(img_arr[4], (height, width))
+                gs_result = self.gs_background.render(gs_cam)
+                gs_result.to_numpy()
                 
                 # Create foreground mask: exclude background (-1) and ground plane
                 foreground_mask = (segmentation_mask > -1) & (segmentation_mask != self.plane_id)
@@ -488,18 +489,9 @@ class SinglePybulletHandler(BaseSimHandler):
                     bg_depth = bg_depth[..., 0]
                 depth_comp = np.where(foreground_mask, depth_img, bg_depth)
                 depth = torch.from_numpy(depth_comp.copy())
+                import pdb; pdb.set_trace()
             else:
                 # Original PyBullet rendering without GS background
-                img_arr = p.getCameraImage(
-                    width,
-                    height,
-                    view_matrix,
-                    projection_matrix,
-                    lightAmbientCoeff=0.5,
-                )
-                rgb_img = np.reshape(img_arr[2], (height, width, 4))
-                depth_img = np.reshape(img_arr[3], (height, width))
-                segmentation_mask = np.reshape(img_arr[4], (height, width))
                 rgb = torch.from_numpy(rgb_img[:, :, :3])
                 depth = torch.from_numpy(depth_img)
             

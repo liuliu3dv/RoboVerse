@@ -318,7 +318,8 @@ class GenesisHandler(BaseSimHandler):
                     image_width=int(camera.width),
                     device="cuda" if torch.cuda.is_available() else "cpu"
                 )
-                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.MUJOCO)
+                gs_result = self.gs_background.render(gs_cam)
+                gs_result.to_numpy()
                 
                 # Create foreground mask from segmentation
                 if segmentation is not None:

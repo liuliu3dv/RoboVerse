@@ -54,12 +54,13 @@ genesis = [
     "genesis-world",
     "libigl==2.5.1",  # for genesis 0.2.1, see https://github.com/Genesis-Embodied-AI/Genesis/issues/1156#issuecomment-3069006079
     "open3d",
-    "setuptools==59.5.0" # for robo_splatter
 
 ]
 robosplatter = [
    "robo-splatter @ git+https://github.com/HorizonRobotics/RoboSplatter.git",
-   "pyquaternion"
+   "pyquaternion",
+   "setuptools==59.5.0"
+
 ]
 
 [tool.uv]
@@ -67,9 +68,9 @@ index-strategy = "unsafe-best-match"
 
 [tool.uv.pip]
 extra-index-url = [
+    "https://pypi.org/simple",
     "https://download.pytorch.org/whl/cu118",
     "https://download.pytorch.org/whl/cu128",
-    "https://pypi.org/simple",
     "https://pypi.nvidia.com",
 ]
 

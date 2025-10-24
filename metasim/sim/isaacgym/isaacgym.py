@@ -258,7 +258,7 @@ class IsaacgymHandler(BaseSimHandler):
                 image_width=width,
                 device=self.device,
             )
-            gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.MUJOCO)
+            gs_result = self.gs_background.render(gs_cam)
             
             # Get GS background and normalize to tensors on device (handle numpy or torch)
             gs_rgb = gs_result.rgb[0].to(self.device)
@@ -781,7 +781,7 @@ class IsaacgymHandler(BaseSimHandler):
         for cam_id, cam in enumerate(self.cameras):
             state = CameraState(
                 rgb=torch.stack([self._rgb_tensors[env_id][cam_id][..., :3] for env_id in env_ids]),
-                depth=torch.stack([self._depth_tensors[env_id][cam_id] for env_id in env_ids]),
+                depth=-torch.stack([self._depth_tensors[env_id][cam_id] for env_id in env_ids]), # -z 
             )
             camera_states[cam.name] = state
         self.gym.end_access_image_tensors(self.sim)

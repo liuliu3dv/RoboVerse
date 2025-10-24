@@ -487,8 +487,6 @@ class MujocoHandler(BaseSimHandler):
         """Get states of all objects and robots."""
         object_states = {}
 
-        """Get states of all objects and robots."""
-
         # print("=== MuJoCo body names & positions ===")
         # for i in range(self.physics.model.nbody):
         #     body_name = self.physics.model.body(i).name
@@ -554,6 +552,7 @@ class MujocoHandler(BaseSimHandler):
         for camera in self.cameras:
             camera_id = f"{camera.name}_custom"  # XXX: hard code camera id for now
             
+            depth = None
             if self.scenario.gs_scene.with_gs_background:
                 # Extract camera parameters
                 Ks, c2w = self._get_camera_params(camera_id, camera)
@@ -566,17 +565,8 @@ class MujocoHandler(BaseSimHandler):
                     image_width=camera.width,
                     device="cuda" if torch.cuda.is_available() else "cpu"
                 )
-                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.MUJOCO)
-                
-                # Get MuJoCo simulation rendering
-                sim_rgb = self.physics.render(
-                    width=camera.width, height=camera.height, camera_id=camera_id, 
-                    depth=False, segmentation=False
-                )
-                sim_depth = self.physics.render(
-                    width=camera.width, height=camera.height, camera_id=camera_id, 
-                    depth=True, segmentation=False
-                )
+                gs_result = self.gs_background.render(gs_cam)
+                gs_result.to_numpy()
                 
                 # Get semantic segmentation (geom IDs and object IDs)
                 sim_seg = self.physics.render(
@@ -584,27 +574,36 @@ class MujocoHandler(BaseSimHandler):
                     depth=False, segmentation=True
                 )
                 geom_ids = sim_seg[..., 0] if sim_seg.ndim == 3 else sim_seg
-                
-                # Create foreground mask: exclude background (-1) and ground plane (0)
+               # Create foreground mask: exclude background (-1) and ground plane (0)
                 foreground_mask = (geom_ids >= 1)
                 seg_mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
                 
-                # Blend RGB: foreground objects over GS background
-                sim_color = (sim_rgb * 255).astype(np.uint8) if sim_rgb.max() <= 1.0 else sim_rgb.astype(np.uint8)
-                foreground = np.concatenate([sim_color, seg_mask[..., None]], axis=-1)
-                blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
-                rgb = torch.from_numpy(np.array(blended_rgb.copy()))
-                
-                # Compose depth: use simulation depth for foreground, GS depth for background
-                bg_depth = gs_result.depth[0, ...]
-                if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
-                    bg_depth = bg_depth[..., 0]
-                depth_comp = np.where(foreground_mask, sim_depth, bg_depth)
-                depth = torch.from_numpy(depth_comp.copy())
+                if "rgb" in camera.data_types:
+                    # Get MuJoCo simulation rendering
+                    sim_rgb = self.physics.render(
+                        width=camera.width, height=camera.height, camera_id=camera_id, 
+                        depth=False, segmentation=False
+                    )
+                    # Blend RGB: foreground objects over GS background
+                    sim_color = (sim_rgb * 255).astype(np.uint8) if sim_rgb.max() <= 1.0 else sim_rgb.astype(np.uint8)
+                    foreground = np.concatenate([sim_color, seg_mask[..., None]], axis=-1)
+                    blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
+                    rgb = torch.from_numpy(np.array(blended_rgb.copy()))
+
+                if "depth" in camera.data_types:
+                    sim_depth = self.physics.render(
+                        width=camera.width, height=camera.height, camera_id=camera_id, 
+                        depth=True, segmentation=False
+                    )
+                    # Compose depth: use simulation depth for foreground, GS depth for background
+                    bg_depth = gs_result.depth[0, ...]
+                    if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
+                        bg_depth = bg_depth[..., 0]
+                    depth_comp = np.where(foreground_mask, sim_depth, bg_depth)
+                    depth = torch.from_numpy(depth_comp.copy())
 
             else:
                 # Original MuJoCo rendering without GS background
-                depth = None
                 if "rgb" in camera.data_types:
                     rgb = self.physics.render(width=camera.width, height=camera.height, camera_id=camera_id, depth=False)
                     rgb = torch.from_numpy(rgb.copy())

@@ -483,30 +483,28 @@ class IsaacsimHandler(BaseSimHandler):
                     image_width=int(camera.width),
                     device=self.device,
                 )
-                gs_result = self.gs_background.render(gs_cam, coord_system=RenderCoordSystem.MUJOCO)
+
+                gs_result = self.gs_background.render(gs_cam)
                 # Create foreground mask from instance segmentation
                 if instance_seg_data is not None:
-                    # Get segmentation mask and create alpha channel (keep as tensor)
+                    # Get foreground mask from instance segmentation
                     seg_mask_0 = instance_seg_data[0]  # Shape: (H, W)
                     foreground_mask = (seg_mask_0 > 0).float()  # Convert to float [0, 1]
                     
-                    # Get simulation RGB (already tensor on device)
+                    # Get RGB Blending with GS background
                     sim_rgb = rgb_data[0].float() / 255.0  # Normalize to [0, 1], Shape: (H, W, 3)
                     
-                    # Get GS background RGB
                     gs_rgb = gs_result.rgb[0]  # Shape: (H, W, 3), BGR order
                     if isinstance(gs_rgb, np.ndarray):
                         gs_rgb = torch.from_numpy(gs_rgb)
                     gs_rgb = gs_rgb.to(self.device)
                     
-                    
-                    # Alpha blend using torch (all operations on GPU)
                     blended_rgb = alpha_blend_rgba_torch(sim_rgb, gs_rgb, foreground_mask)
                     
-                    # Convert back to uint8 and add batch dimension
                     rgb_data = (blended_rgb * 255.0).clamp(0, 255).to(torch.uint8).unsqueeze(0)
                     
-                    # Compose depth (convert to tensor operations)
+
+                    # Get Depth Blending with GS background
                     bg_depth = gs_result.depth[0]  # Shape: (H, W) or (H, W, 1)
                     if isinstance(bg_depth, np.ndarray):
                         bg_depth = torch.from_numpy(bg_depth)
@@ -518,49 +516,6 @@ class IsaacsimHandler(BaseSimHandler):
                     # Use torch.where for depth composition
                     depth_comp = torch.where(foreground_mask > 0.5, sim_depth, bg_depth)
                     depth_data = depth_comp.unsqueeze(0)
-
-                    # Optional: save intermediate debug outputs (temporary debug, comment out when not needed)
-                    if False:  # Set to True to enable debug saving
-                        try:
-                            step_dir = os.path.join("/home/users/nemo.liu/code/RoboSim/RoboVerse/get_started/output/gs_debug", f"step_{self._step_counter:06d}")
-                            os.makedirs(step_dir, exist_ok=True)
-                            cam_prefix = f"{camera.name}"
-                    
-                            # Convert tensors to numpy for saving
-                            sim_rgb_np = (sim_rgb * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
-                            gs_rgb_np = (gs_rgb * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
-                            mask_np = (foreground_mask * 255.0).to(torch.uint8).cpu().numpy()
-                            blended_rgb_np = (blended_rgb * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
-                            sim_depth_np = sim_depth.cpu().numpy()
-                            bg_depth_np = bg_depth.cpu().numpy()
-                            depth_comp_np = depth_comp.cpu().numpy()
-                    
-                            # Use cv2 for saving (faster than PIL)
-                            import cv2
-                            cv2.imwrite(os.path.join(step_dir, f"{cam_prefix}_sim_rgb.png"), sim_rgb_np[..., ::-1])
-                            cv2.imwrite(os.path.join(step_dir, f"{cam_prefix}_gs_rgb.png"), gs_rgb_np[..., ::-1])
-                            cv2.imwrite(os.path.join(step_dir, f"{cam_prefix}_mask.png"), mask_np)
-                            cv2.imwrite(os.path.join(step_dir, f"{cam_prefix}_blended_rgb.png"), blended_rgb_np[..., ::-1])
-                            
-                            # Save depth and camera parameters as npy
-                            np.save(os.path.join(step_dir, f"{cam_prefix}_sim_depth.npy"), sim_depth_np)
-                            np.save(os.path.join(step_dir, f"{cam_prefix}_bg_depth.npy"), bg_depth_np)
-                            np.save(os.path.join(step_dir, f"{cam_prefix}_depth_comp.npy"), depth_comp_np)
-                            np.save(os.path.join(step_dir, f"{cam_prefix}_Ks.npy"), Ks)
-                            np.save(os.path.join(step_dir, f"{cam_prefix}_c2w.npy"), c2w)
-                            
-                            # Save camera parameters as human-readable text
-                            with open(os.path.join(step_dir, f"{cam_prefix}_camera_params.txt"), "w") as f:
-                                f.write(f"Camera: {camera.name}\n")
-                                f.write(f"Position: {c2w[:3, 3]}\n")
-                                f.write(f"Intrinsics:\n{Ks}\n")
-                                f.write(f"Extrinsics c2w:\n{c2w}\n")
-                                f.write(f"Image size: {camera.width}x{camera.height}\n")
-                                f.write(f"GS RGB range: [{gs_rgb.min().item()}, {gs_rgb.max().item()}]\n")
-                                f.write(f"Sim RGB range: [{sim_rgb.min().item()}, {sim_rgb.max().item()}]\n")
-                        except Exception as e:
-                            log.warning(f"Failed to save GS debug outputs for camera {camera.name}: {e}")
-
 
             camera_states[camera.name] = CameraState(
                 rgb=rgb_data,
