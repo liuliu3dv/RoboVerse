@@ -6,16 +6,17 @@ try:
     import isaacgym  # noqa: F401
 except ImportError:
     pass
+import numpy as np
 import rootutils
 import torch
 import tyro
 from loguru import logger as log
 from rich.logging import RichHandler
-import numpy as np
 
 rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 import os
+
 import cv2
 import imageio
 from huggingface_hub import snapshot_download
@@ -23,10 +24,10 @@ from huggingface_hub import snapshot_download
 from metasim.constants import PhysicStateType, SimType
 from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.scenario.objects import RigidObjCfg
-from metasim.scenario.scenario import ScenarioCfg,GSSceneCfg
-from metasim.scenario.scene import SceneCfg
+from metasim.scenario.scenario import GSSceneCfg, ScenarioCfg
 from metasim.utils import configclass
 from metasim.utils.setup_util import get_sim_handler_class
+
 
 def depth_to_colormap(depth, inv_depth=True, depth_range=(0.1, 3.0), colormap=cv2.COLORMAP_TURBO):
     # to numpy
@@ -50,8 +51,9 @@ def depth_to_colormap(depth, inv_depth=True, depth_range=(0.1, 3.0), colormap=cv
 
     norm = np.nan_to_num(norm, nan=0.0, posinf=0.0, neginf=0.0)
     img_u8 = (np.clip(norm, 0.0, 1.0) * 255.0).astype(np.uint8)  # 2D, uint8
-    color_bgr = cv2.applyColorMap(img_u8, colormap)              # (H,W,3) BGR
+    color_bgr = cv2.applyColorMap(img_u8, colormap)  # (H,W,3) BGR
     return color_bgr[:, :, ::-1]  # RGB
+
 
 @configclass
 class RealAssetCfg:
@@ -68,7 +70,7 @@ class RealAssetCfg:
     ] = "mujoco"
     num_envs: int = 1
     headless: bool = True
-    with_gs_background : bool = False
+    with_gs_background: bool = False
 
     def __post_init__(self):
         log.info(f"RealAssetCfg: {self}")
@@ -96,7 +98,8 @@ if __name__ == "__main__":
         gs_scene=GSSceneCfg(
             with_gs_background=args.with_gs_background,
             gs_background_path="/horizon-bucket/robot_lab/users/xinjie.wang/test_space/test_render/scene_016/gs_model.ply",
-            gs_background_pose_tum=(0,0,0,0,0.9861,0,-0.16296))
+            gs_background_pose_tum=(0, 0, 0, 0, 0.9861, 0, -0.16296),
+        ),
     )
 
     # add cameras
