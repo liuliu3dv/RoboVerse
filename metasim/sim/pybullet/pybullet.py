@@ -116,7 +116,7 @@ class SinglePybulletHandler(BaseSimHandler):
             fixedTimeStep=self.scenario.sim_params.dt if self.scenario.sim_params.dt is not None else 1.0 / 240.0,
         )
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        p.setGravity(0, 0, -9.81)
+        p.setGravity(*self.scenario.gravity)
 
         # add plane
         self.plane_id = p.loadURDF("plane.urdf")
@@ -199,6 +199,11 @@ class SinglePybulletHandler(BaseSimHandler):
                             maxVelocity=joint_config.velocity_limit or PYBULLET_DEFAULT_JOINT_MAX_VEL,
                             force=joint_config.torque_limit or PYBULLET_DEFAULT_JOINT_MAX_TORQUE,
                         )
+
+                if hasattr(object, "default_joint_positions"):
+                    for j in range(num_joints):
+                        default_pos = object.default_joint_positions[cur_joint_names[j]]
+                        p.resetJointState(bodyUniqueId=curr_id, jointIndex=j, targetValue=default_pos)
 
                 ### TODO:
                 # Add dof properties for articulated objects
