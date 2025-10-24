@@ -325,11 +325,10 @@ class GenesisHandler(BaseSimHandler):
                 if segmentation is not None:
                     seg_np = segmentation if isinstance(segmentation, np.ndarray) else segmentation.cpu().numpy()
                     # Exclude background and ground plane (typically ID 0 = ground, ID 1 = first object)
-                    # Similar to Sapien3's approach: exclude ID <= 1
                     foreground_mask = (seg_np > 1)
                     mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
                     
-                    # Blend RGB
+                    # Blending RGB
                     sim_rgb = rgb_t.numpy().astype(np.uint8) if isinstance(rgb_t, torch.Tensor) else rgb_t.astype(np.uint8)
                     foreground = np.concatenate([sim_rgb, mask[..., None]], axis=-1)
                     blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])

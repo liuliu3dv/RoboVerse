@@ -488,35 +488,30 @@ class IsaacsimHandler(BaseSimHandler):
                 # Create foreground mask from instance segmentation
                 if instance_seg_data is not None:
                     # Get foreground mask from instance segmentation
-                    seg_mask_0 = instance_seg_data[0]  # Shape: (H, W)
-                    foreground_mask = (seg_mask_0 > 0).float()  # Convert to float [0, 1]
+                    foreground_mask = (instance_seg_data > 0).float()  # Shape: (envs, H, W)
                     
                     # Get RGB Blending with GS background
-                    sim_rgb = rgb_data[0].float() / 255.0  # Normalize to [0, 1], Shape: (H, W, 3)
+                    sim_rgb = rgb_data.float() / 255.0  # Normalize to [0, 1], Shape: (envs, H, W, 3)
+                    gs_rgb = gs_result.rgb  # Shape: (envs, H, W, 3), BGR order
                     
-                    gs_rgb = gs_result.rgb[0]  # Shape: (H, W, 3), BGR order
                     if isinstance(gs_rgb, np.ndarray):
                         gs_rgb = torch.from_numpy(gs_rgb)
                     gs_rgb = gs_rgb.to(self.device)
-                    
                     blended_rgb = alpha_blend_rgba_torch(sim_rgb, gs_rgb, foreground_mask)
-                    
                     rgb_data = (blended_rgb * 255.0).clamp(0, 255).to(torch.uint8).unsqueeze(0)
                     
 
                     # Get Depth Blending with GS background
-                    bg_depth = gs_result.depth[0]  # Shape: (H, W) or (H, W, 1)
+                    sim_depth = depth_data.squeeze(-1)  # Shape: (envs, H, W, 1) -> (envs, H, W)
+                    bg_depth = gs_result.depth.squeeze(-1)  # Shape: (envs, H, W, 1) -> (envs, H, W)
                     if isinstance(bg_depth, np.ndarray):
                         bg_depth = torch.from_numpy(bg_depth)
                     bg_depth = bg_depth.to(self.device)
-                    if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
-                        bg_depth = bg_depth.squeeze(-1)
-                    
-                    sim_depth = depth_data[0]  # Already tensor
                     # Use torch.where for depth composition
                     depth_comp = torch.where(foreground_mask > 0.5, sim_depth, bg_depth)
-                    depth_data = depth_comp.unsqueeze(0)
+                    depth_data = depth_comp.unsqueeze(0).unsqueeze(-1)
 
+            # import pdb; pdb.set_trace()
             camera_states[camera.name] = CameraState(
                 rgb=rgb_data,
                 depth=depth_data,

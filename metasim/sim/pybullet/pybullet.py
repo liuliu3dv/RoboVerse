@@ -42,6 +42,8 @@ PYBULLET_DEFAULT_VELOCITY_GAIN = 1.0
 PYBULLET_DEFAULT_JOINT_MAX_VEL = 1.0
 PYBULLET_DEFAULT_JOINT_MAX_TORQUE = 1.0
 
+DEPTH_EPSILON = 1e-8
+
 
 class SinglePybulletHandler(BaseSimHandler):
     """Pybullet Handler class."""
@@ -110,13 +112,24 @@ class SinglePybulletHandler(BaseSimHandler):
         
         return Ks, c2w
 
+    def _convert_depth_buffer(self, depth_buffer: np.ndarray, near_plane: float, far_plane: float) -> np.ndarray:
+        """Convert PyBullet depth buffer [0,1] to metric depth using near/far planes.
+
+        PyBullet returns a non-linear depth buffer z_b in [0,1]. The eye-space
+        distance (metric depth) is computed as:
+            depth = (far * near) / (far - (far - near) * z_b)
+        """
+        denom = far_plane - (far_plane - near_plane) * depth_buffer
+        depth_metric = (far_plane * near_plane) / np.clip(denom, a_min=DEPTH_EPSILON, a_max=None)
+        return depth_metric.astype(np.float32, copy=False)
+
     def _build_pybullet(self):
         self.client = p.connect(p.DIRECT if self.headless else p.GUI)
         p.setPhysicsEngineParameter(
             fixedTimeStep=self.scenario.sim_params.dt if self.scenario.sim_params.dt is not None else 1.0 / 240.0,
         )
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        p.setGravity(*self.scenario.gravity)
+        p.setGravity(0, 0, -9.81)
 
         # add plane
         self.plane_id = p.loadURDF("plane.urdf")
@@ -142,7 +155,7 @@ class SinglePybulletHandler(BaseSimHandler):
             far_plane = camera.clipping_range[1]  # Far clipping plane
             projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, near_plane, far_plane)
 
-            self.camera_ids[camera.name] = (width, height, view_matrix, projection_matrix)
+            self.camera_ids[camera.name] = (width, height, view_matrix, projection_matrix, near_plane, far_plane)
 
         for object in [*self.objects, self.robot]:
             if isinstance(object, (ArticulationObjCfg, RobotCfg)):
@@ -199,11 +212,6 @@ class SinglePybulletHandler(BaseSimHandler):
                             maxVelocity=joint_config.velocity_limit or PYBULLET_DEFAULT_JOINT_MAX_VEL,
                             force=joint_config.torque_limit or PYBULLET_DEFAULT_JOINT_MAX_TORQUE,
                         )
-
-                if hasattr(object, "default_joint_positions"):
-                    for j in range(num_joints):
-                        default_pos = object.default_joint_positions[cur_joint_names[j]]
-                        p.resetJointState(bodyUniqueId=curr_id, jointIndex=j, targetValue=default_pos)
 
                 ### TODO:
                 # Add dof properties for articulated objects
@@ -455,12 +463,13 @@ class SinglePybulletHandler(BaseSimHandler):
 
         camera_states = {}
         for camera in self.cameras:
-            width, height, view_matrix, projection_matrix = self.camera_ids[camera.name]
+            width, height, view_matrix, projection_matrix, near_plane, far_plane = self.camera_ids[camera.name]
             
             # Get PyBullet simulation rendering
             img_arr = p.getCameraImage(width, height, view_matrix, projection_matrix, lightAmbientCoeff=0.5)
             rgb_img = np.reshape(img_arr[2], (height, width, 4))
-            depth_img = np.reshape(img_arr[3], (height, width))
+            depth_buffer = np.reshape(img_arr[3], (height, width))
+            metric_depth = self._convert_depth_buffer(depth_buffer, near_plane, far_plane)
             segmentation_mask = np.reshape(img_arr[4], (height, width))
 
             if self.scenario.gs_scene.with_gs_background:
@@ -486,19 +495,19 @@ class SinglePybulletHandler(BaseSimHandler):
                 sim_color = rgb_img[:, :, :3]
                 foreground = np.concatenate([sim_color, mask[..., None]], axis=-1)
                 blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
-                rgb = torch.from_numpy(np.array(blended_rgb.copy()))
+                rgb_np = np.asarray(blended_rgb, dtype=np.uint8)
+                rgb = torch.from_numpy(rgb_np)
                 
                 # Compose depth: use simulation depth for foreground, GS depth for background
                 bg_depth = gs_result.depth[0, ...]
                 if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
                     bg_depth = bg_depth[..., 0]
-                depth_comp = np.where(foreground_mask, depth_img, bg_depth)
-                depth = torch.from_numpy(depth_comp.copy())
-                import pdb; pdb.set_trace()
+                depth_comp = np.where(foreground_mask, metric_depth, bg_depth)
+                depth = torch.from_numpy(depth_comp.astype(np.float32, copy=False))
             else:
                 # Original PyBullet rendering without GS background
                 rgb = torch.from_numpy(rgb_img[:, :, :3])
-                depth = torch.from_numpy(depth_img)
+                depth = torch.from_numpy(metric_depth)
             
             state = CameraState(
                 rgb=rgb.unsqueeze(0),

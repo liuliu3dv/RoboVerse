@@ -17,7 +17,6 @@ rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 import os
 import cv2
-import imageio
 from huggingface_hub import snapshot_download
 
 from metasim.constants import PhysicStateType, SimType
@@ -29,10 +28,6 @@ from metasim.utils import configclass
 from metasim.utils.setup_util import get_sim_handler_class
 
 def depth_to_colormap(depth, inv_depth=True, depth_range=(0.1, 3.0), colormap=cv2.COLORMAP_TURBO):
-    # to numpy
-    if isinstance(depth, torch.Tensor):
-        depth = depth.detach().cpu().numpy()
-    # squeeze to 2D (H, W)
     depth = np.squeeze(depth)
 
     dmin, dmax = depth_range
@@ -245,13 +240,20 @@ if __name__ == "__main__":
     # obs_tensor = env.get_states(mode="tensor")  # get states as a tensor
 
     os.makedirs("get_started/output", exist_ok=True)
-    save_path = f"get_started/output/14_real_assets_{args.sim}.png"
-    log.info(f"Saving image to {save_path}")
-    imageio.imwrite(save_path, obs["cameras"]["camera"]["rgb"])
+    # save_path = f"get_started/output/14_real_assets_{args.sim}.jpg"
+    # log.info(f"Saving image to {save_path}")
+    # rgb = obs["cameras"]["camera"]["rgb"]
+    # if isinstance(rgb, torch.Tensor):
+    #     rgb = rgb.detach().cpu().numpy()
+    # if rgb.dtype != np.uint8:
+    #     rgb = (np.clip(rgb, 0.0, 1.0) * 255.0).astype(np.uint8) if rgb.max() <= 1.0 else np.clip(rgb, 0, 255).astype(np.uint8)
+    # cv2.imwrite(save_path, rgb[:, :, ::-1].copy(), [int(cv2.IMWRITE_JPEG_QUALITY), 95])  # RGB -> BGR
 
-    save_path = f"get_started/output/14_real_assets_{args.sim}_depth.png"
-    depth = obs["cameras"]["camera"]["depth"]
-
-    depth_color = depth_to_colormap(depth, inv_depth=True, depth_range=(1.0, 5.0))
+    save_path = f"get_started/output/14_real_assets_{args.sim}_depth.jpg"
     log.info(f"Saving depth image to {save_path}")
-    imageio.imwrite(save_path, depth_color)
+    depth = obs["cameras"]["camera"]["depth"]
+    if isinstance(depth, torch.Tensor):
+        depth = depth.detach().cpu().numpy()
+    import pdb; pdb.set_trace()
+    depth_color = depth_to_colormap(depth, inv_depth=True, depth_range=(1.0, 5.0))
+    cv2.imwrite(save_path, depth_color[:, :, ::-1].copy(), [int(cv2.IMWRITE_JPEG_QUALITY), 95])  # RGB -> BGR
