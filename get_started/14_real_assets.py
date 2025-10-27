@@ -248,12 +248,8 @@ if __name__ == "__main__":
     rgb = obs["cameras"]["camera"]["rgb"]
     if isinstance(rgb, torch.Tensor):
         rgb = rgb.detach().cpu().numpy()
-    if rgb.dtype != np.uint8:
-        rgb = (
-            (np.clip(rgb, 0.0, 1.0) * 255.0).astype(np.uint8)
-            if rgb.max() <= 1.0
-            else np.clip(rgb, 0, 255).astype(np.uint8)
-        )
+    rgb = rgb.squeeze(0)
+    rgb = rgb[:, :, :3]
     cv2.imwrite(save_path, rgb[:, :, ::-1].copy(), [int(cv2.IMWRITE_JPEG_QUALITY), 95])  # RGB -> BGR
 
     save_path = f"get_started/output/14_real_assets_{args.sim}_depth.jpg"
@@ -261,5 +257,6 @@ if __name__ == "__main__":
     depth = obs["cameras"]["camera"]["depth"]
     if isinstance(depth, torch.Tensor):
         depth = depth.detach().cpu().numpy()
+    depth = depth.squeeze(0)
     depth_color = depth_to_colormap(depth, inv_depth=True, depth_range=(1.0, 5.0))
     cv2.imwrite(save_path, depth_color[:, :, ::-1].copy(), [int(cv2.IMWRITE_JPEG_QUALITY), 95])  # RGB -> BGR

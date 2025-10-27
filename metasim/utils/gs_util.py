@@ -1,3 +1,6 @@
+# ruff: noqa: UP006, UP007
+from __future__ import annotations
+
 from typing import List, Union
 
 import numpy as np
@@ -7,6 +10,18 @@ from pyquaternion import Quaternion
 
 
 def quaternion_multiply(init_quat: List[float], rotate_quat: List[float]) -> List[float]:
+    """Multiplies two quaternions.
+
+    Args:
+        init_quat: Initial quaternion.
+        rotate_quat: Rotation quaternion.
+
+    Returns:
+        The product of the two quaternions.
+
+    Raises:
+        ValueError: If the input quaternions are not valid.
+    """
     qx, qy, qz, qw = init_quat
     q1 = Quaternion(w=qw, x=qx, y=qy, z=qz)
     qx, qy, qz, qw = rotate_quat
@@ -19,18 +34,22 @@ def quaternion_multiply(init_quat: List[float], rotate_quat: List[float]) -> Lis
 def alpha_blend_rgba(
     fg_image: Union[str, Image.Image, np.ndarray],
     bg_image: Union[str, Image.Image, np.ndarray],
+    alpha: Union[str, Image.Image, np.ndarray] = None,
 ) -> Image.Image:
-    """Alpha blends a foreground RGBA image over a background RGBA image.
+    """Alpha blends a foreground RGBA image over a background image.
 
     Args:
         fg_image: Foreground image. Can be a file path (str), a PIL Image,
-            or a NumPy ndarray.
+            or a NumPy ndarray (H, W, 3) or (H, W, 4).
         bg_image: Background image. Can be a file path (str), a PIL Image,
-            or a NumPy ndarray.
+            or a NumPy ndarray (H, W, 3) or (H, W, 4).
+        alpha: Optional per-pixel alpha mask. If provided, can be file path (str),
+            PIL Image (should be 'L' or '1' mode), or numpy ndarray (H, W), (H, W, 1).
 
     Returns:
-        A PIL Image representing the alpha-blended result in RGBA mode.
+        A PIL Image (RGBA) representing the alpha-blended result.
     """
+    # Convert input images to PIL Images
     if isinstance(fg_image, str):
         fg_image = Image.open(fg_image)
     elif isinstance(fg_image, np.ndarray):
@@ -44,10 +63,23 @@ def alpha_blend_rgba(
     if fg_image.size != bg_image.size:
         raise ValueError(f"Image sizes not match {fg_image.size} v.s. {bg_image.size}.")
 
-    fg = fg_image.convert("RGBA")
-    bg = bg_image.convert("RGBA")
+    if alpha is None:
+        # Default: use foreground alpha channel for blending
+        fg = fg_image.convert("RGBA")
+        bg = bg_image.convert("RGBA")
+        blended = Image.alpha_composite(bg, fg)
+    else:
+        # Use alpha channel for blending
+        if alpha is not None and isinstance(alpha, str):
+            alpha = Image.open(alpha)
+        elif isinstance(alpha, np.ndarray):
+            alpha = Image.fromarray(alpha)
 
-    return Image.alpha_composite(bg, fg)
+        if fg_image.size != alpha.size:
+            raise ValueError(f"Image sizes not match {fg_image.size} v.s. {alpha.size}.")
+        blended = Image.composite(fg_image, bg_image, alpha)
+
+    return blended
 
 
 def alpha_blend_rgba_torch(

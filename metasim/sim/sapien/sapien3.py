@@ -619,7 +619,7 @@ class Sapien3Handler(BaseSimHandler):
 
                 # depth compose: use sim depth where foreground exists, otherwise GS depth
                 sim_depth = -cam_inst.get_picture("Position")[..., 2]
-                bg_depth = gs_result.depth[0, ...]
+                bg_depth = gs_result.depth.squeeze(0)
                 if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
                     bg_depth = bg_depth[..., 0]
 
@@ -632,7 +632,8 @@ class Sapien3Handler(BaseSimHandler):
                 sim_color = (np.clip(sim_color[..., :3], 0, 1) * 255).astype(np.uint8)
                 foreground = np.concatenate([sim_color, mask[..., None]], axis=-1)
 
-                blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
+                background = gs_result.rgb.squeeze(0)
+                blended_rgb = alpha_blend_rgba(foreground, background)
                 rgb = torch.from_numpy(np.array(blended_rgb.copy()))
 
             else:

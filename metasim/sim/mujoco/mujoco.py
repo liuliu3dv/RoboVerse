@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-try:
-    import mujoco.viewer
-except ImportError:
-    pass
 import mujoco
 import numpy as np
 import torch
@@ -23,6 +19,12 @@ from metasim.queries.base import BaseQueryType
 from metasim.sim import BaseSimHandler
 from metasim.types import Action
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, state_tensor_to_nested
+
+try:
+    import mujoco.viewer
+except (ImportError, AttributeError):
+    log.warning("Mujoco Viewer not available. Please check your OPENGL environment.")
+    pass
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
@@ -585,7 +587,8 @@ class MujocoHandler(BaseSimHandler):
                     # Blend RGB: foreground objects over GS background
                     sim_color = (sim_rgb * 255).astype(np.uint8) if sim_rgb.max() <= 1.0 else sim_rgb.astype(np.uint8)
                     foreground = np.concatenate([sim_color, seg_mask[..., None]], axis=-1)
-                    blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
+                    background = gs_result.rgb.squeeze(0)
+                    blended_rgb = alpha_blend_rgba(foreground, background)
                     rgb = torch.from_numpy(np.array(blended_rgb.copy()))
 
                 if "depth" in camera.data_types:

@@ -332,7 +332,8 @@ class GenesisHandler(BaseSimHandler):
                         rgb_t.numpy().astype(np.uint8) if isinstance(rgb_t, torch.Tensor) else rgb_t.astype(np.uint8)
                     )
                     foreground = np.concatenate([sim_rgb, mask[..., None]], axis=-1)
-                    blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
+                    background = gs_result.rgb.squeeze(0)
+                    blended_rgb = alpha_blend_rgba(foreground, background)
                     rgb_t = torch.from_numpy(np.array(blended_rgb.copy()))
 
                     # Compose depth

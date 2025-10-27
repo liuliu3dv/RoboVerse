@@ -496,13 +496,13 @@ class SinglePybulletHandler(BaseSimHandler):
                 gs_result.to_numpy()
 
                 # Create foreground mask: exclude background (-1) and ground plane
-                foreground_mask = (segmentation_mask > -1) & (segmentation_mask != self.plane_id)
-                mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
+                foreground_mask = (segmentation_mask > -1) & (segmentation_mask != self.plane_id).astype(np.uint8)
 
                 # Blend RGB: foreground objects over GS background
-                sim_color = rgb_img[:, :, :3]
-                foreground = np.concatenate([sim_color, mask[..., None]], axis=-1)
-                blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
+                sim_color = rgb_img[:, :, :3]  # rgba to rgb
+                foreground = np.concatenate([sim_color, foreground_mask[..., None] * 255], axis=-1)
+                background = gs_result.rgb.squeeze(0)
+                blended_rgb = alpha_blend_rgba(foreground, background)
                 rgb = torch.from_numpy(np.array(blended_rgb.copy()))
 
                 # Compose depth: use simulation depth for foreground, GS depth for background
