@@ -14,6 +14,7 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 import torch
+from loguru import logger as log
 
 from metasim.queries.base import BaseQueryType
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
@@ -22,7 +23,6 @@ from metasim.scenario.scenario import ScenarioCfg
 from metasim.sim import BaseSimHandler
 from metasim.types import Action, DictEnvState
 from metasim.utils.gs_util import alpha_blend_rgba
-from metasim.utils.log import log
 from metasim.utils.math import convert_quat
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, adapt_actions_to_dict
 

@@ -18,7 +18,7 @@ In headless mode:
 python3 get_started/15_gs_background.py --sim pybullet --headless
 python3 get_started/15_gs_background.py --sim sapien3 --headless
 python3 get_started/15_gs_background.py --sim genesis --headless
-python3 get_started/15_gs_background.py --sim mujoco --headless
+MUJOCO_GL=egl python3 get_started/15_gs_background.py --sim mujoco --headless
 python3 get_started/15_gs_background.py --sim isaacgym --headless
 python3 get_started/15_gs_background.py --sim isaacsim --headless
 ```

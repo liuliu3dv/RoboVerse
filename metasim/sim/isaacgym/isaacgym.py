@@ -102,9 +102,6 @@ class IsaacgymHandler(BaseSimHandler):
         self._pos_ctrl_dof_dix = []  # joint index in dof state, built-in position control mode
         self._manual_pd_on: bool = False  # turn on maunual pd controller if effort joint exist
 
-        # GS background rendering
-        self.gs_background = None
-
     def launch(self) -> None:
         ## IsaacGym Initialization
         self._init_gym()

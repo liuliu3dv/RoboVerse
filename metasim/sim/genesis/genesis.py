@@ -60,7 +60,6 @@ class GenesisHandler(BaseSimHandler):
         self.object_inst_dict: dict[str, RigidEntity] = {}
         self.camera_inst_dict: dict[str, Camera] = {}
         self.robot = self.robots[0] if self.robots else None
-        self.gs_background = None
 
     def _get_camera_params(self, camera):
         """Get camera intrinsics and extrinsics from Genesis camera configuration.

@@ -69,8 +69,6 @@ class IsaacsimHandler(BaseSimHandler):
         else:
             self._render_viewport = True
 
-        self.gs_background = None
-
     def _get_camera_params(self, camera, camera_inst):
         """Get camera intrinsics and extrinsics for GS rendering.
 

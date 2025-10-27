@@ -8,10 +8,11 @@ import torch
 if TYPE_CHECKING:
     from metasim.scenario.scenario import ScenarioCfg
 
+from loguru import logger as log
+
 from metasim.queries.base import BaseQueryType
 from metasim.types import Action, DictEnvState, TensorState
 from metasim.utils.gs_util import quaternion_multiply
-from metasim.utils.log import log
 from metasim.utils.state import list_state_to_tensor, state_tensor_to_nested
 
 # from metasim.utils.hf_util import FileDownloader
@@ -40,6 +41,8 @@ class BaseSimHandler(ABC):
         self.cameras = scenario.cameras
         self.objects = scenario.objects
         self.lights = scenario.lights if hasattr(scenario, "lights") else []
+        self.gs_background = None
+
         self._num_envs = scenario.num_envs
         self.decimation = scenario.decimation
         self.headless = scenario.headless
