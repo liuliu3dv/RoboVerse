@@ -107,7 +107,7 @@ if __name__ == "__main__":
         gs_scene=GSSceneCfg(
             with_gs_background=args.with_gs_background,
             gs_background_path=f"{data_dir}/bg_scenes/scene_{args.scene_id:03d}/gs_model.ply",
-            gs_background_pose_tum=(0, 0, 0, 0, 1, 0, 0),
+            gs_background_pose_tum=(0, 0, 0, 0, 1, 0, 0),  # format: (x, y, z, qx, qy, qz, qw)
         ),
     )
 

@@ -10,7 +10,7 @@ from loguru import logger as log
 
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveCylinderCfg, PrimitiveSphereCfg
 from metasim.scenario.robot import RobotCfg
-from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+from metasim.utils.gs_util import alpha_blend_rgba
 
 if TYPE_CHECKING:
     from metasim.scenario.scenario import ScenarioCfg
@@ -28,10 +28,7 @@ except (ImportError, AttributeError):
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
-    from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
-    from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
@@ -74,30 +71,6 @@ class MujocoHandler(BaseSimHandler):
         self._position_controlled_joints = []
         self._current_action = None
         self._current_vel_target = None  # Track velocity targets
-
-    def _build_gs_background(self):
-        """Build the GS background model."""
-        if not ROBO_SPLATTER_AVAILABLE:
-            log.error("GS background enabled but RoboSplatter not available.")
-            return
-
-        if self.scenario.gs_scene.gs_background_pose_tum is not None:
-            x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
-        else:
-            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
-
-        qx, qy, qz, qw = quaternion_multiply(
-            [qx, qy, qz, qw], [0.7071, 0, 0, 0.7071]
-        )  # rotate from blender to sim coordinate system
-        init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
-
-        gs_model = VanillaGaussians(
-            model_path=self.scenario.gs_scene.gs_background_path, device="cuda" if torch.cuda.is_available() else "cpu"
-        )
-
-        gs_model.apply_global_transform(global_pose=init_pose)
-
-        self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
 
     def _get_camera_params(self, camera_id: str, camera):
         """Get camera intrinsics and extrinsics from MuJoCo camera configuration.

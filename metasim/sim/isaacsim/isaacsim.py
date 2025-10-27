@@ -26,15 +26,12 @@ from metasim.scenario.scenario import ScenarioCfg
 from metasim.sim import BaseSimHandler
 from metasim.types import DictEnvState
 from metasim.utils.dict import deep_get
-from metasim.utils.gs_util import alpha_blend_rgba_torch, quaternion_multiply
+from metasim.utils.gs_util import alpha_blend_rgba_torch
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
-    from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
-    from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
@@ -73,33 +70,6 @@ class IsaacsimHandler(BaseSimHandler):
             self._render_viewport = True
 
         self.gs_background = None
-
-    def _build_gs_background(self):
-        """Initialize GS background renderer if enabled in scenario config."""
-        if not self.scenario.gs_scene.with_gs_background:
-            return
-
-        if not ROBO_SPLATTER_AVAILABLE:
-            log.error("GS background enabled but RoboSplatter not available.")
-            return
-
-        # Parse pose transformation
-        if self.scenario.gs_scene.gs_background_pose_tum is not None:
-            x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
-        else:
-            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
-
-        # Apply coordinate transform
-        qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
-        init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
-
-        # Load GS model
-        gs_model = VanillaGaussians(
-            model_path=self.scenario.gs_scene.gs_background_path, device="cuda" if torch.cuda.is_available() else "cpu"
-        )
-        gs_model.apply_global_transform(global_pose=init_pose)
-
-        self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
 
     def _get_camera_params(self, camera, camera_inst):
         """Get camera intrinsics and extrinsics for GS rendering.
@@ -249,7 +219,7 @@ class IsaacsimHandler(BaseSimHandler):
         self._load_robots()
         self._load_sensors()
         self._load_cameras()
-        # self._load_terrain()
+        self._load_terrain()
         self._load_objects()
         self._load_lights()
         self._load_render_settings()
@@ -505,7 +475,6 @@ class IsaacsimHandler(BaseSimHandler):
                     depth_comp = torch.where(foreground_mask > 0.5, sim_depth, bg_depth)
                     depth_data = depth_comp.unsqueeze(0).unsqueeze(-1)
 
-            # import pdb; pdb.set_trace()
             camera_states[camera.name] = CameraState(
                 rgb=rgb_data,
                 depth=depth_data,

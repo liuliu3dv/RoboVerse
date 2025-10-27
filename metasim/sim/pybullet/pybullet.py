@@ -15,30 +15,26 @@ import pybullet as p
 import pybullet_data
 import torch
 
-from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
-
-# Optional: RoboSplatter imports for GS background rendering
-try:
-    from robo_splatter.models.basic import RenderConfig
-    from robo_splatter.models.camera import Camera as SplatCamera
-    from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import Scene
-
-    ROBO_SPLATTER_AVAILABLE = True
-except ImportError:
-    ROBO_SPLATTER_AVAILABLE = False
-    import logging
-
-    logging.warning("RoboSplatter not available. GS background rendering will be disabled.")
-
 from metasim.queries.base import BaseQueryType
 from metasim.scenario.objects import ArticulationObjCfg, PrimitiveCubeCfg, PrimitiveSphereCfg, RigidObjCfg
 from metasim.scenario.robot import RobotCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.sim import BaseSimHandler
 from metasim.types import Action, DictEnvState
+from metasim.utils.gs_util import alpha_blend_rgba
+from metasim.utils.log import log
 from metasim.utils.math import convert_quat
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, adapt_actions_to_dict
+
+# Optional: RoboSplatter imports for GS background rendering
+try:
+    from robo_splatter.models.camera import Camera as SplatCamera
+
+    ROBO_SPLATTER_AVAILABLE = True
+except ImportError:
+    ROBO_SPLATTER_AVAILABLE = False
+    log.warning("RoboSplatter not available. GS background rendering will be disabled.")
+
 
 PYBULLET_DEFAULT_POSITION_GAIN = 0.1
 PYBULLET_DEFAULT_VELOCITY_GAIN = 1.0
@@ -61,30 +57,6 @@ class SinglePybulletHandler(BaseSimHandler):
         """
         super().__init__(scenario, optional_queries)
         self._actions_cache: list[Action] = []
-
-    def _build_gs_background(self):
-        """Build the GS background model."""
-        if not ROBO_SPLATTER_AVAILABLE:
-            import logging
-
-            logging.error("GS background enabled but RoboSplatter not available.")
-            return
-
-        if self.scenario.gs_scene.gs_background_pose_tum is not None:
-            x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
-        else:
-            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
-
-        qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
-        init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
-
-        gs_model = VanillaGaussians(
-            model_path=self.scenario.gs_scene.gs_background_path, device="cuda" if torch.cuda.is_available() else "cpu"
-        )
-
-        gs_model.apply_global_transform(global_pose=init_pose)
-
-        self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
 
     def _get_camera_params(self, view_matrix, projection_matrix, width, height):
         """Get camera intrinsics and extrinsics directly from PyBullet matrices.

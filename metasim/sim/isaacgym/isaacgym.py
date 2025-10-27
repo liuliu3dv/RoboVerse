@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import math
 from copy import deepcopy
 
@@ -9,19 +8,16 @@ import torch
 from isaacgym import gymapi, gymtorch, gymutil  # noqa: F401
 from loguru import logger as log
 
-from metasim.utils.gs_util import alpha_blend_rgba_torch, quaternion_multiply
+from metasim.utils.gs_util import alpha_blend_rgba_torch
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
-    from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
-    from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
     ROBO_SPLATTER_AVAILABLE = False
-    logging.warning("RoboSplatter not available. GS background rendering will be disabled.")
+    log.warning("RoboSplatter not available. GS background rendering will be disabled.")
 
 from metasim.constants import PhysicStateType
 from metasim.queries.base import BaseQueryType
@@ -176,34 +172,6 @@ class IsaacgymHandler(BaseSimHandler):
             self.gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_V, "toggle_viewer_sync")
             if self.viewer is None:
                 raise Exception("Failed to create viewer")
-
-    def _build_gs_background(self):
-        """Build the GS background model."""
-        if not ROBO_SPLATTER_AVAILABLE:
-            logging.error("GS background enabled but RoboSplatter not available.")
-            return
-
-        try:
-            if self.scenario.gs_scene.gs_background_pose_tum is not None:
-                x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
-            else:
-                x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
-
-            qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
-            init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
-
-            gs_model = VanillaGaussians(
-                model_path=self.scenario.gs_scene.gs_background_path,
-                device="cuda" if torch.cuda.is_available() else "cpu",
-            )
-
-            gs_model.apply_global_transform(global_pose=init_pose)
-
-            self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
-            logging.info("GS background model loaded successfully.")
-        except Exception as e:
-            logging.error(f"Failed to build GS background: {e}")
-            self.gs_background = None
 
     def _get_camera_params(self, vinv_matrix, proj_matrix, width, height):
         """Get camera intrinsics and extrinsics from IsaacGym matrices.

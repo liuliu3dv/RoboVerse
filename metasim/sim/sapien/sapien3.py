@@ -34,7 +34,7 @@ from metasim.scenario.robot import RobotCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.sim import BaseSimHandler
 from metasim.types import Action, DictEnvState
-from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+from metasim.utils.gs_util import alpha_blend_rgba
 from metasim.utils.math import quat_from_euler_np
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, adapt_actions_to_dict
 
@@ -42,10 +42,7 @@ from .sapien2 import _load_init_pose
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
-    from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
-    from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
@@ -149,28 +146,6 @@ class Sapien3Handler(BaseSimHandler):
         super().__init__(scenario, optional_queries)
         self.headless = scenario.headless
         self._actions_cache: list[Action] = []
-
-    def _build_gs_background(self):
-        """Build the GS background model."""
-        if not ROBO_SPLATTER_AVAILABLE:
-            log.error("GS background enabled but RoboSplatter not available.")
-            return
-
-        if self.scenario.gs_scene.gs_background_pose_tum is not None:
-            x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
-        else:
-            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
-
-        qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
-        init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
-
-        gs_model = VanillaGaussians(
-            model_path=self.scenario.gs_scene.gs_background_path, device="cuda" if torch.cuda.is_available() else "cpu"
-        )
-
-        gs_model.apply_global_transform(global_pose=init_pose)
-
-        self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
 
     def _build_sapien(self):
         self.engine = sapien_core.Engine()  # Create a physical simulation engine
@@ -492,7 +467,7 @@ class Sapien3Handler(BaseSimHandler):
                 self._apply_action(instance, pos_target, vel_target)
 
     def _simulate(self):
-        for i in range(1):
+        for i in range(self.scenario.decimation):
             self.scene.step()
             self.scene.update_render()
             if not self.headless:
@@ -567,7 +542,6 @@ class Sapien3Handler(BaseSimHandler):
             object_states[obj.name] = state
 
         robot_states = {}
-        self._simulate()
         for robot in [self.robot]:
             robot_inst = self.object_ids[robot.name]
             assert isinstance(robot_inst, sapien_core.physx.PhysxArticulation)

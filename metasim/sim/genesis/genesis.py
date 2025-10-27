@@ -22,7 +22,7 @@ from metasim.scenario.robot import RobotCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.sim import BaseSimHandler
 from metasim.types import Action, DictEnvState
-from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
+from metasim.utils.gs_util import alpha_blend_rgba
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState
 
 # Apply IGL compatibility patch
@@ -45,10 +45,7 @@ except Exception:
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
-    from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
-    from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
@@ -64,33 +61,6 @@ class GenesisHandler(BaseSimHandler):
         self.camera_inst_dict: dict[str, Camera] = {}
         self.robot = self.robots[0] if self.robots else None
         self.gs_background = None
-
-    def _build_gs_background(self):
-        """Initialize GS background renderer if enabled in scenario config."""
-        if not self.scenario.gs_scene.with_gs_background:
-            return
-
-        if not ROBO_SPLATTER_AVAILABLE:
-            log.error("GS background enabled but RoboSplatter not available.")
-            return
-
-        # Parse pose transformation
-        if self.scenario.gs_scene.gs_background_pose_tum is not None:
-            x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
-        else:
-            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
-
-        # Apply coordinate transform
-        qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
-        init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
-
-        # Load GS model
-        gs_model = VanillaGaussians(
-            model_path=self.scenario.gs_scene.gs_background_path, device="cuda" if torch.cuda.is_available() else "cpu"
-        )
-        gs_model.apply_global_transform(global_pose=init_pose)
-
-        self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
 
     def _get_camera_params(self, camera):
         """Get camera intrinsics and extrinsics from Genesis camera configuration.
