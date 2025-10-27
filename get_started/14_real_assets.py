@@ -6,7 +6,6 @@ try:
     import isaacgym  # noqa: F401
 except ImportError:
     pass
-import numpy as np
 import rootutils
 import torch
 import tyro
@@ -17,37 +16,15 @@ rootutils.setup_root(__file__, pythonpath=True)
 log.configure(handlers=[{"sink": RichHandler(), "format": "{message}"}])
 import os
 
-import cv2
 from huggingface_hub import snapshot_download
 
 from metasim.constants import PhysicStateType, SimType
 from metasim.scenario.cameras import PinholeCameraCfg
 from metasim.scenario.objects import RigidObjCfg
-from metasim.scenario.scenario import GSSceneCfg, ScenarioCfg
+from metasim.scenario.scenario import ScenarioCfg
 from metasim.utils import configclass
+from metasim.utils.obs_utils import ObsSaver
 from metasim.utils.setup_util import get_sim_handler_class
-
-
-def depth_to_colormap(depth, inv_depth=True, depth_range=(0.1, 3.0), colormap=cv2.COLORMAP_TURBO):
-    depth = np.squeeze(depth)
-
-    dmin, dmax = depth_range
-    valid = depth > 0
-
-    if inv_depth:
-        depth_clip = np.clip(depth, dmin, dmax, where=valid, out=np.copy(depth))
-        inv = np.zeros_like(depth_clip, dtype=np.float32)
-        inv[valid] = 1.0 / depth_clip[valid]
-        nmin, nmax = 1.0 / dmax, 1.0 / dmin
-        norm = (inv - nmin) / (nmax - nmin)
-    else:
-        depth_clip = np.clip(depth, dmin, dmax, where=valid, out=np.copy(depth))
-        norm = (depth_clip - dmin) / (dmax - dmin)
-
-    norm = np.nan_to_num(norm, nan=0.0, posinf=0.0, neginf=0.0)
-    img_u8 = (np.clip(norm, 0.0, 1.0) * 255.0).astype(np.uint8)  # 2D, uint8
-    color_bgr = cv2.applyColorMap(img_u8, colormap)  # (H,W,3) BGR
-    return color_bgr[:, :, ::-1]  # RGB
 
 
 @configclass
@@ -62,10 +39,9 @@ class RealAssetCfg:
         "pybullet",
         "sapien3",
         "mujoco",
-    ] = "mujoco"
+    ] = "isaacsim"
     num_envs: int = 1
-    headless: bool = True
-    with_gs_background: bool = False
+    headless: bool = False
 
     def __post_init__(self):
         log.info(f"RealAssetCfg: {self}")
@@ -90,11 +66,6 @@ if __name__ == "__main__":
         headless=args.headless,
         num_envs=args.num_envs,
         simulator=args.sim,
-        gs_scene=GSSceneCfg(
-            with_gs_background=args.with_gs_background,
-            gs_background_path="/horizon-bucket/robot_lab/users/xinjie.wang/test_space/test_render/scene_016/gs_model.ply",
-            gs_background_pose_tum=(0, 0, 0, 0, 0.9861, 0, -0.16296),
-        ),
     )
 
     # add cameras
@@ -105,7 +76,6 @@ if __name__ == "__main__":
             height=1024,
             pos=(2, -1, 1.5),
             look_at=(0.0, 0.0, 0.0),
-            data_types=["rgb", "depth", "instance_seg"],  # Enable instance segmentation for GS blending
         )
     ]
 
@@ -115,6 +85,7 @@ if __name__ == "__main__":
             name="table",
             scale=(1, 1, 1),
             physics=PhysicStateType.RIGIDBODY,
+            fix_base_link=True,
             usd_path=f"{data_dir}/demo_assets/table/usd/table.usd",
             urdf_path=f"{data_dir}/demo_assets/table/result/table.urdf",
             mjcf_path=f"{data_dir}/demo_assets/table/mjcf/table.mjcf",
@@ -236,28 +207,39 @@ if __name__ == "__main__":
 
     log.info(f"Using simulator: {args.sim}")
     env_class = get_sim_handler_class(SimType(args.sim))
-    env = env_class(scenario)
-    env.launch()
-    env.set_states(init_states)
-    obs = env.get_states(mode="dict")[0]  # get states as a dictionary
-    # obs_tensor = env.get_states(mode="tensor")  # get states as a tensor
-
+    handler = env_class(scenario)
+    handler.launch()
+    handler.set_states(init_states * scenario.num_envs)
     os.makedirs("get_started/output", exist_ok=True)
 
-    # save rgb image
-    save_path = f"get_started/output/14_real_assets_{args.sim}.jpg"
-    log.info(f"Saving image to {save_path}")
-    rgb = obs["cameras"]["camera"]["rgb"]
-    if isinstance(rgb, torch.Tensor):
-        rgb = rgb.detach().cpu().numpy()
-    rgb = rgb.squeeze(0)[:, :, :3]
-    cv2.imwrite(save_path, rgb[:, :, ::-1].copy(), [int(cv2.IMWRITE_JPEG_QUALITY), 95])  # RGB -> BGR
+    obs = handler.get_states(mode="tensor")
+    ## Main loop
+    obs_saver = ObsSaver(video_path=f"get_started/output/1_move_robot_{args.sim}.mp4")
+    obs_saver.add(obs)
 
-    # save depth image
-    save_path = f"get_started/output/14_real_assets_{args.sim}_depth.jpg"
-    log.info(f"Saving depth image to {save_path}")
-    depth = obs["cameras"]["camera"]["depth"]
-    if isinstance(depth, torch.Tensor):
-        depth = depth.detach().cpu().numpy()
-    depth_color = depth_to_colormap(depth.squeeze(0), inv_depth=True, depth_range=(1.0, 5.0))
-    cv2.imwrite(save_path, depth_color[:, :, ::-1].copy(), [int(cv2.IMWRITE_JPEG_QUALITY), 95])  # RGB -> BGR
+    step = 0
+    robot = scenario.robots[0]
+    for _ in range(100):
+        log.debug(f"Step {step}")
+        actions = [
+            {
+                robot.name: {
+                    "dof_pos_target": {
+                        joint_name: (
+                            torch.rand(1).item()
+                            * (robot.joint_limits[joint_name][1] - robot.joint_limits[joint_name][0])
+                            + robot.joint_limits[joint_name][0]
+                        )
+                        for joint_name in robot.joint_limits.keys()
+                    }
+                }
+            }
+            for _ in range(scenario.num_envs)
+        ]
+        handler.set_dof_targets(actions)
+        handler.simulate()
+        obs = handler.get_states(mode="tensor")
+        obs_saver.add(obs)
+        step += 1
+
+    obs_saver.save()

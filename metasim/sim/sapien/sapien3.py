@@ -607,6 +607,7 @@ class Sapien3Handler(BaseSimHandler):
                     image_width=cam_inst.width,
                     device="cuda" if torch.cuda.is_available() else "cpu",
                 )
+
                 gs_result = self.gs_background.render(gs_cam)
                 gs_result.to_numpy()
 
