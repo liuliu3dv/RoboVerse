@@ -22,7 +22,7 @@ try:
     from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
     from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
+    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
@@ -119,6 +119,13 @@ class SinglePybulletHandler(BaseSimHandler):
         PyBullet returns a non-linear depth buffer z_b in [0,1]. The eye-space
         distance (metric depth) is computed as:
             depth = (far * near) / (far - (far - near) * z_b)
+        Args:
+            depth_buffer: The depth buffer from PyBullet
+            near_plane: The near plane of the camera
+            far_plane: The far plane of the camera
+
+        Returns:
+            The metric depth
         """
         denom = far_plane - (far_plane - near_plane) * depth_buffer
         depth_metric = (far_plane * near_plane) / np.clip(denom, a_min=DEPTH_EPSILON, a_max=None)
@@ -465,7 +472,7 @@ class SinglePybulletHandler(BaseSimHandler):
         camera_states = {}
         for camera in self.cameras:
             width, height, view_matrix, projection_matrix, near_plane, far_plane = self.camera_ids[camera.name]
-            
+
             # Get PyBullet simulation rendering
             img_arr = p.getCameraImage(width, height, view_matrix, projection_matrix, lightAmbientCoeff=0.5)
             rgb_img = np.reshape(img_arr[2], (height, width, 4))
@@ -508,7 +515,7 @@ class SinglePybulletHandler(BaseSimHandler):
                 # Original PyBullet rendering without GS background
                 rgb = torch.from_numpy(rgb_img[:, :, :3])
                 depth = torch.from_numpy(sim_depth)
-            
+
             state = CameraState(
                 rgb=rgb.unsqueeze(0),
                 depth=depth.unsqueeze(0),

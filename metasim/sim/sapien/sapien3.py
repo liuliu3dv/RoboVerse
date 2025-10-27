@@ -44,13 +44,8 @@ from .sapien2 import _load_init_pose
 try:
     from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
-    from robo_splatter.models.gaussians import RigidsGaussians, VanillaGaussians
-    from robo_splatter.render.scenes import (
-        RenderCoordSystem,
-        RenderResult,
-        Scene,
-        SceneRenderType,
-    )
+    from robo_splatter.models.gaussians import VanillaGaussians
+    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
@@ -618,7 +613,9 @@ class Sapien3Handler(BaseSimHandler):
 
                 seg_labels = cam_inst.get_picture("Segmentation")
                 label0 = seg_labels[..., 0]
-                mask = np.where((label0 > 1), 255, 0).astype(np.uint8)
+                mask = np.where((label0 > 1), 255, 0).astype(
+                    np.uint8
+                )  # exclude background and ground plane (typically ID 0 = ground, ID 1 = first object)
 
                 # depth compose: use sim depth where foreground exists, otherwise GS depth
                 sim_depth = -cam_inst.get_picture("Position")[..., 2]

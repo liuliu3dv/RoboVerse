@@ -29,7 +29,7 @@ try:
     from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
     from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
+    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
@@ -84,7 +84,9 @@ class MujocoHandler(BaseSimHandler):
         else:
             x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
 
-        qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
+        qx, qy, qz, qw = quaternion_multiply(
+            [qx, qy, qz, qw], [0.7071, 0, 0, 0.7071]
+        )  # rotate from blender to sim coordinate system
         init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
 
         gs_model = VanillaGaussians(

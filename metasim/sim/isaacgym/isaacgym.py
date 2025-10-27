@@ -16,7 +16,7 @@ try:
     from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
     from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
+    from robo_splatter.render.scenes import Scene
 
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
@@ -235,7 +235,16 @@ class IsaacgymHandler(BaseSimHandler):
         return Ks, c2w
 
     def _apply_gs_background_rendering(self, camera_states, env_ids):
-        """Apply GS background rendering to camera states using pure tensor operations."""
+        """Apply GS background rendering to camera states using pure tensor operations.
+
+        Args:
+            camera_states: The camera states
+            env_ids: The environment ids
+
+        Returns:
+            The camera states with blended results
+        """
+
         if not ROBO_SPLATTER_AVAILABLE or self.gs_background is None:
             return camera_states
 
