@@ -34,14 +34,16 @@ from metasim.scenario.robot import RobotCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.sim import BaseSimHandler
 from metasim.types import Action, DictEnvState
+from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
 from metasim.utils.math import quat_from_euler_np
 from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState, adapt_actions_to_dict
 
 from .sapien2 import _load_init_pose
-from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
+    from robo_splatter.models.basic import RenderConfig
+    from robo_splatter.models.camera import Camera as SplatCamera
     from robo_splatter.models.gaussians import RigidsGaussians, VanillaGaussians
     from robo_splatter.render.scenes import (
         RenderCoordSystem,
@@ -49,8 +51,7 @@ try:
         Scene,
         SceneRenderType,
     )
-    from robo_splatter.models.basic import RenderConfig
-    from robo_splatter.models.camera import Camera as SplatCamera
+
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
     ROBO_SPLATTER_AVAILABLE = False
@@ -154,31 +155,27 @@ class Sapien3Handler(BaseSimHandler):
         self.headless = scenario.headless
         self._actions_cache: list[Action] = []
 
-        
     def _build_gs_background(self):
         """Build the GS background model."""
         if not ROBO_SPLATTER_AVAILABLE:
             log.error("GS background enabled but RoboSplatter not available.")
             return
-        
+
         if self.scenario.gs_scene.gs_background_pose_tum is not None:
             x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
         else:
-            x, y, z, qx, qy, qz, qw = 0,0,0,0,0,0,1
+            x, y, z, qx, qy, qz, qw = 0, 0, 0, 0, 0, 0, 1
 
         qx, qy, qz, qw = quaternion_multiply([qx, qy, qz, qw], [0.7071, 0, 0, 0.7071])
         init_pose = torch.tensor([x, y, z, qx, qy, qz, qw])
 
         gs_model = VanillaGaussians(
-            model_path=self.scenario.gs_scene.gs_background_path,
-            device="cuda" if torch.cuda.is_available() else "cpu")
+            model_path=self.scenario.gs_scene.gs_background_path, device="cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         gs_model.apply_global_transform(global_pose=init_pose)
 
-        self.gs_background =  Scene(
-            render_config=RenderConfig(),
-            background_models=gs_model
-        )
+        self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
 
     def _build_sapien(self):
         self.engine = sapien_core.Engine()  # Create a physical simulation engine
@@ -614,7 +611,7 @@ class Sapien3Handler(BaseSimHandler):
                     camera_intrinsic=cam_inst.get_intrinsic_matrix(),
                     image_height=cam_inst.height,
                     image_width=cam_inst.width,
-                    device="cuda" if torch.cuda.is_available() else "cpu"
+                    device="cuda" if torch.cuda.is_available() else "cpu",
                 )
                 gs_result = self.gs_background.render(gs_cam)
                 gs_result.to_numpy()
@@ -632,20 +629,19 @@ class Sapien3Handler(BaseSimHandler):
                 # foreground mask: label0 > 1 means non-background objects
                 depth_comp = np.where(label0 > 1, sim_depth, bg_depth)
                 depth = torch.from_numpy(depth_comp.copy())
-            
+
                 # rgb blend
                 sim_color = cam_inst.get_picture("Color")
                 sim_color = (np.clip(sim_color[..., :3], 0, 1) * 255).astype(np.uint8)
                 foreground = np.concatenate([sim_color, mask[..., None]], axis=-1)
 
-                blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0,:,:,::-1])
+                blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
                 rgb = torch.from_numpy(np.array(blended_rgb.copy()))
 
             else:
                 rgb = torch.from_numpy(np.array(cam_inst.get_picture("Color").copy()))
                 depth = -cam_inst.get_picture("Position")[..., 2]
                 depth = torch.from_numpy(depth.copy())
-
 
             state = CameraState(rgb=rgb.unsqueeze(0), depth=depth.unsqueeze(0))
             camera_states[camera.name] = state

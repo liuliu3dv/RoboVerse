@@ -13,10 +13,11 @@ from metasim.utils.gs_util import alpha_blend_rgba_torch, quaternion_multiply
 
 # Optional: RoboSplatter imports for GS background rendering
 try:
-    from robo_splatter.models.gaussians import VanillaGaussians
-    from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
     from robo_splatter.models.basic import RenderConfig
     from robo_splatter.models.camera import Camera as SplatCamera
+    from robo_splatter.models.gaussians import VanillaGaussians
+    from robo_splatter.render.scenes import RenderCoordSystem, Scene, SceneRenderType
+
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
     ROBO_SPLATTER_AVAILABLE = False
@@ -104,7 +105,7 @@ class IsaacgymHandler(BaseSimHandler):
         self._effort: torch.Tensor | None = None  # output of pd controller, used for effort control
         self._pos_ctrl_dof_dix = []  # joint index in dof state, built-in position control mode
         self._manual_pd_on: bool = False  # turn on maunual pd controller if effort joint exist
-        
+
         # GS background rendering
         self.gs_background = None
 
@@ -181,7 +182,7 @@ class IsaacgymHandler(BaseSimHandler):
         if not ROBO_SPLATTER_AVAILABLE:
             logging.error("GS background enabled but RoboSplatter not available.")
             return
-        
+
         try:
             if self.scenario.gs_scene.gs_background_pose_tum is not None:
                 x, y, z, qx, qy, qz, qw = self.scenario.gs_scene.gs_background_pose_tum
@@ -193,14 +194,12 @@ class IsaacgymHandler(BaseSimHandler):
 
             gs_model = VanillaGaussians(
                 model_path=self.scenario.gs_scene.gs_background_path,
-                device="cuda" if torch.cuda.is_available() else "cpu"
+                device="cuda" if torch.cuda.is_available() else "cpu",
             )
 
             gs_model.apply_global_transform(global_pose=init_pose)
 
-            self.gs_background = Scene(
-                render_config=RenderConfig(), background_models=gs_model
-            )
+            self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
             logging.info("GS background model loaded successfully.")
         except Exception as e:
             logging.error(f"Failed to build GS background: {e}")
@@ -208,13 +207,13 @@ class IsaacgymHandler(BaseSimHandler):
 
     def _get_camera_params(self, vinv_matrix, proj_matrix, width, height):
         """Get camera intrinsics and extrinsics from IsaacGym matrices.
-        
+
         Args:
             vinv_matrix: IsaacGym view inverse matrix (4x4 tensor)
             proj_matrix: IsaacGym projection matrix (4x4 tensor)
             width: image width
             height: image height
-            
+
         Returns:
             Ks: (3, 3) intrinsic matrix
             c2w: (4, 4) camera-to-world transformation matrix
@@ -239,17 +238,17 @@ class IsaacgymHandler(BaseSimHandler):
         """Apply GS background rendering to camera states using pure tensor operations."""
         if not ROBO_SPLATTER_AVAILABLE or self.gs_background is None:
             return camera_states
-            
+
         for cam_id, cam in enumerate(self.cameras):
             # Get camera parameters for the first environment
             env_id = env_ids[0] if env_ids else 0
             vinv_matrix = self._vinv_mats[env_id][cam_id]
             proj_matrix = self._proj_mats[env_id][cam_id]
             width, height = cam.width, cam.height
-            
+
             # Extract camera parameters
             Ks, c2w = self._get_camera_params(vinv_matrix, proj_matrix, width, height)
-            
+
             # Render GS background using tensor-native camera init
             gs_cam = SplatCamera.init_from_pose_tensor(
                 c2w=c2w,
@@ -259,7 +258,7 @@ class IsaacgymHandler(BaseSimHandler):
                 device=self.device,
             )
             gs_result = self.gs_background.render(gs_cam)
-            
+
             # Get GS background and normalize to tensors on device (handle numpy or torch)
             gs_rgb = gs_result.rgb[0].to(self.device)
             gs_depth = gs_result.depth[0].to(self.device)
@@ -267,46 +266,46 @@ class IsaacgymHandler(BaseSimHandler):
             # Ensure depth is 2D
             if gs_depth.ndim == 3 and gs_depth.shape[-1] == 1:
                 gs_depth = gs_depth.squeeze(-1)
-            
+
             # Get simulation rendering (already tensors)
             sim_rgb = camera_states[cam.name].rgb  # Shape: (num_envs, height, width, 3)
             sim_depth = camera_states[cam.name].depth  # Shape: (num_envs, height, width)
-            
+
             # Process each environment
             blended_rgb_list = []
             blended_depth_list = []
-            
+
             for env_idx in range(sim_rgb.shape[0]):
                 # Get segmentation mask
                 env_id_actual = env_ids[env_idx] if env_idx < len(env_ids) else env_idx
                 seg_tensor = self._seg_tensors[env_id_actual][cam_id]
-                
+
                 # Alpha: exclude background (-1) and ground plane (0)
                 alpha = ((seg_tensor > -1) & (seg_tensor != 0)).float()
-                
+
                 # Get simulation RGB and depth
                 sim_rgb_env = sim_rgb[env_idx].float()
-                sim_rgb_env = (sim_rgb_env/255.0).clamp(0.0, 1.0)
+                sim_rgb_env = (sim_rgb_env / 255.0).clamp(0.0, 1.0)
                 sim_depth_env = sim_depth[env_idx]
-                
+
                 # Alpha blend using torch
                 blended_rgb = alpha_blend_rgba_torch(sim_rgb_env, gs_rgb, alpha)
 
-                blended_rgb = (blended_rgb*255.0).clamp(0.0, 255.0).to(torch.uint8)
-                
+                blended_rgb = (blended_rgb * 255.0).clamp(0.0, 255.0).to(torch.uint8)
+
                 # Compose depth using boolean mask
-                mask_bool = (alpha.squeeze(-1) > 0.5)
+                mask_bool = alpha.squeeze(-1) > 0.5
                 blended_depth = torch.where(mask_bool, sim_depth_env, gs_depth)
 
                 blended_rgb_list.append(blended_rgb)
                 blended_depth_list.append(blended_depth)
-            
+
             # Update camera state with blended results
             camera_states[cam.name] = CameraState(
                 rgb=torch.stack(blended_rgb_list),
                 depth=torch.stack(blended_depth_list),
             )
- 
+
         return camera_states
 
     def _set_up_camera(self) -> None:
@@ -781,16 +780,16 @@ class IsaacgymHandler(BaseSimHandler):
         for cam_id, cam in enumerate(self.cameras):
             state = CameraState(
                 rgb=torch.stack([self._rgb_tensors[env_id][cam_id][..., :3] for env_id in env_ids]),
-                depth=-torch.stack([self._depth_tensors[env_id][cam_id] for env_id in env_ids]), # -z 
+                depth=-torch.stack([self._depth_tensors[env_id][cam_id] for env_id in env_ids]),  # -z
             )
             camera_states[cam.name] = state
         self.gym.end_access_image_tensors(self.sim)
-        
+
         # Apply GS background rendering if enabled
-        #TODO: Render with batch parallelization for efficiency
+        # TODO: Render with batch parallelization for efficiency
         if self.scenario.gs_scene.with_gs_background and self.gs_background is not None:
             camera_states = self._apply_gs_background_rendering(camera_states, env_ids)
-        
+
         extras = self.get_extra()  # extra observations
         return TensorState(objects=object_states, robots=robot_states, cameras=camera_states, extras=extras)
 

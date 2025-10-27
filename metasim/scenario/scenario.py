@@ -13,7 +13,7 @@ from .lights import BaseLightCfg, DistantLightCfg
 from .objects import BaseObjCfg
 from .render import RenderCfg
 from .robot import RobotCfg
-from .scene import SceneCfg, GSSceneCfg
+from .scene import GSSceneCfg, SceneCfg
 from .simulator_params import SimParamCfg
 
 

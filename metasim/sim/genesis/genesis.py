@@ -22,9 +22,8 @@ from metasim.scenario.robot import RobotCfg
 from metasim.scenario.scenario import ScenarioCfg
 from metasim.sim import BaseSimHandler
 from metasim.types import Action, DictEnvState
-from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState
 from metasim.utils.gs_util import alpha_blend_rgba, quaternion_multiply
-
+from metasim.utils.state import CameraState, ObjectState, RobotState, TensorState
 
 # Apply IGL compatibility patch
 try:
@@ -50,6 +49,7 @@ try:
     from robo_splatter.models.camera import Camera as SplatCamera
     from robo_splatter.models.gaussians import VanillaGaussians
     from robo_splatter.render.scenes import RenderCoordSystem, Scene
+
     ROBO_SPLATTER_AVAILABLE = True
 except ImportError:
     ROBO_SPLATTER_AVAILABLE = False
@@ -69,7 +69,7 @@ class GenesisHandler(BaseSimHandler):
         """Initialize GS background renderer if enabled in scenario config."""
         if not self.scenario.gs_scene.with_gs_background:
             return
-        
+
         if not ROBO_SPLATTER_AVAILABLE:
             log.error("GS background enabled but RoboSplatter not available.")
             return
@@ -86,19 +86,18 @@ class GenesisHandler(BaseSimHandler):
 
         # Load GS model
         gs_model = VanillaGaussians(
-            model_path=self.scenario.gs_scene.gs_background_path,
-            device="cuda" if torch.cuda.is_available() else "cpu"
+            model_path=self.scenario.gs_scene.gs_background_path, device="cuda" if torch.cuda.is_available() else "cpu"
         )
         gs_model.apply_global_transform(global_pose=init_pose)
-        
+
         self.gs_background = Scene(render_config=RenderConfig(), background_models=gs_model)
 
     def _get_camera_params(self, camera):
         """Get camera intrinsics and extrinsics from Genesis camera configuration.
-        
+
         Args:
             camera: PinholeCameraCfg object
-            
+
         Returns:
             Ks: (3, 3) intrinsic matrix
             c2w: (4, 4) camera-to-world transformation matrix
@@ -111,7 +110,7 @@ class GenesisHandler(BaseSimHandler):
         cx = W / 2.0
         cy = H / 2.0
         Ks = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
-        
+
         # Extrinsics: build from camera configuration
         cam_pos = np.array(camera.pos)
         forward = np.array(camera.look_at) - cam_pos
@@ -120,14 +119,14 @@ class GenesisHandler(BaseSimHandler):
         right = np.cross(forward, world_up)
         right = right / np.linalg.norm(right)
         up = np.cross(right, forward)
-        
+
         # Build c2w matrix (OpenGL convention: camera looks along -Z)
         c2w = np.eye(4)
         c2w[:3, 0] = right
         c2w[:3, 1] = up
         c2w[:3, 2] = -forward  # Z axis points backward
         c2w[:3, 3] = cam_pos
-        
+
         return Ks, c2w
 
     def launch(self) -> None:
@@ -309,31 +308,42 @@ class GenesisHandler(BaseSimHandler):
             if self.scenario.gs_scene.with_gs_background and ROBO_SPLATTER_AVAILABLE:
                 # Get camera parameters
                 Ks, c2w = self._get_camera_params(camera)
-                
+
                 # Render GS background
                 gs_cam = SplatCamera.init_from_pose_list(
                     pose_list=c2w,
                     camera_intrinsic=Ks,
                     image_height=int(camera.height),
                     image_width=int(camera.width),
-                    device="cuda" if torch.cuda.is_available() else "cpu"
+                    device="cuda" if torch.cuda.is_available() else "cpu",
                 )
                 gs_result = self.gs_background.render(gs_cam)
                 gs_result.to_numpy()
-                
+
                 # Create foreground mask from segmentation
                 if segmentation is not None:
                     seg_np = segmentation if isinstance(segmentation, np.ndarray) else segmentation.cpu().numpy()
                     # Exclude background and ground plane (typically ID 0 = ground, ID 1 = first object)
+<<<<<<< HEAD
                     foreground_mask = (seg_np > 1)
                     mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
                     
                     # Blending RGB
                     sim_rgb = rgb_t.numpy().astype(np.uint8) if isinstance(rgb_t, torch.Tensor) else rgb_t.astype(np.uint8)
+=======
+                    # Similar to Sapien3's approach: exclude ID <= 1
+                    foreground_mask = seg_np > 1
+                    mask = np.where(foreground_mask, 255, 0).astype(np.uint8)
+
+                    # Blend RGB
+                    sim_rgb = (
+                        rgb_t.numpy().astype(np.uint8) if isinstance(rgb_t, torch.Tensor) else rgb_t.astype(np.uint8)
+                    )
+>>>>>>> 2f2ac7249a408ce1aa663bad1997a7cbc92f9c75
                     foreground = np.concatenate([sim_rgb, mask[..., None]], axis=-1)
                     blended_rgb = alpha_blend_rgba(foreground, gs_result.rgb[0, :, :, ::-1])
                     rgb_t = torch.from_numpy(np.array(blended_rgb.copy()))
-                    
+
                     # Compose depth
                     bg_depth = gs_result.depth[0, ...]
                     if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
