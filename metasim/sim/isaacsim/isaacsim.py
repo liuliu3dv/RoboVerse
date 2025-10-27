@@ -455,7 +455,6 @@ class IsaacsimHandler(BaseSimHandler):
         for camera in self.cameras:
             camera_inst = self.scene.sensors[camera.name]
             rgb_data = camera_inst.data.output.get("rgb", None)
-            rgba_data = camera_inst.data.output.get("rgba", None)
             depth_data = camera_inst.data.output.get("depth", None)
             instance_seg_data = deep_get(camera_inst.data.output, "instance_segmentation_fast")
             instance_seg_id2label = deep_get(camera_inst.data.info, "instance_segmentation_fast", "idToLabels")

@@ -137,7 +137,7 @@ class SinglePybulletHandler(BaseSimHandler):
             fixedTimeStep=self.scenario.sim_params.dt if self.scenario.sim_params.dt is not None else 1.0 / 240.0,
         )
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        p.setGravity(0, 0, -9.81)
+        p.setGravity(*self.scenario.gravity)
 
         # add plane
         self.plane_id = p.loadURDF("plane.urdf")
@@ -220,6 +220,11 @@ class SinglePybulletHandler(BaseSimHandler):
                             maxVelocity=joint_config.velocity_limit or PYBULLET_DEFAULT_JOINT_MAX_VEL,
                             force=joint_config.torque_limit or PYBULLET_DEFAULT_JOINT_MAX_TORQUE,
                         )
+
+                if hasattr(object, "default_joint_positions"):
+                    for j in range(num_joints):
+                        default_pos = object.default_joint_positions[cur_joint_names[j]]
+                        p.resetJointState(bodyUniqueId=curr_id, jointIndex=j, targetValue=default_pos)
 
                 ### TODO:
                 # Add dof properties for articulated objects
@@ -477,7 +482,7 @@ class SinglePybulletHandler(BaseSimHandler):
             img_arr = p.getCameraImage(width, height, view_matrix, projection_matrix, lightAmbientCoeff=0.5)
             rgb_img = np.reshape(img_arr[2], (height, width, 4))
             depth_buffer = np.reshape(img_arr[3], (height, width))
-            sim_depth = self._convert_depth_buffer(depth_buffer, near_plane, far_plane)
+            depth_img = self._convert_depth_buffer(depth_buffer, near_plane, far_plane)
             segmentation_mask = np.reshape(img_arr[4], (height, width))
 
             if self.scenario.gs_scene.with_gs_background:
@@ -506,15 +511,15 @@ class SinglePybulletHandler(BaseSimHandler):
                 rgb = torch.from_numpy(np.array(blended_rgb.copy()))
 
                 # Compose depth: use simulation depth for foreground, GS depth for background
-                bg_depth = gs_result.depth[0, ...]
+                bg_depth = gs_result.depth.squeeze(0)
                 if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
                     bg_depth = bg_depth[..., 0]
-                depth_comp = np.where(foreground_mask, sim_depth, bg_depth)
+                depth_comp = np.where(foreground_mask, depth_img, bg_depth)
                 depth = torch.from_numpy(depth_comp.astype(np.float32, copy=False))
             else:
                 # Original PyBullet rendering without GS background
                 rgb = torch.from_numpy(rgb_img[:, :, :3])
-                depth = torch.from_numpy(sim_depth)
+                depth = torch.from_numpy(depth_img)
 
             state = CameraState(
                 rgb=rgb.unsqueeze(0),

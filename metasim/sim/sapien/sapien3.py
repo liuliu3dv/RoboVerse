@@ -595,7 +595,6 @@ class Sapien3Handler(BaseSimHandler):
             robot_states[robot.name] = state
 
         camera_states = {}
-        gs_extras: dict[str, torch.Tensor] = {}
         for camera in self.cameras:
             cam_inst = self.camera_ids[camera.name]
 
@@ -645,9 +644,6 @@ class Sapien3Handler(BaseSimHandler):
             camera_states[camera.name] = state
 
         extras = self.get_extra()  # extra observations
-        if not isinstance(extras, dict):
-            extras = {}
-        extras.update(gs_extras)
         return TensorState(objects=object_states, robots=robot_states, cameras=camera_states, extras=extras)
 
     def refresh_render(self):

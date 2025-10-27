@@ -243,20 +243,21 @@ if __name__ == "__main__":
     # obs_tensor = env.get_states(mode="tensor")  # get states as a tensor
 
     os.makedirs("get_started/output", exist_ok=True)
+
+    # save rgb image
     save_path = f"get_started/output/14_real_assets_{args.sim}.jpg"
     log.info(f"Saving image to {save_path}")
     rgb = obs["cameras"]["camera"]["rgb"]
     if isinstance(rgb, torch.Tensor):
         rgb = rgb.detach().cpu().numpy()
-    rgb = rgb.squeeze(0)
-    rgb = rgb[:, :, :3]
+    rgb = rgb.squeeze(0)[:, :, :3]
     cv2.imwrite(save_path, rgb[:, :, ::-1].copy(), [int(cv2.IMWRITE_JPEG_QUALITY), 95])  # RGB -> BGR
 
+    # save depth image
     save_path = f"get_started/output/14_real_assets_{args.sim}_depth.jpg"
     log.info(f"Saving depth image to {save_path}")
     depth = obs["cameras"]["camera"]["depth"]
     if isinstance(depth, torch.Tensor):
         depth = depth.detach().cpu().numpy()
-    depth = depth.squeeze(0)
-    depth_color = depth_to_colormap(depth, inv_depth=True, depth_range=(1.0, 5.0))
+    depth_color = depth_to_colormap(depth.squeeze(0), inv_depth=True, depth_range=(1.0, 5.0))
     cv2.imwrite(save_path, depth_color[:, :, ::-1].copy(), [int(cv2.IMWRITE_JPEG_QUALITY), 95])  # RGB -> BGR

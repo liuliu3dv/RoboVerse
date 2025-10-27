@@ -337,7 +337,7 @@ class GenesisHandler(BaseSimHandler):
                     rgb_t = torch.from_numpy(np.array(blended_rgb.copy()))
 
                     # Compose depth
-                    bg_depth = gs_result.depth[0, ...]
+                    bg_depth = gs_result.depth.squeeze(0)
                     if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
                         bg_depth = bg_depth[..., 0]
                     depth_np = depth_t.numpy() if isinstance(depth_t, torch.Tensor) else depth_t

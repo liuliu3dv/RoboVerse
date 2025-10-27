@@ -596,7 +596,7 @@ class MujocoHandler(BaseSimHandler):
                         width=camera.width, height=camera.height, camera_id=camera_id, depth=True, segmentation=False
                     )
                     # Compose depth: use simulation depth for foreground, GS depth for background
-                    bg_depth = gs_result.depth[0, ...]
+                    bg_depth = gs_result.depth.squeeze(0)
                     if bg_depth.ndim == 3 and bg_depth.shape[-1] == 1:
                         bg_depth = bg_depth[..., 0]
                     depth_comp = np.where(foreground_mask, sim_depth, bg_depth)
