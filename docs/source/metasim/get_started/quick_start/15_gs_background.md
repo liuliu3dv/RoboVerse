@@ -19,4 +19,7 @@ python3 get_started/15_gs_background.py --sim isaacsim --headless
 ```
 
 You will get the following image:
+---
 ![muti-sim result](../../../_static/standard_output/15_gs_background.jpeg)
+
+
