@@ -86,7 +86,7 @@ if __name__ == "__main__":
         repo_id="xinjjj/scene3d-bg",
         repo_type="dataset",
         local_dir=data_dir,
-        allow_patterns="*.ply",
+        allow_patterns=f"bg_scenes/scene_{args.scene_id:03d}/*.ply",
         local_dir_use_symlinks=False,
     )
 

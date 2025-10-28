@@ -265,8 +265,20 @@ class BaseSimHandler(ABC):
         return self._body_reindex_cache[obj_name]
 
     ############################################################
-    ## Build GS background
+    ## GS Renderer
     ############################################################
+    def _get_camera_params(self, camera):
+        """Get the camera parameters for GS rendering.
+        For a new simulator, you should implement this method.
+        Args:
+            camera: PinholeCameraCfg object
+
+        Returns:
+            Ks: (3, 3) intrinsic matrix
+            c2w: (4, 4) camera-to-world transformation matrix
+        """
+        raise NotImplementedError
+
     def _build_gs_background(self):
         """Initialize GS background renderer if enabled in scenario config."""
         if not self.scenario.gs_scene.with_gs_background:
