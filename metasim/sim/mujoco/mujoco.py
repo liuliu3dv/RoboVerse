@@ -116,7 +116,7 @@ class MujocoHandler(BaseSimHandler):
         self._mj_lock = threading.RLock()
         self._mj_model = None  # native mujoco.MjModel for offscreen rendering
         self._mj_data = None  # native mujoco.MjData  for offscreen rendering
-        self.renderer = None  # mujoc
+        self.renderer = None  # mujoco.Renderer (offscreen)
 
     def _get_camera_params(self, camera_id: str, camera):
         """Get camera intrinsics and extrinsics from MuJoCo camera configuration.
@@ -155,7 +155,7 @@ class MujocoHandler(BaseSimHandler):
         Ks = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
 
         return Ks, c2w
-o.Renderer (offscreen)
+
 
 
     def launch(self) -> None:
