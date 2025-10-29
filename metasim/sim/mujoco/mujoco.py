@@ -657,7 +657,7 @@ o.Renderer (offscreen)
                     depth = torch.from_numpy(depth_comp.copy())
 
             else:
-              
+
               if "rgb" in camera.data_types:
                   if sys.platform == "darwin":
                       with self._mj_lock:  # optional but safer
@@ -726,7 +726,7 @@ o.Renderer (offscreen)
                       )
                       depth = torch.from_numpy(np.ascontiguousarray(depth_np)).unsqueeze(0)
               state = CameraState(rgb=locals().get("rgb", None), depth=locals().get("depth", None))
-              
+
             camera_states[camera.name] = state
         extras = self.get_extra()
         return TensorState(objects=object_states, robots=robot_states, cameras=camera_states, extras=extras)
